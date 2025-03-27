@@ -199,18 +199,37 @@ class _HomePageState extends State<HomePage> {
             ),
             
           SizedBox(
-            height: 25
+            height: 25,
           ),
           Expanded(
-              child: Container(
-                  color: Colors.white,
+            child: Container(
+              padding: EdgeInsets.all(25),
+                color: Colors.grey[100],
+                child: Center(
+                  child: Column(children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Category',
+                          style: TextStyle(fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          ),
+                          ),
+                        Icon(Icons.more_horiz),
+                      ],
+                    ),
+                            ],
+                            ),
                 ),
               ),
-        
+          ),
+          
             
         
-        ]),
-      ) 
+        ]
+        ),
+      ),
     );
   }
 }
