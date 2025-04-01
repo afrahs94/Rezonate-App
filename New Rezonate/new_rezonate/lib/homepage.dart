@@ -21,8 +21,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = Color(0xFFEAF4FF);
-    final Color lightBlue = Color(0xFFD7EAFE);
+    final Color backgroundColor = Color(0xFFBBDEFB);
+    final Color lightBlue = Color(0xFFBBDEFB);
     final TextStyle labelStyle = TextStyle(color: Colors.blue[200], fontSize: 20, fontWeight: FontWeight.bold);
 
     return Scaffold(
@@ -33,7 +33,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               Container(
                 color: lightBlue,
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 70),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -47,16 +47,16 @@ class _HomePageState extends State<HomePage> {
                             Text(getFormattedDate(), style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                           ],
                         ),
-                        Icon(Icons.person_outline, color: Colors.blue[100], size: 30),
+                        Icon(Icons.person_outline, color: const Color(0xFFBBDEFB), size: 30),
                       ],
                     ),
-                    SizedBox(height: 20),
+                    SizedBox(height: 30),
                     TextField(
                       onChanged: (value) {
                         // Implement app-wide search logic
                       },
                       decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.search, color: Colors.blue[200]),
+                        prefixIcon: Icon(Icons.search, color: const Color.fromARGB(255, 208, 223, 234)),
                         hintText: 'search rezonate',
                         filled: true,
                         fillColor: Colors.white,
@@ -71,11 +71,11 @@ class _HomePageState extends State<HomePage> {
               ),
               Container(
                 color: lightBlue,
-                padding: EdgeInsets.symmetric(vertical: 20),
+                padding: EdgeInsets.symmetric(vertical: 0),
                 child: Column(
                   children: [
                     Text("how do you feel?", style: TextStyle(color: Colors.white, fontSize: 18)),
-                    SizedBox(height: 10),
+                    SizedBox(height: 9),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -87,11 +87,12 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
+              // this is for the spacing between boxes
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30), // to push the grid down
                 child: Wrap(
-                  spacing: 20,
-                  runSpacing: 20,
+                  spacing: 30, // horizontal row distance
+                  runSpacing: 30, //vertical col distance
                   children: [
                     _buildMenuButton("chat"),
                     _buildMenuButton("journal"),
@@ -127,12 +128,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+// this is for the 4 boxes in the center of the screen
   Widget _buildMenuButton(String label) {
     return Container(
-      width: 140,
+      width: 160,
       height: 100,
       decoration: BoxDecoration(
-        color: Colors.blue[100],
+        color: const Color.fromARGB(255, 255, 255, 255),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Center(child: Text(label, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue[300]))),
