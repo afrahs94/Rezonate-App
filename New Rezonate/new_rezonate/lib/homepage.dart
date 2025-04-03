@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'settings.dart';
+import 'messages.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -8,22 +9,43 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 1;
+
   String getFormattedDate() {
-    return DateFormat('EEEE, MMMM d').format(DateTime.now());
+    return DateTime.now().toLocal().toString().split(' ')[0];
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    // Add navigation logic here
+    if (index == 0) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MessagesPage()),
+      );
+    } else if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SettingsPage(
+            firstName: 'First',
+            lastName: 'Last',
+            username: 'username',
+            email: 'email@example.com',
+            password: 'password',
+            phone: '123-456-7890',
+            birthday: '01/01/1990',
+          ),
+        ),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = Color(0xFFBBDEFB);
-    final Color lightBlue = Color(0xFFBBDEFB);
-    final TextStyle labelStyle = TextStyle(color: Colors.blue[200], fontSize: 20, fontWeight: FontWeight.bold);
+    final Color backgroundColor = const Color(0xFFEAF4FF);
+    final Color lightBlue = const Color(0xFFD7EAFE);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -33,7 +55,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               Container(
                 color: lightBlue,
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 70),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -43,20 +65,33 @@ class _HomePageState extends State<HomePage> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("hi, name!", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w400, color: Colors.grey[700])),
-                            Text(getFormattedDate(), style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                            Text(
+                              "hi, name!",
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            Text(
+                              getFormattedDate(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
                           ],
                         ),
-                        Icon(Icons.person_outline, color: const Color(0xFFBBDEFB), size: 30),
+                        Icon(Icons.person_outline, color: Colors.blue[100], size: 30),
                       ],
                     ),
-                    SizedBox(height: 30),
+                    const SizedBox(height: 20),
                     TextField(
                       onChanged: (value) {
                         // Implement app-wide search logic
                       },
                       decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.search, color: const Color.fromARGB(255, 208, 223, 234)),
+                        prefixIcon: Icon(Icons.search, color: Colors.blue[200]),
                         hintText: 'search rezonate',
                         filled: true,
                         fillColor: Colors.white,
@@ -65,17 +100,20 @@ class _HomePageState extends State<HomePage> {
                           borderSide: BorderSide.none,
                         ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
               Container(
                 color: lightBlue,
-                padding: EdgeInsets.symmetric(vertical: 0),
+                padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Column(
                   children: [
-                    Text("how do you feel?", style: TextStyle(color: Colors.white, fontSize: 18)),
-                    SizedBox(height: 9),
+                    const Text(
+                      "how do you feel?",
+                      style: TextStyle(color: Colors.white, fontSize: 18),
+                    ),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -87,12 +125,11 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              // this is for the spacing between boxes
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 30), // to push the grid down
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
                 child: Wrap(
-                  spacing: 30, // horizontal row distance
-                  runSpacing: 30, //vertical col distance
+                  spacing: 20,
+                  runSpacing: 20,
                   children: [
                     _buildMenuButton("chat"),
                     _buildMenuButton("journal"),
@@ -109,6 +146,7 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.message), label: 'messages'),
           BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'home'),
@@ -122,22 +160,40 @@ class _HomePageState extends State<HomePage> {
     return Column(
       children: [
         Icon(icon, size: 40, color: Colors.white),
-        SizedBox(height: 5),
-        Text(label, style: TextStyle(color: Colors.white)),
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(color: Colors.white)),
       ],
     );
   }
 
-// this is for the 4 boxes in the center of the screen
   Widget _buildMenuButton(String label) {
-    return Container(
-      width: 160,
-      height: 100,
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 255, 255, 255),
-        borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
+      onTap: () {
+        if (label == 'chat') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MessagesPage()),
+          );
+        }
+      },
+      child: Container(
+        width: 140,
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.blue[100],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue[300],
+            ),
+          ),
+        ),
       ),
-      child: Center(child: Text(label, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue[300]))),
     );
   }
 }

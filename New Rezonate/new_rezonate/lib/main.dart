@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:new_rezonate/homepage.dart';
+// ignore: unused_import
+import 'homepage.dart';
 import 'landing.dart'; // Import your new landing page
 // import 'signup.dart';  // Create this
 // import 'login.dart';   // Create this
@@ -23,8 +24,8 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const LandingPage(),
-        '/signup': (context) =>  HomePage(), // You define this
-        '/login': (context) =>  HomePage(),   // You define this
+        '/signup': (context) =>  MyApp(), // You define this
+        '/login': (context) =>  MyApp(),   // You define this
       },
     );
   }

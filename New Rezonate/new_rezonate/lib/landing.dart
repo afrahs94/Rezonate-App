@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:new_rezonate/homepage.dart';
+import 'signup.dart';
+import 'login.dart';
 
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
@@ -7,7 +8,7 @@ class LandingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF9FBFD),
+      backgroundColor: const Color(0xFFF9FBFD),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -21,7 +22,7 @@ class LandingPage extends StatelessWidget {
                 Column(
                   children: [
                     Image.asset(
-                      'assets/logo.png', // Replace with your asset path
+                      'assets/logo.png', // Replace with your actual logo asset path
                       height: 60,
                     ),
                     const SizedBox(height: 20),
@@ -65,12 +66,12 @@ class LandingPage extends StatelessWidget {
 
                 const SizedBox(height: 50),
 
-                // Get Started Button → HomePage
+                // Get Started Button → SignUpPage
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => HomePage()),
+                      MaterialPageRoute(builder: (context) => const SignupPage()),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -89,7 +90,7 @@ class LandingPage extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // Log In text → HomePage
+                // Log In text → LoginPage
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -98,7 +99,7 @@ class LandingPage extends StatelessWidget {
                       onTap: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => HomePage()),
+                          MaterialPageRoute(builder: (context) => const LoginPage()),
                         );
                       },
                       child: const Text(
