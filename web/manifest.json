@@ -1,6 +1,6 @@
 {
-    "name": "rezonate",
-    "short_name": "rezonate",
+    "name": "new_rezonate",
+    "short_name": "new_rezonate",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

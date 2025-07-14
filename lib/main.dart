@@ -1,20 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:rezonate/pages/home_page.dart';
+import 'pages/signup_page.dart'; // Make sure this file exists in /lib
 
 void main() {
-  runApp(const MyApp());
+  runApp(const RezonateApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({ super.key });
+class RezonateApp extends StatelessWidget {
+  const RezonateApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Rezonate',
       debugShowCheckedModeBanner: false,
-      home: HomePage(),
-    ); // MaterialApp
+      theme: ThemeData(
+        primaryColor: Colors.white,
+        scaffoldBackgroundColor: const Color(0xFFCCCCFF), // periwinkle blue
+        colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Colors.white),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.black),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF99BBFF),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+        ),
+      ),
+      home: const SignUpPage(), // ← Correct class name
+    );
   }
 }
-
-

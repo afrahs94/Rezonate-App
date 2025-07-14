@@ -1,4 +1,4 @@
-# rezonate
+# new_rezonate
 
 A new Flutter project.
 

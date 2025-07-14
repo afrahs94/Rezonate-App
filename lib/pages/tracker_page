@@ -1,0 +1,112 @@
+// tracker_page.dart
+import 'package:flutter/material.dart';
+
+class TrackerPage extends StatefulWidget {
+  final String trackerTitle;
+  const TrackerPage({super.key, required this.trackerTitle});
+
+  @override
+  State<TrackerPage> createState() => _TrackerPageState();
+}
+
+class _TrackerPageState extends State<TrackerPage> {
+  List<String> tasks = [
+    'Read 10 pages of a book',
+    'Meditated for 5 minutes',
+    'Had fruit for breakfast',
+    'Had a healthy lunch',
+    'Went for a run',
+    'Went to bed before 10PM',
+  ];
+
+  Set<int> completed = {};
+  final TextEditingController taskController = TextEditingController();
+
+  void _addTask() {
+    if (taskController.text.trim().isEmpty) return;
+    setState(() {
+      tasks.add(taskController.text.trim());
+      taskController.clear();
+    });
+  }
+
+  void _toggleComplete(int index) {
+    setState(() {
+      if (completed.contains(index)) {
+        completed.remove(index);
+      } else {
+        completed.add(index);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFCCCCFF),
+        title: Text(widget.trackerTitle),
+      ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Today, I have:',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(tasks[index]),
+                  trailing: Checkbox(
+                    value: completed.contains(index),
+                    onChanged: (_) => _toggleComplete(index),
+                    activeColor: const Color(0xFF99BBFF),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: taskController,
+                    decoration: const InputDecoration(
+                      hintText: 'Add new task',
+                      filled: true,
+                      fillColor: Color(0xFFEEEEEE),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: _addTask,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    backgroundColor: const Color(0xFF99BBFF),
+                    padding: const EdgeInsets.all(16),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white),
+                )
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
