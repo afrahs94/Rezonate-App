@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:new_rezonate/database_helper.dart';
+import 'package:new_rezonate/models/habit_model.dart';
 import 'package:new_rezonate/models/model_entry.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -199,4 +199,18 @@ class _MoodTrackerPageState extends State<MoodTrackerPage> {
             ),
     );
   }
+}
+
+class DatabaseHelper {
+  static var instance;
+
+  getAllHabits() {}
+
+  insertHabit(Habit habit) {}
+
+  getCompletionsForHabitOnDates(param0, List<String> list) {}
+
+  insertOrUpdateCompletion(HabitCompletion completion) {}
+
+  deleteHabit(int i) {}
 }
