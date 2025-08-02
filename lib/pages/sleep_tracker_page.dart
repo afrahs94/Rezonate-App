@@ -228,8 +228,9 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
-                          if (index < 0 || index >= past7Days.length)
+                          if (index < 0 || index >= past7Days.length) {
                             return const SizedBox.shrink();
+                          }
                           final date = past7Days[index];
                           return Text(DateFormat('E').format(date));
                         },

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, required String userName});
 
   Widget _buildSettingsButton(String label, VoidCallback onTap) {
     return Padding(
