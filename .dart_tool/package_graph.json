@@ -23,7 +23,18 @@
       "devDependencies": [
         "build_runner",
         "flutter_lints",
-        "flutter_test"
+        "flutter_test",
+        "sqlite_viewer"
+      ]
+    },
+    {
+      "name": "sqlite_viewer",
+      "version": "1.0.5",
+      "dependencies": [
+        "flutter",
+        "json_table",
+        "path",
+        "sqflite"
       ]
     },
     {
@@ -214,6 +225,13 @@
         "meta",
         "sky_engine",
         "vector_math"
+      ]
+    },
+    {
+      "name": "json_table",
+      "version": "2.0.1",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
@@ -930,7 +948,7 @@
     },
     {
       "name": "checked_yaml",
-      "version": "2.0.4",
+      "version": "2.0.3",
       "dependencies": [
         "json_annotation",
         "source_span",
@@ -1061,7 +1079,7 @@
     },
     {
       "name": "win32",
-      "version": "5.14.0",
+      "version": "5.13.0",
       "dependencies": [
         "ffi"
       ]
@@ -1187,7 +1205,7 @@
     },
     {
       "name": "synchronized",
-      "version": "3.4.0",
+      "version": "3.3.1",
       "dependencies": []
     },
     {
