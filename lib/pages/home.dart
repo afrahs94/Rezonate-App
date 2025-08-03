@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:new_rezonate/pages/journal.dart';
-import 'package:new_rezonate/pages/settings_page.dart';
+import 'package:new_rezonate/pages/settings.dart';
 
 enum ChartView { weekly, monthly, overall }
 
