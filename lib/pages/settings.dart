@@ -1,4 +1,4 @@
-// lib/pages/settings.dart
+// lib/pages/settings_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:new_rezonate/pages/home.dart';
@@ -17,9 +17,14 @@ class SettingsPage extends StatelessWidget {
 
   Widget _section(String title) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        child: Text(title.toUpperCase(),
-            style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+        child: Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       );
 
   Widget _option(BuildContext ctx, String text, VoidCallback onTap) => Padding(
@@ -56,60 +61,45 @@ class SettingsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // back → home
+            // Back → HomePage
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => HomePage(userName: userName))),
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HomePage(userName: userName),
+                ),
+              ),
             ),
 
             _section('Account Settings'),
             _option(context, 'Edit Profile', () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => EditProfilePage(userName: userName)));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfilePage(userName: userName)));
             }),
             _option(context, 'Change Your Password', () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => ChangePasswordPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ChangePasswordPage()));
             }),
             _option(context, 'Security & Privacy', () {
               Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) =>
-                          SecurityAndPrivacyPage(userName: userName)));
+                      builder: (_) => SecurityAndPrivacyPage(userName: userName)));
             }),
 
             _section('Notification Settings'),
             _option(context, 'Push Notifications', () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => PushNotificationsPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PushNotificationsPage()));
             }),
             _option(context, 'Promotions', () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => PromotionsPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PromotionsPage()));
             }),
             _option(context, 'App Updates', () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => AppUpdatesPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => AppUpdatesPage()));
             }),
 
             _section('Account Actions'),
             _option(context, 'Deactivate Account', () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => DeactivateAccountPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => DeactivateAccountPage()));
             }),
 
             const Spacer(),
@@ -117,6 +107,7 @@ class SettingsPage extends StatelessWidget {
           ],
         ),
       ),
+
       bottomNavigationBar: Container(
         height: 64,
         decoration: BoxDecoration(
@@ -124,25 +115,35 @@ class SettingsPage extends StatelessWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-          _NavItem(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _NavItem(
               icon: Icons.home,
               label: 'Dashboard',
               selected: false,
               onTap: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => HomePage(userName: userName)))),
-          _NavItem(
+                context,
+                MaterialPageRoute(builder: (_) => HomePage(userName: userName)),
+              ),
+            ),
+            _NavItem(
               icon: Icons.bookmarks,
               label: 'Journal',
               selected: false,
               onTap: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => JournalPage(userName: userName)))),
-          _NavItem(icon: Icons.settings, label: 'Settings', selected: true, onTap: () {}),
-        ]),
+                context,
+                MaterialPageRoute(builder: (_) => JournalPage(userName: userName)),
+              ),
+            ),
+            _NavItem(
+              icon: Icons.settings,
+              label: 'Settings',
+              selected: true,
+              onTap: () {},
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -153,22 +154,26 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _NavItem(
-      {required this.icon,
-      required this.label,
-      required this.selected,
-      required this.onTap});
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = selected ? Colors.purple : Colors.grey.shade600;
+    final color = selected ? Colors.purple : Colors.grey.shade600;
     return GestureDetector(
       onTap: onTap,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: c, size: 28),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: c, fontSize: 12)),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+        ],
+      ),
     );
   }
 }
