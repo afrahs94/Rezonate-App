@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "590573774973",
+    "project_id": "rezonate-app-ce99b",
+    "storage_bucket": "rezonate-app-ce99b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:590573774973:android:d8878b595cd26f075aa914",
+        "android_client_info": {
+          "package_name": "com.example.new_rezonate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7HAn6KWUs1aRtYSd_CCzjdBBSheBIgoQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

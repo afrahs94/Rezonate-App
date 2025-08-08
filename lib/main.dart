@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
-import 'pages/signup_page.dart'; // Make sure this file exists in /lib
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // <--- THIS LINE
+import 'pages/signup_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ Firebase Initialized!');
+  } catch (e) {
+    print('❌ Firebase Init Error: $e');
+  }
   runApp(const RezonateApp());
 }
 
@@ -15,14 +26,14 @@ class RezonateApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: Colors.white,
-        scaffoldBackgroundColor: const Color(0xFFCCCCFF), // periwinkle blue
+        scaffoldBackgroundColor: const Color(0xFFCCCCFF),
         colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Colors.white),
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.black),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFF99BBFF),
+            backgroundColor: const Color(0xFF99BBFF),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
@@ -30,7 +41,7 @@ class RezonateApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SignUpPage(), // ← Correct class name
+      home: const SignUpPage(),
     );
   }
 }
