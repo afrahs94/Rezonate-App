@@ -728,12 +728,42 @@
 // }
 
 
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// Full SignUpPage code updated to match the provided UI and preserve all logic
+// Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
+
+// sign_up_page.dart
+// sign_up_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+
 import 'home.dart';
 import 'login_page.dart';
 
@@ -763,27 +793,40 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF00BFFF), Color(0xFFB0E0E6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            colors: [Color(0xFFD7C3F1), Color(0xFFBDE8CA)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        child: PageView(
-          physics: const NeverScrollableScrollPhysics(),
-          controller: _controller,
-          children: [_buildFirstPage(), _buildSecondPage()],
+        // keep side padding like the mockup
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: SafeArea(
+          child: PageView(
+            physics: const NeverScrollableScrollPhysics(),
+            controller: _controller,
+            padEnds: false,
+            children: [
+              _buildFirstPage(),
+              _buildSecondPage(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField(String hint, TextEditingController controller,
-      {bool obscureText = false, bool readOnly = false, VoidCallback? onTap}) {
+  // -------------------- Reusable field --------------------
+  Widget _buildTextField(
+    String hint,
+    TextEditingController controller, {
+    bool obscureText = false,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -793,165 +836,267 @@ class _SignUpPageState extends State<SignUpPage> {
           hintText: hint,
           filled: true,
           fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30),
             borderSide: BorderSide.none,
           ),
         ),
-        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
       ),
     );
   }
 
+  // -------------------- Page 1 --------------------
   Widget _buildFirstPage() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        children: [
-          const Spacer(),
-          const Text('sign up', style: TextStyle(fontSize: 40, color: Colors.grey)),
-          _buildTextField('username *', usernameController),
-          _buildTextField('email *', emailController),
-          _buildTextField('password *', passwordController, obscureText: true),
-          _buildTextField('confirm password *', confirmPasswordController, obscureText: true),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                if (passwordController.text != confirmPasswordController.text) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Passwords do not match")),
-                  );
-                  return;
-                }
-                _controller.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeIn,
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              backgroundColor: const Color(0xFF99BBFF),
-              minimumSize: const Size(double.infinity, 50),
-            ),
-            child: const Text('continue', style: TextStyle(fontSize: 18)),
-          ),
-          const SizedBox(height: 20),
-          const Text('1 of 2'),
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginPage()),
-            ),
-            child: const Text.rich(
-              TextSpan(
-                text: 'already have an account? ',
-                children: [
-                  TextSpan(
-                    text: 'log in',
-                    style: TextStyle(
-                      decoration: TextDecoration.underline,
-                      color: Colors.blue,
+    return Center(
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.center,
+                child: Text(
+                  'sign up',
+                  style: TextStyle(
+                    fontSize: 36,
+                    color: Color(0xFF0D7C66),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              _buildTextField('username *', usernameController),
+              _buildTextField('email *', emailController),
+              _buildTextField('password *', passwordController, obscureText: true),
+              _buildTextField('confirm password *', confirmPasswordController, obscureText: true),
+
+              const SizedBox(height: 18),
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    if (passwordController.text != confirmPasswordController.text) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Passwords do not match')),
+                      );
+                      return;
+                    }
+                    _controller.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D7C66),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  minimumSize: const Size(double.infinity, 55),
+                  elevation: 5,
+                ),
+                child: const Text('continue',
+                    style: TextStyle(fontSize: 18, color: Colors.white)),
+              ),
+
+              const SizedBox(height: 14),
+              const Align(
+                alignment: Alignment.center,
+                child: Text('1 of 2'),
+              ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                ),
+                child: const Align(
+                  alignment: Alignment.center,
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'already have an account? ',
+                      children: [
+                        TextSpan(
+                          text: 'log in',
+                          style: TextStyle(
+                            decoration: TextDecoration.underline,
+                            color: Color(0xFF0D7C66),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+            ],
           ),
-          const Spacer(),
-        ],
+        ),
       ),
     );
   }
 
+  // -------------------- Page 2 --------------------
   Widget _buildSecondPage() {
-    return Column(
-      children: [
-        const SizedBox(height: 40),
-        const Text(
-          'sign up',
-          style: TextStyle(
-            fontSize: 48,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFFFFFF00),
-          ),
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            const Text(
+              'sign up',
+              style: TextStyle(
+                fontSize: 36,
+                color: Color(0xFF0D7C66),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            _buildTextField('first name *', firstNameController),
+            _buildTextField('last name', lastNameController),
+            _buildTextField(
+              'date of birth *',
+              dobController,
+              readOnly: true,
+              onTap: _selectDate,
+            ),
+
+            const SizedBox(height: 12),
+            const Text('gender',
+                style: TextStyle(fontSize: 16, color: Color(0xFF0D7C66))),
+            const SizedBox(height: 10),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: ['female', 'male', 'other'].map((g) => _genderTile(g)).toList(),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _controller.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D7C66),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      minimumSize: const Size(double.infinity, 55),
+                      elevation: 5,
+                    ),
+                    child:
+                        const Text('back', style: TextStyle(fontSize: 18, color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _handleSignUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D7C66),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      minimumSize: const Size(double.infinity, 55),
+                      elevation: 5,
+                    ),
+                    child:
+                        const Text('done', style: TextStyle(fontSize: 18, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+            const Text('2 of 2'),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+              ),
+              child: const Text.rich(
+                TextSpan(
+                  text: 'already have an account? ',
+                  children: [
+                    TextSpan(
+                      text: 'log in',
+                      style: TextStyle(
+                        decoration: TextDecoration.underline,
+                        color: Color(0xFF0D7C66),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
-        const SizedBox(height: 40),
-        _buildTextField('first name *', firstNameController),
-        _buildTextField('last name (optional)', lastNameController),
-        _buildTextField(
-          'date of birth *',
-          dobController,
-          readOnly: true,
-          onTap: _selectDate,
-        ),
-        const SizedBox(height: 20),
-        const Text('gender', style: TextStyle(fontSize: 16, color: Colors.white)),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['male', 'female', 'other']
-              .map((g) => _genderTile(g))
-              .toList(),
-        ),
-        const SizedBox(height: 30),
-        ElevatedButton(
-          onPressed: _handleSignUp,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFFF00),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            minimumSize: const Size(double.infinity, 60),
-          ),
-          child: const Text('done', style: TextStyle(fontSize: 20, color: Colors.black)),
-        ),
-        const SizedBox(height: 20),
-        const Text('2 of 2', style: TextStyle(color: Colors.white)),
-      ],
+      ),
     );
   }
 
+  // -------------------- Actions --------------------
   Future<void> _handleSignUp() async {
     try {
       if (dobController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please select date of birth")),
+          const SnackBar(content: Text('Please select date of birth')),
         );
         return;
       }
 
-      // ✅ Firebase Authentication - Register User
+      final username = usernameController.text.trim();
+      final usernameLower = username.toLowerCase();
+      final email = emailController.text.trim();
+      final password = passwordController.text;
+
+      // Duplicate checks BEFORE creating Auth user
+      final dupUsername = await _firestore
+          .collection('users')
+          .where('username_lower', isEqualTo: usernameLower)
+          .limit(1)
+          .get();
+
+      final dupEmail = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (dupUsername.docs.isNotEmpty || dupEmail.docs.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username or email already exists')),
+        );
+        return;
+      }
+
+      // Create Auth user
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text,
+        email: email,
+        password: password,
       );
 
-      // ✅ Check Firestore for duplicates
-      final query = await _firestore
-          .collection('users')
-          .where('username', isEqualTo: usernameController.text)
-          .get();
+      // (Optional) store your own hash
+      final hashedPassword = sha256.convert(utf8.encode(password)).toString();
 
-      final emailQuery = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: emailController.text)
-          .get();
-
-      if (query.docs.isNotEmpty || emailQuery.docs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Username or email already exists")),
-        );
-        return;
-      }
-
-      final hashedPassword = sha256
-          .convert(utf8.encode(passwordController.text))
-          .toString();
-
-      final user = {
-        'username': usernameController.text,
-        'email': emailController.text,
-        'password': hashedPassword,
+      final userDoc = {
+        'username': username,
+        'username_lower': usernameLower, // for case-insensitive lookups
+        'email': email,                  // trimmed
+        'password': hashedPassword,      // consider not storing if not required
         'first_name': firstNameController.text,
         'last_name': lastNameController.text,
         'gender': gender,
@@ -959,8 +1104,9 @@ class _SignUpPageState extends State<SignUpPage> {
         'created_at': DateTime.now().toIso8601String(),
       };
 
-      await _firestore.collection('users').add(user);
+      await _firestore.collection('users').add(userDoc);
 
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -969,7 +1115,7 @@ class _SignUpPageState extends State<SignUpPage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        SnackBar(content: Text('Error: $e')),
       );
     }
   }
@@ -988,6 +1134,7 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
+  // -------------------- Gender tile --------------------
   Widget _genderTile(String g) {
     final isSelected = gender == g;
     final color = g == 'male'
@@ -999,7 +1146,7 @@ class _SignUpPageState extends State<SignUpPage> {
     return GestureDetector(
       onTap: () => setState(() => gender = g),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(18),
@@ -1007,9 +1154,11 @@ class _SignUpPageState extends State<SignUpPage> {
         child: Column(
           children: [
             Icon(
-              g == 'male' ? Icons.male : g == 'female'
-                  ? Icons.female
-                  : Icons.transgender,
+              g == 'male'
+                  ? Icons.male
+                  : g == 'female'
+                      ? Icons.female
+                      : Icons.transgender,
               color: color,
               size: 28,
             ),

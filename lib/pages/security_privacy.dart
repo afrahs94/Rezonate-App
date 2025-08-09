@@ -1,146 +1,224 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:new_rezonate/pages/home.dart';
-import 'package:new_rezonate/pages/journal.dart';
-import 'package:new_rezonate/pages/settings.dart';
-import 'package:new_rezonate/pages/services/user_settings.dart';
+import 'package:new_rezonate/main.dart' as app;
+import 'home.dart';
+import 'journal.dart';
+import 'settings.dart';
 
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
-  const SecurityAndPrivacyPage({Key? key, required this.userName}) : super(key: key);
+  const SecurityAndPrivacyPage({Key? key, required this.userName})
+      : super(key: key);
 
   @override
-  _SecurityAndPrivacyPageState createState() => _SecurityAndPrivacyPageState();
+  State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
 }
 
 class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
-  bool _anon = UserSettings.anonymous;
+  bool _appLock = false;
+  bool _shareWithUsername = true;
+  bool _anonymous = false;
+
+  LinearGradient _bg(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: dark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFD9C9F0), Color(0xFFBFE9CE)],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final green = const Color(0xFF0D7C66);
+
     return Scaffold(
-      backgroundColor: Colors.blueGrey.shade50,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Back button → Settings
-            Align(
-              alignment: Alignment.topLeft,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => SettingsPage(userName: widget.userName)),
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: BoxDecoration(gradient: _bg(context)),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Top bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                SettingsPage(userName: widget.userName)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text('Security & Privacy',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.w700)),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
                 ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                'Security & Privacy',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-            ),
 
-            // Anonymous toggle
-            SwitchListTile(
-              title: const Text('Go Anonymous'),
-              subtitle: const Text('Hide your username on public posts'),
-              value: _anon,
-              onChanged: (v) {
-                setState(() {
-                  _anon = v;
-                  UserSettings.anonymous = v;
-                });
-              },
-            ),
-            const Divider(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // App lock pill
+                      Container(
+                        decoration: BoxDecoration(
+                          color: green.withOpacity(.75),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 6)
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 12),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('App Lock',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 16)),
+                                  SizedBox(height: 2),
+                                  Text('Enable PIN / Biometrics',
+                                      style: TextStyle(color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _appLock,
+                              onChanged: (v) => setState(() => _appLock = v),
+                              activeColor: Colors.white,
+                              activeTrackColor: Colors.white54,
+                            ),
+                          ],
+                        ),
+                      ),
 
-            // Other items
-            ListTile(
-              title: const Text('Help'),
-              trailing: const Icon(Icons.help_outline),
-              onTap: () {}, // TODO
-            ),
-            ListTile(
-              title: const Text('Privacy Policy'),
-              trailing: const Icon(Icons.policy),
-              onTap: () {}, // TODO
-            ),
-            ListTile(
-              title: const Text('Hidden Words'),
-              trailing: const Icon(Icons.visibility_off),
-              onTap: () {}, // TODO
-            ),
-            const Spacer(),
+                      const SizedBox(height: 18),
+                      const _Header('Encryption'),
+                      const Text('All journal entries are encrypted',
+                          style: TextStyle(fontSize: 14)),
+                      const SizedBox(height: 18),
 
-            // Bottom nav
-            Container(
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      const _Header('Default Entry Visibility'),
+                      const Text('Always private (you control sharing)',
+                          style: TextStyle(fontSize: 14)),
+                      const SizedBox(height: 18),
+
+                      const _Header('Public Sharing Options'),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Share with Username'),
+                        value: _shareWithUsername,
+                        onChanged: (v) =>
+                            setState(() => _shareWithUsername = v ?? false),
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Share Anonymously'),
+                        value: _anonymous,
+                        onChanged: (v) =>
+                            setState(() => _anonymous = v ?? false),
+                      ),
+                      const SizedBox(height: 6),
+
+                      const _Header('Privacy Policy'),
+                      // -> White body text as requested
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white, // make body white
+                          ),
+                          children: [
+                            const TextSpan(
+                                text:
+                                    'When entry is shared publicly, it will appear in the community feed. '
+                                    'If "Share Anonymously" is selected, your identity won\'t be shown. '
+                                    'If you want to learn more please click '),
+                            TextSpan(
+                              text: 'here.',
+                              style: const TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  color: Colors.white),
+                              recognizer: TapGestureRecognizer()..onTap = () {},
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _NavItem(
-                    icon: Icons.home,
-                    label: 'dashboard',
-                    isSelected: false,
-                    onTap: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => HomePage(userName: widget.userName)),
-                    ),
-                  ),
-                  _NavItem(
-                    icon: Icons.bookmarks,
-                    label: 'journal',
-                    isSelected: false,
-                    onTap: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => JournalPage(userName: widget.userName)),
-                    ),
-                  ),
-                  _NavItem(
-                    icon: Icons.settings,
-                    label: 'settings',
-                    isSelected: true,
-                    onTap: () {}, // already here
-                  ),
-                ],
-              ),
-            ),
-          ],
+
+              const _BottomNav(index: 2),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+class _Header extends StatelessWidget {
+  final String text;
+  const _Header(this.text);
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? Colors.blueGrey : Colors.grey.shade600;
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 28, color: color),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
-      ]),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  final int index;
+  const _BottomNav({required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final green = const Color(0xFF0D7C66);
+    Color c(int i) => i == index ? green : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          IconButton(icon: Icon(Icons.home, color: c(0)),
+              onPressed: () => Navigator.pushReplacement(
+                  context, MaterialPageRoute(builder: (_) => HomePage(userName: '')))),
+          IconButton(icon: Icon(Icons.menu_book, color: c(1)),
+              onPressed: () => Navigator.pushReplacement(
+                  context, MaterialPageRoute(builder: (_) => JournalPage(userName: '')))),
+          IconButton(icon: Icon(Icons.settings, color: c(2)),
+              onPressed: () => Navigator.pushReplacement(
+                  context, MaterialPageRoute(builder: (_) => SettingsPage(userName: '')))),
+        ],
+      ),
     );
   }
 }

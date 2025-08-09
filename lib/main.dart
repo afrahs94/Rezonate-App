@@ -1,47 +1,166 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // <--- THIS LINE
+import 'firebase_options.dart';
 import 'pages/signup_page.dart';
 
-void main() async {
+/// Simple theme controller + scope ------------------------------------------------
+
+class ThemeController extends ChangeNotifier {
+  ThemeController({bool isDark = false}) : _isDark = isDark;
+
+  bool _isDark;
+  bool get isDark => _isDark;
+
+  void toggleTheme() {
+    _isDark = !_isDark;
+    notifyListeners();
+  }
+
+  void setDark(bool value) {
+    if (_isDark == value) return;
+    _isDark = value;
+    notifyListeners();
+  }
+}
+
+/// Inherited notifier so any widget can read/toggle:
+/// `final ctrl = ThemeControllerScope.of(context); ctrl.toggleTheme();`
+class ThemeControllerScope extends InheritedNotifier<ThemeController> {
+  const ThemeControllerScope({
+    super.key,
+    required ThemeController controller,
+    required Widget child,
+  }) : super(notifier: controller, child: child);
+
+  static ThemeController of(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<ThemeControllerScope>();
+    assert(scope != null, 'ThemeControllerScope not found in widget tree.');
+    return scope!.notifier!;
+  }
+}
+
+/// -------------------------------------------------------------------------------
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    // ignore: avoid_print
     print('✅ Firebase Initialized!');
   } catch (e) {
+    // ignore: avoid_print
     print('❌ Firebase Init Error: $e');
   }
-  runApp(const RezonateApp());
+
+  // You could restore the saved choice here (SharedPreferences, etc.)
+  final controller = ThemeController(isDark: false);
+
+  runApp(ThemeControllerScope(
+    controller: controller,
+    child: RezonateApp(controller: controller),
+  ));
 }
 
 class RezonateApp extends StatelessWidget {
-  const RezonateApp({super.key});
+  final ThemeController controller;
+  const RezonateApp({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Rezonate',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: Colors.white,
-        scaffoldBackgroundColor: const Color(0xFFCCCCFF),
-        colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Colors.white),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.black),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF99BBFF),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-          ),
-        ),
-      ),
-      home: const SignUpPage(),
+    // Rebuild MaterialApp whenever the controller changes.
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Rezonate',
+          debugShowCheckedModeBanner: false,
+          themeMode: controller.isDark ? ThemeMode.dark : ThemeMode.light,
+          theme: _lightTheme,
+          darkTheme: _darkTheme,
+          // NOTE: Login/Signup can force light by wrapping their Scaffold with Theme(data: _lightTheme, child: ...)
+          home: const SignUpPage(),
+        );
+      },
     );
   }
 }
+
+/// ------------------------------ THEMES ----------------------------------------
+
+final ThemeData _lightTheme = ThemeData(
+  brightness: Brightness.light,
+  primaryColor: const Color(0xFF0D7C66),
+  scaffoldBackgroundColor: Colors.transparent, // most pages draw their own gradient
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: const Color(0xFF0D7C66),
+    brightness: Brightness.light,
+  ),
+  textTheme: const TextTheme(
+    bodyMedium: TextStyle(color: Colors.black87),
+  ),
+  appBarTheme: const AppBarTheme(
+    elevation: 0,
+    backgroundColor: Colors.transparent,
+    foregroundColor: Colors.black87,
+    centerTitle: true,
+  ),
+  iconTheme: const IconThemeData(color: Colors.black87),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF0D7C66),
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      minimumSize: const Size(48, 48),
+    ),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+    hintStyle: const TextStyle(color: Colors.black38),
+  ),
+);
+
+final ThemeData _darkTheme = ThemeData(
+  brightness: Brightness.dark,
+  primaryColor: const Color(0xFF0D7C66),
+  scaffoldBackgroundColor: Colors.transparent, // pages keep using gradients
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: const Color(0xFF0D7C66),
+    brightness: Brightness.dark,
+  ),
+  textTheme: const TextTheme(
+    bodyMedium: TextStyle(color: Colors.white),
+  ),
+  appBarTheme: const AppBarTheme(
+    elevation: 0,
+    backgroundColor: Colors.transparent,
+    foregroundColor: Colors.white,
+    centerTitle: true,
+  ),
+  iconTheme: const IconThemeData(color: Colors.white),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF0D7C66),
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      minimumSize: const Size(48, 48),
+    ),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: Colors.white.withOpacity(0.08),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+    hintStyle: const TextStyle(color: Colors.white70),
+  ),
+);
