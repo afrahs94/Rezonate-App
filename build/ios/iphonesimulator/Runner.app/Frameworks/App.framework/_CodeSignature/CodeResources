@@ -22,7 +22,7 @@
 		</data>
 		<key>flutter_assets/NOTICES.Z</key>
 		<data>
-		ozG6KotSXK186cIc9Ku3TbCrlOg=
+		yz89zOsGn4iI3s5SgB51KUV8iZE=
 		</data>
 		<key>flutter_assets/NativeAssetsManifest.json</key>
 		<data>
@@ -38,11 +38,11 @@
 		</data>
 		<key>flutter_assets/isolate_snapshot_data</key>
 		<data>
-		w9WcwIYVRl07EMLuLi7qukruhIs=
+		hG1AhqbC8iHjSxAH427tvh3Vl0w=
 		</data>
 		<key>flutter_assets/kernel_blob.bin</key>
 		<data>
-		qmWx+lrIEoXVR1P4gUTPRD4M+yY=
+		7rSG/esCcjF+Qu8hjWwoiOmcwgg=
 		</data>
 		<key>flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf</key>
 		<data>
@@ -50,11 +50,11 @@
 		</data>
 		<key>flutter_assets/shaders/ink_sparkle.frag</key>
 		<data>
-		VvTF10G1gIeea4aI0DhJjCjHgXQ=
+		VoVnsu58hN7wrwazX0nyAopiB0Q=
 		</data>
 		<key>flutter_assets/vm_snapshot_data</key>
 		<data>
-		SoHnDHqzNKozN7o/zhsvOoXVErY=
+		6f33nJbLQOxwLNQ7Pq7TZR9ENuo=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -84,7 +84,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			hIK5NZNdPuihhgLQC8H4a0rt3p6Rn9bsIRJtNbbc/YE=
+			PoglA7ojsjx1dpKETZUFmlQd39ACu3PublgcAzeWWOM=
 			</data>
 		</dict>
 		<key>flutter_assets/NativeAssetsManifest.json</key>
@@ -112,14 +112,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			PBOAqqWi5ujK3/k/uWcKrZyOam5QktQ5MqxZKes8MBY=
+			Nr1mzMiVCo7jNK4MrbpDXD2XCmGqGE5b02O1LF4koqc=
 			</data>
 		</dict>
 		<key>flutter_assets/kernel_blob.bin</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			ej6faaptP1YYjtG3ko+jLoSr7xYRwmVaTWlSLeP3CdU=
+			jg2XfX4MY023lpx7CShZWgXb4Lq6cAy+W+lbHBvdtXU=
 			</data>
 		</dict>
 		<key>flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf</key>
@@ -133,14 +133,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			TGVjYgE+Oyl6guvhhPPrWfynkxkJeFjSzSLsQqn7Q3M=
+			4PC1vOWKHlNOnW4dGwFfD4TPwBCllniPCsOy7+1X5co=
 			</data>
 		</dict>
 		<key>flutter_assets/vm_snapshot_data</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			RTqty/gYjcrXxgR3QLjNukvL8gGpfV6MdaYktQJaIa8=
+			EkAQI7At/OAUaTSQUy3t6/4PpHWrvbPs+YdJHmzJ978=
 			</data>
 		</dict>
 	</dict>
