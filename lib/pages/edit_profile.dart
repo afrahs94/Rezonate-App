@@ -233,16 +233,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final gradientTop = const Color(0xFFD7C3F1);
-    final gradientBottom = const Color(0xFFBDE8CA);
-
+    final gradientTop = const Color(0xFFFFFFFF);
+    final gradientMiddle = const Color(0xFFD7C3F1);
+    final gradientBottom = const Color(0xFF41B3A2);
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [gradientTop, gradientBottom],
+            colors: [gradientTop, gradientMiddle, gradientBottom],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),

@@ -37,7 +37,7 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Change Password',
         icon: Icons.lock_outline,
         keywords: const ['password', 'security', 'update'],
-        builder: () => const ChangePasswordPage(userName: '',),
+        builder: () => const ChangePasswordPage(userName: ''),
       ),
       _Item(
         label: 'Security & Privacy',
@@ -58,7 +58,7 @@ class _SettingsPageState extends State<SettingsPage> {
         builder: () => DeactivateAccountPage(userName: widget.userName),
       ),
       _Item.darkMode(), // inline “row” handled below
-      _Item.logout(),   // inline “row” handled below
+      _Item.logout(), // inline “row” handled below
     ];
     _shown = List.of(_all);
     _searchCtrl.addListener(_onSearch);
@@ -77,11 +77,12 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     setState(() {
-      _shown = _all.where((it) {
-        if (it.type != _RowType.link) return false;
-        if (it.label.toLowerCase().contains(q)) return true;
-        return it.keywords.any((k) => k.contains(q));
-      }).toList();
+      _shown =
+          _all.where((it) {
+            if (it.type != _RowType.link) return false;
+            if (it.label.toLowerCase().contains(q)) return true;
+            return it.keywords.any((k) => k.contains(q));
+          }).toList();
     });
   }
 
@@ -90,7 +91,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return dark
         ? const [Color(0xFF245B52), Color(0xFF0F3E37)] // darker teal/green
-        : const [Color(0xFFD9C9F2), Color(0xFFBDE8CA)]; // light mockup colors
+        : const [Color.fromARGB(255, 255, 255, 255), Color.fromRGBO(215, 195, 241, 1), Color.fromRGBO(65, 179, 162, 1)];
   }
 
   @override
@@ -112,27 +113,16 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               // Header + back
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 16, 4),
+                padding: const EdgeInsets.fromLTRB(40, 29, 0, 13),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => HomePage(userName: widget.userName),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
+                    //const SizedBox(width: 35),
                     const Expanded(
                       child: Text(
-                        'Account Settings',
-                        textAlign: TextAlign.left,
+                        'Settings',
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 34,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
@@ -142,7 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
               // Search
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.65),
@@ -175,12 +165,13 @@ class _SettingsPageState extends State<SettingsPage> {
               // List
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
                   itemCount: _shown.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (context, i) {
                     final it = _shown[i];
-                    if (it.type == _RowType.darkMode) return _darkModeRow(context);
+                    if (it.type == _RowType.darkMode)
+                      return _darkModeRow(context);
                     if (it.type == _RowType.logout) return _logoutRow(context);
                     return _linkRow(context, it);
                   },
@@ -189,7 +180,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
               // Transparent bottom navigation
               Padding(
-                padding: const EdgeInsets.only(bottom: 6, top: 2),
+                padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -197,23 +188,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       context,
                       icon: Icons.home_rounded,
                       selected: false,
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => HomePage(userName: widget.userName),
-                        ),
-                      ),
+                      onTap:
+                          () => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => HomePage(userName: widget.userName),
+                            ),
+                          ),
                     ),
                     _navIcon(
                       context,
                       icon: Icons.menu_book_rounded,
                       selected: false,
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => JournalPage(userName: widget.userName),
-                        ),
-                      ),
+                      onTap:
+                          () => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => JournalPage(userName: widget.userName),
+                            ),
+                          ),
                     ),
                     _navIcon(
                       context,
@@ -234,12 +229,13 @@ class _SettingsPageState extends State<SettingsPage> {
   // ————————— UI parts —————————
 
   Widget _linkRow(BuildContext context, _Item it) {
-    final bg = Colors.teal.withOpacity(0.78);
+    final bg = Color.fromARGB(131, 0, 150, 135);
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => it.builder()),
-      ),
+      onTap:
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => it.builder()),
+          ),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -269,14 +265,13 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             Container(
-              height: 36,
-              width: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.28),
-                shape: BoxShape.circle,
-              ),
+              height: 30,
+              width: 30,
               alignment: Alignment.center,
-              child: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+              child: const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -287,7 +282,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _darkModeRow(BuildContext context) {
     final ctrl = app.ThemeControllerScope.of(context);
     final on = ctrl.isDark;
-    final bg = Colors.teal.withOpacity(0.78);
+    final bg = const Color.fromARGB(131, 0, 150, 135);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -304,7 +299,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.dark_mode_rounded, color: Colors.white, size: 22),
+          const Icon(Icons.brightness_6_rounded, color: Colors.white, size: 22),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -316,9 +311,25 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-          _MiniSwitch(
-            value: on,
-            onChanged: (_) => ctrl.toggleTheme(),
+          GestureDetector(
+            onTap: () => ctrl.toggleTheme(),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder:
+                  (child, anim) => RotationTransition(
+                    turns:
+                        child.key == const ValueKey('sun')
+                            ? Tween<double>(begin: 0.75, end: 1).animate(anim)
+                            : Tween<double>(begin: 0.25, end: 1).animate(anim),
+                    child: FadeTransition(opacity: anim, child: child),
+                  ),
+              child: Icon(
+                on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
+                key: ValueKey(on ? 'moon' : 'sun'),
+                size: 30,
+                color: on ? Colors.amber : Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -326,7 +337,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _logoutRow(BuildContext context) {
-    final bg = Colors.teal.withOpacity(0.78);
+    final bg = Color.fromARGB(131, 0, 150, 135);
     return InkWell(
       onTap: () async {
         // If you also sign out Firebase, do it here, then:
@@ -371,9 +382,14 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _navIcon(BuildContext context,
-      {required IconData icon, required bool selected, required VoidCallback onTap}) {
-    final color = selected ? const Color(0xFF0D7C66) : Colors.white;
+  Widget _navIcon(
+    BuildContext context, {
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final color =
+        selected ? const Color.fromARGB(255, 13, 124, 102) : Colors.white;
     return IconButton(
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
@@ -399,22 +415,30 @@ class _Item {
     required this.icon,
     required this.keywords,
     required Widget Function() builder,
-  })  : _builder = builder,
-        type = _RowType.link;
+  }) : _builder = builder,
+       type = _RowType.link;
 
   _Item._special(this.label, this.icon, this.keywords, this.type)
-      : _builder = null;
+    : _builder = null;
 
-  factory _Item.darkMode() =>
-      _Item._special('Dark Mode', Icons.dark_mode_rounded, const [], _RowType.darkMode);
+  factory _Item.darkMode() => _Item._special(
+    'Dark Mode',
+    Icons.dark_mode_rounded,
+    const [],
+    _RowType.darkMode,
+  );
 
-  factory _Item.logout() =>
-      _Item._special('Log out', Icons.logout_rounded, const ['logout'], _RowType.logout);
+  factory _Item.logout() => _Item._special(
+    'Log out',
+    Icons.logout_rounded,
+    const ['logout'],
+    _RowType.logout,
+  );
 
   Widget builder() => _builder!.call();
 }
 
-/// Small iOS-style pill switch used in row
+// Small iOS-style pill switch used in row
 class _MiniSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -430,7 +454,8 @@ class _MiniSwitch extends StatelessWidget {
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: value ? const Color(0xFFBDE8CA) : Colors.white.withOpacity(0.65),
+          color:
+              value ? const Color(0xFFBDE8CA) : Colors.white.withOpacity(0.65),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
         ),

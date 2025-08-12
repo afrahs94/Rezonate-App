@@ -32,7 +32,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
       end: Alignment.bottomCenter,
       colors: dark
           ? const [Color(0xFF132C29), Color(0xFF1C6D60)]
-          : const [Color(0xFFD7C3F1), Color(0xFFBDE8CA)],
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
