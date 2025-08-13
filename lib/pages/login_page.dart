@@ -164,7 +164,7 @@ class _LoginPageState extends State<LoginPage> {
                       'welcome',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 56,
+                        fontSize: 50,
                         fontWeight: FontWeight.w700,
                         color: primary,
                         height: 1.0,
@@ -174,7 +174,7 @@ class _LoginPageState extends State<LoginPage> {
                       'back',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 56,
+                        fontSize: 50,
                         fontWeight: FontWeight.w700,
                         color: primary,
                         height: 1.0,
@@ -225,6 +225,7 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 15,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),

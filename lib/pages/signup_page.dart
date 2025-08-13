@@ -1019,7 +1019,6 @@ class _SignUpPageState extends State<SignUpPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 2),
                 Center(
                   child: Image.asset(
                     'assets/images/Full_logo.png',
@@ -1027,20 +1026,18 @@ class _SignUpPageState extends State<SignUpPage> {
                     fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 6),
 
                 const Align(
                   alignment: Alignment.center,
                   child: Text(
                     'sign up',
                     style: TextStyle(
-                      fontSize: 36,
+                      fontSize: 45,
                       color: Color(0xFF0D7C66),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
 
                 _buildTextField(
                   'username *',
@@ -1134,7 +1131,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             text: 'log in',
                             style: TextStyle(
                               decoration: TextDecoration.underline,
-                              color: Color(0xFF0D7C66),
+                              color: Color.fromARGB(255, 0, 0, 0),
                             ),
                           ),
                         ],
@@ -1170,15 +1167,12 @@ class _SignUpPageState extends State<SignUpPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 2),
               Center(
                 child: Image.asset(
                   'assets/images/Full_logo.png',
-                  height: 190,
                   fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 6),
 
               const Text(
                 'sign up',
@@ -1188,7 +1182,6 @@ class _SignUpPageState extends State<SignUpPage> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 6),
 
               _buildTextField('first name *', firstNameController),
               _buildTextField('last name', lastNameController),
