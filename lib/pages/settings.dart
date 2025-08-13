@@ -90,8 +90,8 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Color> _gradient(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return dark
-        ? const [Color(0xFF245B52), Color(0xFF0F3E37)] // darker teal/green
-        : const [Color.fromARGB(255, 255, 255, 255), Color.fromRGBO(215, 195, 241, 1), Color.fromRGBO(65, 179, 162, 1)];
+        ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+        : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)];
   }
 
   @override
@@ -112,17 +112,27 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             children: [
               // Header + back
+              // Header + back
               Padding(
                 padding: const EdgeInsets.fromLTRB(40, 29, 0, 13),
                 child: Row(
                   children: [
-                    //const SizedBox(width: 35),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Settings',
                         style: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w700,
+                          shadows:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? [
+                                    const Shadow(
+                                      offset: Offset(1, 1),
+                                      blurRadius: 15,
+                                      color: Colors.black,
+                                    ),
+                                  ]
+                                  : null,
                         ),
                       ),
                     ),
@@ -132,17 +142,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
               // Search
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                padding: const EdgeInsets.fromLTRB(28, 0, 26, 20),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.65),
-                    borderRadius: BorderRadius.circular(18),
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? const Color.fromARGB(57, 210, 210, 210) // dark mode background
+                            : const Color.fromARGB(152, 255, 255, 255), // light mode background
+                    borderRadius: BorderRadius.circular(0),
                   ),
                   child: Row(
                     children: [
-                      const SizedBox(width: 12),
-                      const Icon(Icons.menu_rounded, size: 22),
-                      const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
                           controller: _searchCtrl,

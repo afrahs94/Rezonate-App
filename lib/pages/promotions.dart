@@ -1,5 +1,5 @@
 // lib/pages/promotions_page.dart
-
+//DELETE PAGE
 import 'package:flutter/material.dart';
 
 class PromotionsPage extends StatefulWidget {

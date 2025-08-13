@@ -24,8 +24,8 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFD9C9F0), Color(0xFFBFE9CE)],
+        ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+        : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)]
     );
   }
 
