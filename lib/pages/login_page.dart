@@ -1,4 +1,3 @@
-// lib/pages/login_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,8 +19,27 @@ class _LoginPageState extends State<LoginPage> {
   bool _showPw = false;
   bool _loading = false;
 
+  // Inline error shown under password when credentials are wrong
+  String? _authInlineError;
+
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear inline error as the user edits either field
+    _idCtrl.addListener(() {
+      if (_authInlineError != null) {
+        setState(() => _authInlineError = null);
+      }
+    });
+    _pwCtrl.addListener(() {
+      if (_authInlineError != null) {
+        setState(() => _authInlineError = null);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -55,7 +73,11 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _authInlineError = null;
+    });
+
     try {
       String email = rawId;
       String helloName = '';
@@ -68,7 +90,8 @@ class _LoginPageState extends State<LoginPage> {
             .limit(1)
             .get();
         if (q.docs.isEmpty) {
-          _snack('Account not found for that username.');
+          // Show inline error under password instead of snackbar
+          setState(() => _authInlineError = 'Invalid credentials. Please try again.');
           return;
         }
         final data = q.docs.first.data();
@@ -108,7 +131,21 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (_) => HomePage(userName: helloName)),
       );
     } on FirebaseAuthException catch (e) {
-      _snack(_friendlyAuth(e.code));
+      // Map the mismatch cases to inline error under password
+      const mismatchCodes = {
+        'user-not-found',
+        'invalid-credential',
+        'wrong-password',
+      };
+      if (mismatchCodes.contains(e.code)) {
+        setState(() => _authInlineError = 'Invalid credentials. Please try again.');
+      } else if (e.code == 'invalid-email') {
+        _snack('Please enter a valid email.');
+      } else if (e.code == 'too-many-requests') {
+        _snack('Too many attempts. Try again later.');
+      } else {
+        _snack('Login failed. Please try again.');
+      }
     } catch (e) {
       _snack('Unexpected error: $e');
     } finally {
@@ -116,30 +153,21 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  String _friendlyAuth(String code) {
-    switch (code) {
-      case 'user-not-found':
-      case 'invalid-credential':
-      case 'wrong-password':
-        return 'Invalid credentials. Please try again.';
-      case 'invalid-email':
-        return 'Please enter a valid email.';
-      case 'too-many-requests':
-        return 'Too many attempts. Try again later.';
-      default:
-        return 'Login failed. Please try again.';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     const primary = Color(0xFF0D7C66);
 
+    // Match sign-up title style: size 45, w500, same color
+    const titleStyle = TextStyle(
+      fontSize: 45,
+      fontWeight: FontWeight.w500,
+      color: primary,
+      height: 1.0,
+    );
+
     return Scaffold(
-      // Keep auth pages independent from app-wide dark mode
       backgroundColor: Colors.transparent,
       body: Container(
-        // Ensures the gradient fills the entire screen (fixes black bottom)
         constraints: const BoxConstraints.expand(),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -151,157 +179,160 @@ class _LoginPageState extends State<LoginPage> {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (_, c) {
-              // Keep previous spacing/feel
-              final topPad = c.maxHeight * 0.12;
+              // More centralized: less top padding + centered narrow column
+              final topPad = c.maxHeight * 0.06;
               return SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(28, topPad, 28, 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // === Title (same typographic feel as before) ===
-                    const Text(
-                      'welcome',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 50,
-                        fontWeight: FontWeight.w700,
-                        color: primary,
-                        height: 1.0,
-                      ),
-                    ),
-                    const Text(
-                      'back',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 50,
-                        fontWeight: FontWeight.w700,
-                        color: primary,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Username/email
-                    TextField(
-                      controller: _idCtrl,
-                      textInputAction: TextInputAction.next,
-                      decoration: _dec('username/email'),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Password
-                    TextField(
-                      controller: _pwCtrl,
-                      obscureText: !_showPw,
-                      onSubmitted: (_) => _handleLogin(),
-                      decoration: _dec(
-                        'password',
-                        suffix: IconButton(
-                          icon: Icon(
-                            _showPw ? Icons.visibility_off : Icons.visibility,
-                            color: Colors.grey[700],
-                          ),
-                          onPressed: () =>
-                              setState(() => _showPw = !_showPw),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Full logo like sign-up (slightly smaller for balance)
+                        Image.asset(
+                          'assets/images/Full_logo.png',
+                          height: 170,
+                          fit: BoxFit.contain,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                        const SizedBox(height: 10),
 
-                    // Forgot password link (new)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const ResetPasswordPage()),
-                          );
-                        },
-                        child: Text(
-                          'forgot password?',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 15,
-                            decoration: TextDecoration.underline,
+                        // "welcome back" in the same font style as sign-up
+                        const Text('welcome', textAlign: TextAlign.center, style: titleStyle),
+                        const Text('back', textAlign: TextAlign.center, style: titleStyle),
+                        const SizedBox(height: 20),
+
+                        // Username/email (smaller spacing)
+                        TextField(
+                          controller: _idCtrl,
+                          textInputAction: TextInputAction.next,
+                          decoration: _dec('username/email'),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Password + visibility toggle
+                        TextField(
+                          controller: _pwCtrl,
+                          obscureText: !_showPw,
+                          onSubmitted: (_) => _handleLogin(),
+                          decoration: _dec(
+                            'password',
+                            suffix: IconButton(
+                              icon: Icon(
+                                _showPw ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.grey[700],
+                              ),
+                              onPressed: () => setState(() => _showPw = !_showPw),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
 
-                    const SizedBox(height: 28),
-
-                    // Log in
-                    SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(32),
+                        // Inline credentials error under password
+                        if (_authInlineError != null) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _authInlineError!,
+                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                            ),
                           ),
-                          elevation: 3,
-                          shadowColor: Colors.black26,
-                        ),
-                        child: _loading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text('log in', style: TextStyle(fontSize: 20)),
-                      ),
-                    ),
+                        ],
 
-                    const SizedBox(height: 18),
-                    Row(
-                      children: const [
-                        Expanded(child: Divider(thickness: 1)),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child:
-                              Text('or', style: TextStyle(color: Colors.grey)),
+                        const SizedBox(height: 8),
+
+                        // Forgot password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
+                              );
+                            },
+                            child: Text(
+                              'forgot password?',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
                         ),
-                        Expanded(child: Divider(thickness: 1)),
+
+                        const SizedBox(height: 20),
+
+                        // Log in (smaller & centered)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _loading ? null : _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                              elevation: 3,
+                              shadowColor: Colors.black26,
+                            ),
+                            child: _loading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('log in', style: TextStyle(fontSize: 18)),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+                        Row(
+                          children: const [
+                            Expanded(child: Divider(thickness: 1)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: Text('or', style: TextStyle(color: Colors.grey)),
+                            ),
+                            Expanded(child: Divider(thickness: 1)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Sign up (smaller & centered)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const SignUpPage()),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                            ),
+                            child: const Text(
+                              'sign up',
+                              style: TextStyle(color: primary, fontSize: 18),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 18),
-
-                    // Sign up
-                    SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const SignUpPage()),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(32),
-                          ),
-                        ),
-                        child: const Text(
-                          'sign up',
-                          style: TextStyle(color: primary, fontSize: 20),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               );
             },

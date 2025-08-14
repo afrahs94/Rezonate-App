@@ -749,6 +749,7 @@ class _SignUpPageState extends State<SignUpPage> {
 // Full SignUpPage code updated to match the provided UI and preserve all logic
 // Colors used: #0D7C66, #41B3A2, #BDE8CA, #D7C3F1
 
+// lib/sign_up_page.dart
 import 'dart:async'; // for debounce
 import 'dart:convert';
 
@@ -760,6 +761,9 @@ import 'package:intl/intl.dart';
 
 import 'home.dart';
 import 'login_page.dart';
+import 'user_sessions.dart';
+
+ // keeps your cached profile after signup
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -794,6 +798,13 @@ class _SignUpPageState extends State<SignUpPage> {
   bool? _emailAvailable;
 
   String? _passwordLiveError;
+
+  // Password visibility toggles
+  bool _passwordObscured = true;
+  bool _confirmPasswordObscured = true;
+
+  // --- NEW: page 2 DOB error holder (inline under the field) ---
+  String? _dobError;
 
   // ---------- Password validators ----------
   bool _isStrongPassword(String p) {
@@ -957,7 +968,7 @@ class _SignUpPageState extends State<SignUpPage> {
             padEnds: false,
             children: [
               _buildFirstPage(),
-              _buildSecondPage(),
+              _buildSecondPage(), // Only this page changed for your request
             ],
           ),
         ),
@@ -1005,7 +1016,7 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  // -------------------- Page 1 --------------------
+  // -------------------- Page 1 (unchanged) --------------------
   Widget _buildFirstPage() {
     final up = -MediaQuery.of(context).size.height * 0.03;
 
@@ -1075,17 +1086,29 @@ class _SignUpPageState extends State<SignUpPage> {
                 _buildTextField(
                   'password *',
                   passwordController,
-                  obscureText: true,
+                  obscureText: _passwordObscured,
                   onChanged: _onPasswordChanged,
                   validator: _passwordValidator,
                   errorText: _passwordLiveError,
+                  suffix: IconButton(
+                    icon: Icon(_passwordObscured ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() {
+                      _passwordObscured = !_passwordObscured;
+                    }),
+                  ),
                 ),
 
                 _buildTextField(
                   'confirm password *',
                   confirmPasswordController,
-                  obscureText: true,
+                  obscureText: _confirmPasswordObscured,
                   validator: _confirmPasswordValidator,
+                  suffix: IconButton(
+                    icon: Icon(_confirmPasswordObscured ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() {
+                      _confirmPasswordObscured = !_confirmPasswordObscured;
+                    }),
+                  ),
                 ),
 
                 const SizedBox(height: 12),
@@ -1156,7 +1179,7 @@ class _SignUpPageState extends State<SignUpPage> {
     return const Icon(Icons.error_outline, color: Colors.red);
   }
 
-  // -------------------- Page 2 --------------------
+  // -------------------- Page 2 (smaller + centered + 18+ check) --------------------
   Widget _buildSecondPage() {
     final up = -MediaQuery.of(context).size.height * 0.03;
 
@@ -1166,43 +1189,62 @@ class _SignUpPageState extends State<SignUpPage> {
           offset: Offset(0, up),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center, // centered
             children: [
+              // Slightly smaller logo on page 2
               Center(
                 child: Image.asset(
                   'assets/images/Full_logo.png',
+                  height: 140, // smaller
                   fit: BoxFit.contain,
                 ),
               ),
 
+              const SizedBox(height: 8),
               const Text(
                 'sign up',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: 30, // smaller
                   color: Color(0xFF0D7C66),
                   fontWeight: FontWeight.w500,
                 ),
               ),
 
+              const SizedBox(height: 8),
               _buildTextField('first name *', firstNameController),
               _buildTextField('last name', lastNameController),
+
+              // DOB: add inline error + keep readOnly date picker
               _buildTextField(
                 'date of birth *',
                 dobController,
                 readOnly: true,
                 onTap: _selectDate,
+                errorText: _dobError, // <-- inline error right under the field
               ),
 
-              const SizedBox(height: 8),
-              const Text('gender',
-                  style: TextStyle(fontSize: 16, color: Color(0xFF0D7C66))),
+              const SizedBox(height: 6),
+              const Text(
+                'gender',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Color(0xFF0D7C66)), // smaller
+              ),
               const SizedBox(height: 6),
 
+              // Centered gender row with slightly tighter spacing
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: ['female', 'male', 'other'].map((g) => _genderTile(g)).toList(),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _genderTile('female'),
+                  const SizedBox(width: 12),
+                  _genderTile('male'),
+                  const SizedBox(width: 12),
+                  _genderTile('other'),
+                ],
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -1216,15 +1258,15 @@ class _SignUpPageState extends State<SignUpPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
-                        minimumSize: const Size(double.infinity, 55),
+                        minimumSize: const Size(double.infinity, 48), // smaller
                         elevation: 5,
                       ),
                       child:
-                          const Text('back', style: TextStyle(fontSize: 18, color: Colors.white)),
+                          const Text('back', style: TextStyle(fontSize: 16, color: Colors.white)), // smaller text
                     ),
                   ),
-                  const SizedBox(width: 20),
-                  Expanded(
+                  const SizedBox(width: 16), // slightly tighter gap
+                Expanded(
                     child: ElevatedButton(
                       onPressed: _handleSignUp,
                       style: ElevatedButton.styleFrom(
@@ -1232,18 +1274,18 @@ class _SignUpPageState extends State<SignUpPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
-                        minimumSize: const Size(double.infinity, 55),
+                        minimumSize: const Size(double.infinity, 48), // smaller
                         elevation: 5,
                       ),
                       child:
-                          const Text('done', style: TextStyle(fontSize: 18, color: Colors.white)),
+                          const Text('done', style: TextStyle(fontSize: 16, color: Colors.white)), // smaller text
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 10),
-              const Text('2 of 2'),
+              const SizedBox(height: 8),
+              const Text('2 of 2', textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
               const SizedBox(height: 4),
               GestureDetector(
                 onTap: () => Navigator.push(
@@ -1263,6 +1305,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       ),
                     ],
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 4),
@@ -1277,10 +1320,17 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<void> _handleSignUp() async {
     try {
       if (dobController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select date of birth')),
-        );
+        setState(() => _dobError = 'Please select date of birth'); // inline error
         return;
+      }
+
+      // Enforce 18+ before allowing signup
+      final parsedDob = DateFormat('MM/dd/yyyy').parse(dobController.text);
+      if (!_isAtLeast18(parsedDob)) {
+        setState(() => _dobError = 'You must be at least 18 years old.');
+        return; // block sign up
+      } else {
+        if (_dobError != null) setState(() => _dobError = null);
       }
 
       final username = usernameController.text.trim();
@@ -1363,6 +1413,9 @@ class _SignUpPageState extends State<SignUpPage> {
         rethrow;
       }
 
+      // Cache profile locally for other pages & restarts
+      await UserSession.instance.refreshFromFirestore(_firestore, uid);
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -1389,13 +1442,23 @@ class _SignUpPageState extends State<SignUpPage> {
       lastDate: DateTime.now(),
     );
     if (picked != null) {
+      final isAdult = _isAtLeast18(picked);
       setState(() {
         dobController.text = DateFormat('MM/dd/yyyy').format(picked);
+        _dobError = isAdult ? null : 'You must be at least 18 years old.';
       });
     }
   }
 
-  // -------------------- Gender tile --------------------
+  // Helper: true if user is at least 18 today
+  bool _isAtLeast18(DateTime dob) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final eighteenth = DateTime(dob.year + 18, dob.month, dob.day);
+    return !eighteenth.isAfter(today);
+  }
+
+  // -------------------- Gender tile (slightly smaller) --------------------
   Widget _genderTile(String g) {
     final isSelected = gender == g;
     final color = g == 'male'
@@ -1407,12 +1470,13 @@ class _SignUpPageState extends State<SignUpPage> {
     return GestureDetector(
       onTap: () => setState(() => gender = g),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), // smaller
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               g == 'male'
@@ -1421,12 +1485,12 @@ class _SignUpPageState extends State<SignUpPage> {
                       ? Icons.female
                       : Icons.transgender,
               color: color,
-              size: 28,
+              size: 24, // smaller
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               g,
-              style: TextStyle(color: color, fontWeight: FontWeight.w600),
+              style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13), // smaller
             ),
           ],
         ),

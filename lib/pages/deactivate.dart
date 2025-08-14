@@ -25,8 +25,6 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
 
   LinearGradient _bg(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    // Light: lilac -> mint (mock)
-    // Dark : deep teal -> dark mint (still readable)
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -60,7 +58,6 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
         (_) => false,
       );
     } on FirebaseAuthException catch (e) {
-      // Most common: requires-recent-login
       String msg = e.message ?? 'Account deletion failed.';
       if (e.code == 'requires-recent-login') {
         msg =
@@ -84,16 +81,15 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
     final onSurface = theme.colorScheme.onSurface.withOpacity(0.9);
 
     return Scaffold(
-      // No solid background; we paint a gradient behind everything
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: BoxDecoration(gradient: _bg(context)),
         child: SafeArea(
           child: Column(
             children: [
-              // Top bar: back + title
+              // Top bar: back + title (slightly smaller)
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+                padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
                 child: Row(
                   children: [
                     IconButton(
@@ -116,69 +112,87 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: onSurface,
+                        fontSize: 20, // smaller
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
-
-              // Body text (two paragraphs, centered; bold certain words)
+              // NEW: Full logo at the top, like sign-up (slightly smaller)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          height: 1.4,
-                          color: onSurface,
-                          fontSize: 22,
+                padding: const EdgeInsets.only(top: 4),
+                child: Image.asset(
+                  'assets/images/Full_logo.png',
+                  height: 150,
+                  fit: BoxFit.contain,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Body copy (smaller + centralized)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              height: 1.4,
+                              color: onSurface,
+                              fontSize: 18, // smaller
+                            ),
+                            children: const [
+                              TextSpan(
+                                  text:
+                                      'Deleting your account will permanently remove '),
+                              TextSpan(
+                                  text: 'all',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w800)),
+                              TextSpan(
+                                  text: ' your journal entries and data.'),
+                            ],
+                          ),
                         ),
-                        children: const [
-                          TextSpan(
-                              text:
-                                  'Deleting your account will permanently remove '),
-                          TextSpan(
-                              text: 'all',
-                              style: TextStyle(fontWeight: FontWeight.w800)),
-                          TextSpan(
-                              text: ' your journal entries and data.'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          height: 1.4,
-                          color: onSurface,
-                          fontSize: 22,
+                        const SizedBox(height: 20), // tighter spacing
+                        RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              height: 1.4,
+                              color: onSurface,
+                              fontSize: 18, // smaller
+                            ),
+                            children: const [
+                              TextSpan(text: 'This action cannot be '),
+                              TextSpan(
+                                  text: 'undone',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w800)),
+                              TextSpan(
+                                  text:
+                                      '. Please save any information you want to keep before proceeding.'),
+                            ],
+                          ),
                         ),
-                        children: const [
-                          TextSpan(text: 'This action cannot be '),
-                          TextSpan(
-                              text: 'undone',
-                              style: TextStyle(fontWeight: FontWeight.w800)),
-                          TextSpan(
-                              text:
-                                  '. Please save any information you want to keep before proceeding.'),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
 
               const Spacer(),
 
-              // Buttons row
+              // Buttons row (smaller + friendlier sizing)
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 28.0, vertical: 16),
+                    const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -198,46 +212,48 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _brand,
                           foregroundColor: Colors.white,
-                          elevation: 4,
+                          elevation: 3,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
+                            borderRadius: BorderRadius.circular(24),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: const Text('Cancel', style: TextStyle(fontSize: 16)),
+                        child: const Text('Cancel',
+                            style: TextStyle(fontSize: 15)), // smaller
                       ),
                     ),
-                    const SizedBox(width: 18),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: ElevatedButton(
                         onPressed: _working ? null : _deleteAccount,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _danger,
                           foregroundColor: Colors.white,
-                          elevation: 4,
+                          elevation: 3,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
+                            borderRadius: BorderRadius.circular(24),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: _working
                             ? const SizedBox(
-                                height: 20,
-                                width: 20,
+                                height: 18,
+                                width: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Delete', style: TextStyle(fontSize: 16)),
+                            : const Text('Delete',
+                                style: TextStyle(fontSize: 15)), // smaller
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Transparent bottom nav (no background)
+              // Bottom nav (icons slightly smaller)
               SafeArea(
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.only(
-                      left: 28, right: 28, bottom: 8, top: 4),
+                      left: 24, right: 24, bottom: 8, top: 2),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -302,10 +318,10 @@ class _BottomIcon extends StatelessWidget {
     final off = Theme.of(context).colorScheme.onSurface.withOpacity(0.85);
     return InkResponse(
       onTap: onTap,
-      radius: 28,
+      radius: 26,
       child: Icon(
         icon,
-        size: 28,
+        size: 24, // smaller
         color: selected ? brand : off,
       ),
     );

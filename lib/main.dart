@@ -4,6 +4,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'pages/signup_page.dart';
 
+// FIX: correct import (singular). Make sure the file exists at lib/user_session.dart
+import 'pages/user_sessions.dart';
+
 /// Simple theme controller + scope ------------------------------------------------
 
 class ThemeController extends ChangeNotifier {
@@ -55,6 +58,9 @@ Future<void> main() async {
     // ignore: avoid_print
     print('❌ Firebase Init Error: $e');
   }
+
+  // Load any cached user profile for instant access across pages after restart
+  await UserSession.instance.init();
 
   // You could restore the saved choice here (SharedPreferences, etc.)
   final controller = ThemeController(isDark: false);

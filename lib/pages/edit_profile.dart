@@ -116,13 +116,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  Future<void> _pickAndUploadPhoto() async {
+  // NEW: allow picking from camera or gallery
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 900, imageQuality: 85);
+      final file = await picker.pickImage(
+        source: source,
+        maxWidth: 900,
+        imageQuality: 85,
+      );
       if (file == null) return;
 
       setState(() => _saving = true);
@@ -134,7 +139,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       await user.updatePhotoURL(url);
       if (_userDocId != null) {
-        await _fs.collection('users').doc(_userDocId).update({'photoUrl': url});
+        await _fs.collection('users').doc(_userDocId).set(
+          {'photoUrl': url},
+          SetOptions(merge: true),
+        );
+      } else {
+        await _fs.collection('users').doc(user.uid).set(
+          {'photoUrl': url, 'uid': user.uid},
+          SetOptions(merge: true),
+        );
+        _userDocId = user.uid;
       }
 
       setState(() {
@@ -147,6 +161,98 @@ class _EditProfilePageState extends State<EditProfilePage> {
         SnackBar(content: Text('Photo upload failed: $e')),
       );
     }
+  }
+
+  // NEW: delete profile photo (auth + firestore + storage)
+  Future<void> _removePhoto() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      setState(() => _saving = true);
+
+      // Try to delete from storage (best effort)
+      final ref =
+          FirebaseStorage.instance.ref().child('users/${user.uid}/profile.jpg');
+      try {
+        await ref.delete();
+      } catch (_) {
+        // ignore if not found/no permission
+      }
+
+      // Clear auth photo and Firestore field
+      try {
+        await user.updatePhotoURL(null);
+      } catch (_) {}
+      await _fs.collection('users').doc(user.uid).set(
+        {'photoUrl': null},
+        SetOptions(merge: true),
+      );
+
+      setState(() {
+        _photoUrl = null;
+        _saving = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo removed')),
+        );
+      }
+    } catch (e) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove photo: $e')),
+      );
+    }
+  }
+
+  // NEW: bottom sheet to choose Camera / Gallery / Remove
+  Future<void> _showPhotoOptions() async {
+    if (_saving) return;
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Take photo'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadPhoto(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadPhoto(ImageSource.gallery);
+                },
+              ),
+              if (_photoUrl != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Remove photo',
+                      style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removePhoto();
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -186,7 +292,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
       final newEmail = _emailCtl.text.trim();
       if (newEmail.isNotEmpty && newEmail != (user.email ?? '')) {
-        // safer cross-platform method; email change completes after verification
         try {
           await user.verifyBeforeUpdateEmail(newEmail);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -195,13 +300,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
           );
         } catch (_) {
-          // Some SDKs still support updateEmail; try it if verifyBeforeUpdateEmail fails
           try {
             // ignore: deprecated_member_use
             await user.updateEmail(newEmail);
-          } catch (e) {
-            // If recent login is required or unsupported, keep Firestore value and continue
-          }
+          } catch (_) {}
         }
       }
 
@@ -219,16 +321,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  // Smaller input styling
   InputDecoration _dec(IconData icon, String hint) => InputDecoration(
-        prefixIcon: Icon(icon),
+        prefixIcon: Icon(icon, size: 18),
         hintText: hint,
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       );
 
   @override
@@ -253,7 +356,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               : Form(
                   key: _form,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                     children: [
                       Row(
                         children: [
@@ -261,28 +364,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             icon: const Icon(Icons.arrow_back),
                             onPressed: () => Navigator.pop(context),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           const Text(
-                            'Profile',
+                            'edit profile', // CHANGED text
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 22, // smaller
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Center(
                         child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
                             CircleAvatar(
-                              radius: 54,
+                              radius: 46, // smaller
                               backgroundColor: Colors.white.withOpacity(.6),
                               backgroundImage:
                                   _photoUrl != null ? NetworkImage(_photoUrl!) : null,
                               child: _photoUrl == null
-                                  ? const Icon(Icons.person, size: 56, color: Color(0xFF0D7C66))
+                                  ? const Icon(Icons.person, size: 44, color: Color(0xFF0D7C66))
                                   : null,
                             ),
                             IconButton(
@@ -290,23 +393,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 backgroundColor: Colors.white,
                                 padding: const EdgeInsets.all(8),
                               ),
-                              onPressed: _saving ? null : _pickAndUploadPhoto,
+                              onPressed: _saving ? null : _showPhotoOptions, // opens camera/gallery/remove
                               icon: const Icon(Icons.edit, size: 18),
                               tooltip: 'Change photo',
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
-                      // Fields (all pre-filled now)
+                      // Fields (all pre-filled now) — smaller paddings/gaps
                       TextFormField(
                         controller: _nameCtl,
                         decoration: _dec(Icons.person_outline, 'name'),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       TextFormField(
                         controller: _birthdayCtl,
                         readOnly: true,
@@ -326,20 +429,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         },
                         decoration: _dec(Icons.cake_outlined, 'birthday'),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       TextFormField(
                         controller: _phoneCtl,
                         keyboardType: TextInputType.phone,
                         decoration: _dec(Icons.phone_outlined, 'phone number'),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       TextFormField(
                         controller: _usernameCtl,
                         decoration: _dec(Icons.alternate_email, 'username'),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailCtl,
                         keyboardType: TextInputType.emailAddress,
@@ -347,28 +450,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         validator: (v) =>
                             (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       SizedBox(
-                        height: 56,
+                        height: 48, // smaller
                         child: ElevatedButton(
                           onPressed: _saving ? null : _save,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0D7C66),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(28),
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
                           child: _saving
                               ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
+                                  width: 18,
+                                  height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor:
                                         AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
-                              : const Text('Save', style: TextStyle(fontSize: 18)),
+                              : const Text('Save', style: TextStyle(fontSize: 16)),
                         ),
                       ),
                     ],
