@@ -248,7 +248,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
       borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(22),
@@ -295,10 +295,10 @@ class _SettingsPageState extends State<SettingsPage> {
     final bg = const Color.fromARGB(131, 0, 150, 135);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.12),
@@ -336,7 +336,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Icon(
                 on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
                 key: ValueKey(on ? 'moon' : 'sun'),
-                size: 30,
+                size: 26,
                 color: on ? Colors.amber : Colors.white,
               ),
             ),
@@ -359,10 +359,10 @@ class _SettingsPageState extends State<SettingsPage> {
       },
       borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.12),
@@ -404,7 +404,7 @@ class _SettingsPageState extends State<SettingsPage> {
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onPressed: onTap,
-      icon: Icon(icon, size: 28, color: color),
+      icon: Icon(icon, size: 24, color: color),
     );
   }
 }
@@ -446,41 +446,4 @@ class _Item {
   );
 
   Widget builder() => _builder!.call();
-}
-
-// Small iOS-style pill switch used in row
-class _MiniSwitch extends StatelessWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _MiniSwitch({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 56,
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color:
-              value ? const Color(0xFFBDE8CA) : Colors.white.withOpacity(0.65),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
-        ),
-        child: Align(
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 22,
-            height: 22,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -102,7 +102,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           'reset',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 56,
+                            fontSize: 50,
                             fontWeight: FontWeight.w700,
                             color: primary,
                             height: 1.0,
@@ -112,7 +112,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           'password',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 56,
+                            fontSize: 50,
                             fontWeight: FontWeight.w700,
                             color: primary,
                             height: 1.0,
@@ -123,7 +123,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           "enter your email and we’ll send a one-time\nlink to reset your password",
                           textAlign: TextAlign.center,
                           style:
-                              TextStyle(fontSize: 16, color: Colors.grey[700]),
+                              TextStyle(fontSize: 15, color: Colors.grey[700]),
                         ),
                         const SizedBox(height: 24),
 

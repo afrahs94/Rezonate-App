@@ -1780,7 +1780,7 @@ class _BottomNavTransparent extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            icon: Icon(Icons.home_filled, color: _c(0)),
+            icon: Icon(Icons.home, color: _c(0)),
             onPressed: onHome,
           ),
           IconButton(
