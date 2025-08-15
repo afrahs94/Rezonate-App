@@ -28,7 +28,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         filled: true,
         fillColor: Colors.white,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // smaller box
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
@@ -77,7 +77,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        constraints: const BoxConstraints.expand(), // fills screen (no black)
+        constraints: const BoxConstraints.expand(),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
@@ -102,7 +102,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           'reset',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 50,
+                            fontSize: 45,
                             fontWeight: FontWeight.w700,
                             color: primary,
                             height: 1.0,
@@ -112,30 +112,33 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                           'password',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 50,
+                            fontSize: 45,
                             fontWeight: FontWeight.w700,
                             color: primary,
                             height: 1.0,
                           ),
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 20),
                         Text(
-                          "enter your email and we’ll send a one-time\nlink to reset your password",
+                          "enter your email and we'll send a one-time\nlink to reset your password",
                           textAlign: TextAlign.center,
                           style:
-                              TextStyle(fontSize: 15, color: Colors.grey[700]),
+                              TextStyle(fontSize: 14, color: Colors.grey[700]),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 19),
 
-                        // Email
-                        TextField(
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _sendReset(),
-                          decoration: _dec('email'),
+                        // Email - now smaller
+                        SizedBox(
+                          width: 4300, // slightly narrower than full screen
+                          child: TextField(
+                            controller: _emailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _sendReset(),
+                            decoration: _dec('email'),
+                          ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 17),
 
                         // Buttons row: Go back | Reset
                         Row(
@@ -149,12 +152,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(32),
                                   ),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 18),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14), // reduced from 18
                                 ),
                                 child: const Text(
                                   'go back',
-                                  style: TextStyle(fontSize: 18),
+                                  style: TextStyle(fontSize: 16), // reduced from 16
                                 ),
                               ),
                             ),
@@ -170,22 +173,22 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                                   ),
                                   elevation: 3,
                                   shadowColor: Colors.black26,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 18),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14), // reduced from 18
                                 ),
                                 child: _sending
                                     ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
+                                        width: 20,
+                                        height: 20,
                                         child: CircularProgressIndicator(
-                                          strokeWidth: 2.4,
+                                          strokeWidth: 2.2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
                                                   Colors.white),
                                         ),
                                       )
                                     : const Text('reset',
-                                        style: TextStyle(fontSize: 18)),
+                                        style: TextStyle(fontSize: 16)), // reduced from 16
                               ),
                             ),
                           ],
