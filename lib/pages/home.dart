@@ -67,10 +67,8 @@ class _HomePageState extends State<HomePage> {
   List<Tracker> _trackers = [];
   final Set<String> _selectedForChart = {};
   ChartView _view = ChartView.weekly;
-  bool _selectOpen = false;
 
   // day-key -> values map; also used to compute streak
-  // trackerId values live inside each doc: daily_logs/{dateKey}.values[trackerId]
   final Map<String, Map<String, double>> _daily = {};
   final Set<String> _daysWithAnyLog = {};
 
@@ -254,6 +252,16 @@ class _HomePageState extends State<HomePage> {
     await _updateTracker(t, latest: v);
   }
 
+  Future<void> _deleteTracker(Tracker t) async {
+    final u = _user;
+    if (u == null) return;
+    await _db.collection('users').doc(u.uid).collection('trackers').doc(t.id).delete();
+    setState(() {
+      _trackers.removeWhere((x) => x.id == t.id);
+      _selectedForChart.remove(t.id);
+    });
+  }
+
   // ---- Chart helpers
   List<double> _valuesForDates(Tracker t, List<DateTime> days) {
     return days.map((d) => _daily[_dayKey(d)]?[t.id] ?? 0.0).toList();
@@ -286,7 +294,7 @@ class _HomePageState extends State<HomePage> {
 
     if (_view == ChartView.weekly) {
       final days = _currentWeekMonToSun();
-      xPoints = List.generate(days.length, (i) => i.toDouble());
+      xPoints = List.generate(days.length, (i) => i.toDouble()); // 0..6
       for (final t in sel) {
         seriesValues.add(_valuesForDates(t, days));
       }
@@ -323,6 +331,15 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
+    // EXTRA INNER PADDING so curves & dots never touch/cut the rounded edges.
+    // (Bigger headroom than before to fully avoid clipping.)
+    const double yPad = 2.0;     // vertical headroom (was 0.5)
+    const double xPad = 0.8;     // horizontal headroom (was 0.15)
+    final double minX = (xPoints.isEmpty ? 0 : xPoints.first) - xPad;
+    final double maxX = (xPoints.isEmpty ? 0 : xPoints.last) + xPad;
+    const double minY = 0 - yPad;
+    const double maxY = 10 + yPad;
+
     final bars = <LineChartBarData>[];
     for (int s = 0; s < sel.length; s++) {
       final t = sel[s];
@@ -350,8 +367,10 @@ class _HomePageState extends State<HomePage> {
     }
 
     return LineChartData(
-      minY: 0,
-      maxY: 10,
+      minX: minX,
+      maxX: maxX,
+      minY: minY,
+      maxY: maxY,
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
@@ -360,12 +379,14 @@ class _HomePageState extends State<HomePage> {
       ),
       titlesData: const FlTitlesData(
         leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), // no x-axis labels
+        bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       borderData: FlBorderData(show: false),
       lineBarsData: bars,
+      // Keep everything inside the chart rect (after we added safe padding).
+      clipData: const FlClipData.all(),
     );
   }
 
@@ -386,7 +407,7 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24), // bottom padding avoids overflow
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -418,7 +439,7 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(color: Colors.black.withOpacity(.65), fontSize: 12),
                       ),
 
-                      const SizedBox(height: 18), // <- more space above streak
+                      const SizedBox(height: 18),
 
                       // Streak pill
                       Container(
@@ -442,7 +463,7 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 14),
 
-                      // Trackers (clean rows, above chart)
+                      // Trackers list
                       ReorderableListView.builder(
                         physics: const NeverScrollableScrollPhysics(),
                         shrinkWrap: true,
@@ -496,16 +517,25 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ),
                                   PopupMenuButton<String>(
+                                    color: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 6,
+                                    offset: const Offset(0, 8),
                                     onSelected: (v) async {
                                       if (v == 'rename') {
                                         final ctl = TextEditingController(text: t.label);
                                         await showDialog(
                                           context: context,
                                           builder: (_) => AlertDialog(
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16)),
                                             title: const Text('Rename tracker'),
                                             content: TextField(
                                               controller: ctl,
-                                              decoration: const InputDecoration(hintText: 'Name'),
+                                              decoration:
+                                                  const InputDecoration(hintText: 'Name'),
                                               autofocus: true,
                                             ),
                                             actions: [
@@ -521,6 +551,10 @@ class _HomePageState extends State<HomePage> {
                                                   }
                                                   if (context.mounted) Navigator.pop(context);
                                                 },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(0xFF0D7C66),
+                                                  foregroundColor: Colors.white,
+                                                ),
                                                 child: const Text('Save'),
                                               ),
                                             ],
@@ -529,11 +563,43 @@ class _HomePageState extends State<HomePage> {
                                       } else if (v == 'color') {
                                         await _openColorPicker(t);
                                         await _updateTracker(t, color: t.color);
+                                      } else if (v == 'delete') {
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder: (_) => AlertDialog(
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16)),
+                                            title: const Text('Delete tracker?'),
+                                            content: Text(
+                                                'This will remove "${t.label}" from your trackers.'),
+                                            actions: [
+                                              TextButton(
+                                                  onPressed: () => Navigator.pop(context, false),
+                                                  child: const Text('Cancel')),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context, true),
+                                                style: TextButton.styleFrom(
+                                                  foregroundColor: Colors.red,
+                                                ),
+                                                child: const Text('Delete'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (ok == true) {
+                                          await _deleteTracker(t);
+                                        }
                                       }
                                     },
-                                    itemBuilder: (c) => const [
-                                      PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                      PopupMenuItem(value: 'color', child: Text('Color')),
+                                    itemBuilder: (c) => [
+                                      const PopupMenuItem(
+                                          value: 'rename', child: Text('Rename')),
+                                      const PopupMenuItem(value: 'color', child: Text('Color')),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete',
+                                            style: TextStyle(color: Colors.red)),
+                                      ),
                                     ],
                                   ),
                                   const Icon(Icons.drag_indicator, size: 18),
@@ -545,7 +611,7 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 14),
                       // Plus under trackers
                       IconButton(
                         tooltip: 'Add tracker',
@@ -554,7 +620,7 @@ class _HomePageState extends State<HomePage> {
                         color: green,
                       ),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 24),
 
                       // View selector
                       Row(
@@ -582,28 +648,38 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 8),
 
-                      // Date range heading above chart
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            _dateRangeHeading(),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black.withOpacity(.75),
+                      // Date range + dropdown icon (selection dialog)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                _dateRangeHeading(),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black.withOpacity(.75),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_drop_down_circle_outlined),
+                            color: green,
+                            onPressed: _openSelectDialog,
+                            tooltip: 'Select trackers to view',
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
+
+                      const SizedBox(height: 6),
 
                       // Chart card
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        height: 220,
+                        height: 320,
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(.88),
                           borderRadius: BorderRadius.circular(16),
@@ -615,73 +691,11 @@ class _HomePageState extends State<HomePage> {
                                     style: TextStyle(fontSize: 13)))
                             : LineChart(_chartData()),
                       ),
-
-                      // Inline dropdown for selecting trackers to plot
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(4, 10, 4, 0),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.9),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                        ),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.checklist),
-                              title: const Text('Select trackers to view',
-                                  style: TextStyle(fontSize: 13)),
-                              subtitle: _selectedForChart.isEmpty
-                                  ? null
-                                  : Wrap(
-                                      spacing: 6,
-                                      runSpacing: -8,
-                                      children: _trackers
-                                          .where((t) => _selectedForChart.contains(t.id))
-                                          .map((t) => Chip(
-                                                label: Text(t.label,
-                                                    style: const TextStyle(fontSize: 11)),
-                                                visualDensity: VisualDensity.compact,
-                                                materialTapTargetSize:
-                                                    MaterialTapTargetSize.shrinkWrap,
-                                              ))
-                                          .toList(),
-                                    ),
-                              trailing:
-                                  Icon(_selectOpen ? Icons.expand_less : Icons.expand_more),
-                              onTap: () => setState(() => _selectOpen = !_selectOpen),
-                            ),
-                            if (_selectOpen)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                                child: Column(
-                                  children: _trackers.map((t) {
-                                    final checked = _selectedForChart.contains(t.id);
-                                    return CheckboxListTile(
-                                      dense: true,
-                                      controlAffinity: ListTileControlAffinity.leading,
-                                      value: checked,
-                                      onChanged: (v) => setState(() {
-                                        if (v == true) {
-                                          _selectedForChart.add(t.id);
-                                        } else {
-                                          _selectedForChart.remove(t.id);
-                                        }
-                                      }),
-                                      title: Text(t.label,
-                                          style: const TextStyle(fontSize: 13)),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),
               ),
 
-              // bottom nav (outside scroll view)
               _BottomNav(index: 0, userName: widget.userName),
             ],
           ),
@@ -690,8 +704,83 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---- Color picker bits -------------------------------------------------
+  // ---- Select trackers dialog (on-theme)
+  Future<void> _openSelectDialog() async {
+    final chosen = Set<String>.from(_selectedForChart);
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        final dark = app.ThemeControllerScope.of(context).isDark;
+        return Dialog(
+          backgroundColor: dark ? const Color(0xFF123A36) : Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.checklist, size: 20, color: Color(0xFF0D7C66)),
+                    SizedBox(width: 8),
+                    Text('Select trackers to view',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: _trackers.map((t) {
+                        final checked = chosen.contains(t.id);
+                        return CheckboxListTile(
+                          value: checked,
+                          onChanged: (v) {
+                            if (v == true) {
+                              chosen.add(t.id);
+                            } else {
+                              chosen.remove(t.id);
+                            }
+                            (ctx as Element).markNeedsBuild();
+                          },
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(t.label),
+                          secondary: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(color: t.color, shape: BoxShape.circle),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const Divider(),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedForChart
+                          ..clear()
+                          ..addAll(chosen);
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Done', style: TextStyle(color: Color(0xFF0D7C66))),
+                  ),
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
+  // ---- Color picker bits -------------------------------------------------
   Future<void> _openColorPicker(Tracker t) async {
     HSVColor hsv = HSVColor.fromColor(t.color);
 
