@@ -6,6 +6,7 @@ import 'pages/signup_page.dart';
 
 // FIX: correct import (singular). Make sure the file exists at lib/user_session.dart
 import 'pages/user_sessions.dart';
+import 'pages/services/user_settings.dart';
 
 /// Simple theme controller + scope ------------------------------------------------
 
@@ -48,21 +49,22 @@ class ThemeControllerScope extends InheritedNotifier<ThemeController> {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    // ignore: avoid_print
     print('✅ Firebase Initialized!');
   } catch (e) {
-    // ignore: avoid_print
     print('❌ Firebase Init Error: $e');
   }
 
-  // Load any cached user profile for instant access across pages after restart
+  // ✅ FIX: initialize UserSettings so SharedPreferences works
+  await UserSettings.init();
+
+  // ✅ This stays here
   await UserSession.instance.init();
 
-  // You could restore the saved choice here (SharedPreferences, etc.)
   final controller = ThemeController(isDark: false);
 
   runApp(ThemeControllerScope(
@@ -70,6 +72,7 @@ Future<void> main() async {
     child: RezonateApp(controller: controller),
   ));
 }
+
 
 class RezonateApp extends StatelessWidget {
   final ThemeController controller;

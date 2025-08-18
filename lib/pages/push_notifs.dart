@@ -3,20 +3,28 @@ import 'package:new_rezonate/main.dart' as app;
 import 'home.dart';
 import 'journal.dart';
 import 'settings.dart';
+import 'services/user_settings.dart';
 
 class PushNotificationsPage extends StatefulWidget {
   final String userName;
-  const PushNotificationsPage({Key? key, required this.userName})
-      : super(key: key);
+  const PushNotificationsPage({super.key, required this.userName});
 
   @override
   State<PushNotificationsPage> createState() => _PushNotificationsPageState();
 }
 
 class _PushNotificationsPageState extends State<PushNotificationsPage> {
-  bool enableAll = true;
-  bool daily = true;
-  bool replies = true;
+  bool enableAll = false;
+  bool daily = false;
+  bool replies = false;
+
+  @override
+  void initState() {
+    super.initState();
+    enableAll = UserSettings.pushEnabled;
+    daily = UserSettings.dailyReminderEnabled;
+    replies = UserSettings.replyNotificationsEnabled;
+  }
 
   LinearGradient _bg(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
@@ -24,8 +32,8 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: dark
-        ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-        : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)]
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -33,7 +41,7 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     required String title,
     String? subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
   }) {
     final green = const Color(0xFF0D7C66);
     return Container(
@@ -58,8 +66,7 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                 if (subtitle != null) ...[
                   const SizedBox(height: 6),
                   Text(subtitle,
-                      style:
-                          TextStyle(color: Colors.white.withOpacity(.9))),
+                      style: TextStyle(color: Colors.white.withOpacity(.9))),
                 ]
               ],
             ),
@@ -116,20 +123,50 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                     children: [
                       _pill(
                         title: 'Receive Push Notifications',
+                        subtitle:
+                            "Turn on to get tracking and reply notifications.",
                         value: enableAll,
-                        onChanged: (v) => setState(() => enableAll = v),
+                        onChanged: (v) {
+                          setState(() {
+                            enableAll = v;
+                            UserSettings.pushEnabled = v;
+
+                            if (!v) {
+                              daily = false;
+                              replies = false;
+                              UserSettings.dailyReminderEnabled = false;
+                              UserSettings.replyNotificationsEnabled = false;
+                            }
+                          });
+                        },
                       ),
                       _pill(
-                        title: 'Daily Writing Reminder',
+                        title: 'Daily Tracking Reminder',
                         subtitle:
-                            "Send a friendly reminder, if you haven't journaled today",
+                            "Send a friendly reminder if you haven’t tracked today.",
                         value: daily,
-                        onChanged: (v) => setState(() => daily = v),
+                        onChanged: enableAll
+                            ? (v) {
+                                setState(() {
+                                  daily = v;
+                                  UserSettings.dailyReminderEnabled = v;
+                                });
+                              }
+                            : null,
                       ),
                       _pill(
                         title: 'Replies to your Posts',
+                        subtitle:
+                            "Receive notifications about replies on the community feed.",
                         value: replies,
-                        onChanged: (v) => setState(() => replies = v),
+                        onChanged: enableAll
+                            ? (v) {
+                                setState(() {
+                                  replies = v;
+                                  UserSettings.replyNotificationsEnabled = v;
+                                });
+                              }
+                            : null,
                       ),
                     ],
                   ),
@@ -158,13 +195,20 @@ class _BottomNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          IconButton(icon: Icon(Icons.home, color: c(0)),
+          IconButton(
+              icon: Icon(Icons.home, color: c(0)),
               onPressed: () => Navigator.pushReplacement(
-                  context, MaterialPageRoute(builder: (_) => HomePage(userName: '')))),
-          IconButton(icon: Icon(Icons.menu_book, color: c(1)),
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => HomePage(userName: '')))),
+          IconButton(
+              icon: Icon(Icons.menu_book, color: c(1)),
               onPressed: () => Navigator.pushReplacement(
-                  context, MaterialPageRoute(builder: (_) => JournalPage(userName: '')))),
-          IconButton(icon: Icon(Icons.settings, color: c(2)),
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => JournalPage(userName: '')))),
+          IconButton(
+              icon: Icon(Icons.settings, color: c(2)),
               onPressed: () => Navigator.pop(context)),
         ],
       ),
