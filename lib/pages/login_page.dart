@@ -190,10 +190,10 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Full logo like sign-up (slightly smaller for balance)
+                        // Full logo like sign-up — bigger now
                         Image.asset(
                           'assets/images/Full_logo.png',
-                          height: 170,
+                          height: 230, // ⬅️ increased from 170
                           fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 10),
