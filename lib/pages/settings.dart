@@ -30,35 +30,44 @@ class _SettingsPageState extends State<SettingsPage> {
       _Item(
         label: 'Edit Profile',
         icon: Icons.person_outline,
-        keywords: const ['name', 'username', 'email', 'profile'],
+        keywords: const ['name', 'username', 'email', 'profile', 'photo', 'picture', 'birthday'],
         builder: () => EditProfilePage(userName: widget.userName),
       ),
       _Item(
         label: 'Change Password',
         icon: Icons.lock_outline,
-        keywords: const ['password', 'security', 'update'],
+        keywords: const ['password', 'security', 'update', 'credentials'],
         builder: () => const ChangePasswordPage(userName: ''),
       ),
       _Item(
         label: 'Security & Privacy',
         icon: Icons.security,
-        keywords: const ['privacy', 'encryption', 'anonymous', 'sharing'],
+        keywords: const [
+          'privacy',
+          'security',
+          'encryption',
+          'anonymous',
+          'sharing',
+          'app lock',
+          'blocked users',
+          'my journal lock'
+        ],
         builder: () => SecurityAndPrivacyPage(userName: widget.userName),
       ),
       _Item(
         label: 'Push Notifications',
         icon: Icons.notifications_active_outlined,
-        keywords: const ['push', 'notifications', 'reminders'],
+        keywords: const ['push', 'notifications', 'reminders', 'alerts'],
         builder: () => PushNotificationsPage(userName: widget.userName),
       ),
       _Item(
         label: 'Deactivate Account',
         icon: Icons.person_off_outlined,
-        keywords: const ['deactivate', 'disable', 'close account'],
+        keywords: const ['deactivate', 'disable', 'delete', 'close account', 'remove'],
         builder: () => DeactivateAccountPage(userName: widget.userName),
       ),
-      _Item.darkMode(), // inline “row” handled below
-      _Item.logout(), // inline “row” handled below
+      _Item.darkMode(), // inline toggle row
+      _Item.logout(),   // inline logout row
     ];
     _shown = List.of(_all);
     _searchCtrl.addListener(_onSearch);
@@ -77,16 +86,77 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     setState(() {
-      _shown =
-          _all.where((it) {
-            if (it.type != _RowType.link) return false;
-            if (it.label.toLowerCase().contains(q)) return true;
-            return it.keywords.any((k) => k.contains(q));
-          }).toList();
+      _shown = _all.where((it) {
+        if (it.type != _RowType.link) return false;
+        if (it.label.toLowerCase().contains(q)) return true;
+        return it.keywords.any((k) => k.contains(q));
+      }).toList();
     });
   }
 
-  // Simple gradient chooser that doesn’t rely on AppGradients fields
+  // Jump straight to the best result when user submits.
+  Future<void> _goToSearchResult() async {
+    final results = _shown.where((it) => it.type == _RowType.link).toList();
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('No matching settings found')));
+      return;
+    }
+    if (results.length == 1) {
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(builder: (_) => results.first.builder()));
+      return;
+    }
+    // Multiple matches -> quick picker sheet
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        final dark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF123A36) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 4,
+                  width: 44,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text('Select a setting',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                ...results.map((it) => ListTile(
+                      leading: Icon(it.icon, color: const Color(0xFF0D7C66)),
+                      title: Text(it.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => it.builder()));
+                      },
+                    )),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Simple gradient chooser
   List<Color> _gradient(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return dark
@@ -97,6 +167,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final g = _gradient(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final searchFill = isDark ? const Color(0x1AF5F5F5) : Colors.white;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -111,28 +183,17 @@ class _SettingsPageState extends State<SettingsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header + back
-              // Header + back
+              // Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(40, 29, 0, 13),
+                padding: const EdgeInsets.fromLTRB(40, 29, 40, 8),
                 child: Row(
-                  children: [
+                  children: const [
                     Expanded(
                       child: Text(
                         'Settings',
                         style: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w700,
-                          shadows:
-                              Theme.of(context).brightness == Brightness.dark
-                                  ? [
-                                    const Shadow(
-                                      offset: Offset(1, 1),
-                                      blurRadius: 15,
-                                      color: Colors.black,
-                                    ),
-                                  ]
-                                  : null,
                         ),
                       ),
                     ),
@@ -140,55 +201,65 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
 
-              // Search
+              // Cleaner search bar
               Padding(
-                padding: const EdgeInsets.fromLTRB(28, 0, 26, 20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).brightness == Brightness.dark
-                            ? const Color.fromARGB(57, 210, 210, 210) // dark mode background
-                            : const Color.fromARGB(152, 255, 255, 255), // light mode background
-                    borderRadius: BorderRadius.circular(0),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'search',
-                          ),
-                          textInputAction: TextInputAction.search,
-                        ),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                child: Material(
+                  elevation: 4,
+                  shadowColor: Colors.black12,
+                  borderRadius: BorderRadius.circular(28),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _goToSearchResult(),
+                    decoration: InputDecoration(
+                      hintText: 'Search settings…',
+                      filled: true,
+                      fillColor: searchFill,
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchCtrl.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear',
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                _onSearch();
+                              },
+                            ),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(28),
+                        borderSide: BorderSide.none,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: _onSearch,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
 
-              // List
+              // Results list
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                  itemCount: _shown.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 14),
-                  itemBuilder: (context, i) {
-                    final it = _shown[i];
-                    if (it.type == _RowType.darkMode)
-                      return _darkModeRow(context);
-                    if (it.type == _RowType.logout) return _logoutRow(context);
-                    return _linkRow(context, it);
-                  },
-                ),
+                child: _shown.isEmpty
+                    ? const Center(
+                        child: Text('No results',
+                            style:
+                                TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        itemCount: _shown.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        itemBuilder: (context, i) {
+                          final it = _shown[i];
+                          if (it.type == _RowType.darkMode) return _darkModeRow(context);
+                          if (it.type == _RowType.logout) return _logoutRow(context);
+                          return _linkRow(context, it);
+                        },
+                      ),
               ),
 
-              // Transparent bottom navigation
+              // Bottom navigation
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
@@ -198,27 +269,23 @@ class _SettingsPageState extends State<SettingsPage> {
                       context,
                       icon: Icons.home_rounded,
                       selected: false,
-                      onTap:
-                          () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => HomePage(userName: widget.userName),
-                            ),
-                          ),
+                      onTap: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HomePage(userName: widget.userName),
+                        ),
+                      ),
                     ),
                     _navIcon(
                       context,
                       icon: Icons.menu_book_rounded,
                       selected: false,
-                      onTap:
-                          () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => JournalPage(userName: widget.userName),
-                            ),
-                          ),
+                      onTap: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => JournalPage(userName: widget.userName),
+                        ),
+                      ),
                     ),
                     _navIcon(
                       context,
@@ -239,13 +306,12 @@ class _SettingsPageState extends State<SettingsPage> {
   // ————————— UI parts —————————
 
   Widget _linkRow(BuildContext context, _Item it) {
-    final bg = Color.fromARGB(131, 0, 150, 135);
+    final bg = const Color.fromARGB(131, 0, 150, 135);
     return InkWell(
-      onTap:
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => it.builder()),
-          ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => it.builder()),
+      ),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
@@ -274,15 +340,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
-            Container(
-              height: 30,
-              width: 30,
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-              ),
-            ),
+            const Icon(Icons.arrow_forward_rounded, color: Colors.white),
           ],
         ),
       ),
@@ -325,14 +383,12 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () => ctrl.toggleTheme(),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder:
-                  (child, anim) => RotationTransition(
-                    turns:
-                        child.key == const ValueKey('sun')
-                            ? Tween<double>(begin: 0.75, end: 1).animate(anim)
-                            : Tween<double>(begin: 0.25, end: 1).animate(anim),
-                    child: FadeTransition(opacity: anim, child: child),
-                  ),
+              transitionBuilder: (child, anim) => RotationTransition(
+                turns: child.key == const ValueKey('sun')
+                    ? Tween<double>(begin: 0.75, end: 1).animate(anim)
+                    : Tween<double>(begin: 0.25, end: 1).animate(anim),
+                child: FadeTransition(opacity: anim, child: child),
+              ),
               child: Icon(
                 on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
                 key: ValueKey(on ? 'moon' : 'sun'),
@@ -347,10 +403,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _logoutRow(BuildContext context) {
-    final bg = Color.fromARGB(131, 0, 150, 135);
+    final bg = const Color.fromARGB(131, 0, 150, 135);
     return InkWell(
       onTap: () async {
-        // If you also sign out Firebase, do it here, then:
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -425,25 +480,25 @@ class _Item {
     required this.icon,
     required this.keywords,
     required Widget Function() builder,
-  }) : _builder = builder,
-       type = _RowType.link;
+  })  : _builder = builder,
+        type = _RowType.link;
 
   _Item._special(this.label, this.icon, this.keywords, this.type)
-    : _builder = null;
+      : _builder = null;
 
   factory _Item.darkMode() => _Item._special(
-    'Dark Mode',
-    Icons.dark_mode_rounded,
-    const [],
-    _RowType.darkMode,
-  );
+        'Dark Mode',
+        Icons.dark_mode_rounded,
+        const [],
+        _RowType.darkMode,
+      );
 
   factory _Item.logout() => _Item._special(
-    'Log out',
-    Icons.logout_rounded,
-    const ['logout'],
-    _RowType.logout,
-  );
+        'Log out',
+        Icons.logout_rounded,
+        const ['logout'],
+        _RowType.logout,
+      );
 
   Widget builder() => _builder!.call();
 }

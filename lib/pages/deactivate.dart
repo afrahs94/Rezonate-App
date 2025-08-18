@@ -34,6 +34,35 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
     );
   }
 
+  // Ask the user to confirm before deleting
+  Future<void> _confirmAndDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This will permanently remove your account and all data. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _deleteAccount();
+    }
+  }
+
   Future<void> _deleteAccount() async {
     final auth = FirebaseAuth.instance;
     final uid = auth.currentUser?.uid;
@@ -119,7 +148,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                 ),
               ),
 
-              // NEW: Full logo at the top, like sign-up (slightly smaller)
+              // Full logo at the top
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Image.asset(
@@ -131,7 +160,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
 
               const SizedBox(height: 12),
 
-              // Body copy (smaller + centralized)
+              // Body copy
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
@@ -145,7 +174,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                             style: theme.textTheme.titleMedium?.copyWith(
                               height: 1.4,
                               color: onSurface,
-                              fontSize: 18, // smaller
+                              fontSize: 18,
                             ),
                             children: const [
                               TextSpan(
@@ -160,14 +189,14 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20), // tighter spacing
+                        const SizedBox(height: 20),
                         RichText(
                           textAlign: TextAlign.center,
                           text: TextSpan(
                             style: theme.textTheme.titleMedium?.copyWith(
                               height: 1.4,
                               color: onSurface,
-                              fontSize: 18, // smaller
+                              fontSize: 18,
                             ),
                             children: const [
                               TextSpan(text: 'This action cannot be '),
@@ -189,7 +218,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
 
               const Spacer(),
 
-              // Buttons row (smaller + friendlier sizing)
+              // Buttons row
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12),
@@ -219,13 +248,13 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: const Text('Cancel',
-                            style: TextStyle(fontSize: 15)), // smaller
+                            style: TextStyle(fontSize: 15)),
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _working ? null : _deleteAccount,
+                        onPressed: _working ? null : _confirmAndDelete,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _danger,
                           foregroundColor: Colors.white,
@@ -241,59 +270,15 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                                 width: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2))
                             : const Text('Delete',
-                                style: TextStyle(fontSize: 15)), // smaller
+                                style: TextStyle(fontSize: 15)),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Bottom nav (icons slightly smaller)
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                      left: 24, right: 24, bottom: 8, top: 2),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _BottomIcon(
-                        icon: Icons.home_rounded,
-                        selected: false,
-                        onTap: () => Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                HomePage(userName: widget.userName),
-                          ),
-                        ),
-                      ),
-                      _BottomIcon(
-                        icon: Icons.menu_book_rounded,
-                        selected: false,
-                        onTap: () => Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                JournalPage(userName: widget.userName),
-                          ),
-                        ),
-                      ),
-                      _BottomIcon(
-                        icon: Icons.settings_rounded,
-                        selected: true, // we are inside settings flow
-                        onTap: () => Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SettingsPage(userName: widget.userName),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // Bottom navigation — matches other pages
+              _BottomNav(index: 2, userName: widget.userName),
             ],
           ),
         ),
@@ -302,27 +287,54 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
   }
 }
 
-class _BottomIcon extends StatelessWidget {
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _BottomIcon({
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
+// Same bottom nav look/behavior as other pages
+class _BottomNav extends StatelessWidget {
+  final int index; // 0=home, 1=journal, 2=settings
+  final String userName;
+  const _BottomNav({required this.index, required this.userName});
+
+  Color get _teal => const Color(0xFF0D7C66);
+
+  Color _c(int i) => i == index ? _teal : Colors.white;
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFF0D7C66);
-    final off = Theme.of(context).colorScheme.onSurface.withOpacity(0.85);
-    return InkResponse(
-      onTap: onTap,
-      radius: 26,
-      child: Icon(
-        icon,
-        size: 24, // smaller
-        color: selected ? brand : off,
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              icon: Icon(Icons.home_filled, color: _c(0)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HomePage(userName: userName),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.menu_book_rounded, color: _c(1)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => JournalPage(userName: userName),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.settings, color: _c(2)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SettingsPage(userName: userName),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
