@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:new_rezonate/theme/app_gradient_scaffold.dart';
 
 import 'home.dart';
 import 'journal.dart';
@@ -35,6 +34,7 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     if (uid == null) return;
 
     final settings = await _firestoreService.getNotificationSettings(uid);
+
     setState(() {
       enableAll = settings['push_notifications_enabled'] ?? false;
       daily = settings['daily_reminder_enabled'] ?? false;
@@ -50,12 +50,18 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
+    final pushState = push ?? enableAll;
+
     await _firestoreService.updateNotificationSettings(
       uid,
-      pushEnabled: push ?? enableAll,
+      pushEnabled: pushState,
       dailyReminderEnabled: dailyReminder ?? daily,
       replyNotificationsEnabled: replyNotifications ?? replies,
     );
+
+    if (pushState) {
+      await _registerFcmToken();
+    }
   }
 
   Future<bool> _requestNotificationPermission() async {
@@ -78,9 +84,13 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      await _firestoreService.updateFcmToken(uid, token);
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null && token.isNotEmpty) {
+        await _firestoreService.updateFcmToken(uid, token);
+      }
+    } catch (e) {
+      debugPrint('FCM token registration failed: $e');
     }
   }
 
@@ -131,121 +141,176 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AppGradientScaffold(
-      appBar: AppBar(
-        title: const Text('Push Notifications'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SettingsPage(userName: widget.userName),
-            ),
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface.withOpacity(0.9);
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFD7C3F1), Color(0xFFBDE8CA)],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Top bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back,
+                          color: theme.colorScheme.onSurface),
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                SettingsPage(userName: widget.userName),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Push Notifications',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: onSurface,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Notification toggle list
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  child: Column(
+                    children: [
+                      _pill(
+                        title: 'Receive Push Notifications',
+                        subtitle:
+                            "Turn on to get tracking and reply notifications.",
+                        value: enableAll,
+                        onChanged: (v) async {
+                          if (v) {
+                            final granted =
+                                await _requestNotificationPermission();
+                            if (!granted) return;
+                          }
+
+                          setState(() {
+                            enableAll = v;
+                            if (!v) {
+                              daily = false;
+                              replies = false;
+                            }
+                          });
+
+                          await _saveSettings(
+                            push: v,
+                            dailyReminder: v ? daily : false,
+                            replyNotifications: v ? replies : false,
+                          );
+                        },
+                      ),
+                      _pill(
+                        title: 'Daily Tracking Reminder',
+                        subtitle:
+                            "Send a friendly reminder if you haven’t tracked today.",
+                        value: daily,
+                        onChanged: enableAll
+                            ? (v) async {
+                                setState(() => daily = v);
+                                await _saveSettings(dailyReminder: v);
+                              }
+                            : null,
+                      ),
+                      _pill(
+                        title: 'Replies to your Posts',
+                        subtitle:
+                            "Receive notifications about replies on the community feed.",
+                        value: replies,
+                        onChanged: enableAll
+                            ? (v) async {
+                                setState(() => replies = v);
+                                await _saveSettings(replyNotifications: v);
+                              }
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Bottom navigation
+              _BottomNav(index: 2, userName: widget.userName),
+            ],
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          children: [
-            _pill(
-              title: 'Receive Push Notifications',
-              subtitle: "Turn on to get tracking and reply notifications.",
-              value: enableAll,
-              onChanged: (v) async {
-                if (v) {
-                  final granted = await _requestNotificationPermission();
-                  if (!granted) return;
-                }
-
-                setState(() {
-                  enableAll = v;
-                  if (!v) {
-                    daily = false;
-                    replies = false;
-                  }
-                });
-
-                await _saveSettings(
-                  push: v,
-                  dailyReminder: v ? daily : false,
-                  replyNotifications: v ? replies : false,
-                );
-              },
-            ),
-            _pill(
-              title: 'Daily Tracking Reminder',
-              subtitle:
-                  "Send a friendly reminder if you haven’t tracked today.",
-              value: daily,
-              onChanged: enableAll
-                  ? (v) async {
-                      setState(() => daily = v);
-                      await _saveSettings(dailyReminder: v);
-                    }
-                  : null,
-            ),
-            _pill(
-              title: 'Replies to your Posts',
-              subtitle:
-                  "Receive notifications about replies on the community feed.",
-              value: replies,
-              onChanged: enableAll
-                  ? (v) async {
-                      setState(() => replies = v);
-                      await _saveSettings(replyNotifications: v);
-                    }
-                  : null,
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: const _BottomNav(index: 2),
     );
   }
 }
 
 class _BottomNav extends StatelessWidget {
   final int index;
-  const _BottomNav({required this.index});
+  final String userName;
+  const _BottomNav({required this.index, required this.userName});
+
+  Color get _teal => const Color(0xFF0D7C66);
+  Color _c(int i) => i == index ? _teal : Colors.white;
 
   @override
   Widget build(BuildContext context) {
-    final green = const Color(0xFF0D7C66);
-    Color c(int i) => i == index ? green : Colors.white;
-
-    return Container(
-      color: Colors.white, // Fixes the black area
-      padding: const EdgeInsets.only(bottom: 8, top: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          IconButton(
-            icon: Icon(Icons.home, color: c(0)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => HomePage(userName: ''),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            IconButton(
+              icon: Icon(Icons.home_filled, color: _c(0)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HomePage(userName: userName),
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => JournalPage(userName: ''),
+            IconButton(
+              icon: Icon(Icons.menu_book_rounded, color: _c(1)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => JournalPage(userName: userName),
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.settings, color: c(2)),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+            IconButton(
+              icon: Icon(Icons.settings, color: _c(2)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SettingsPage(userName: userName),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
 
 
