@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 import 'package:new_rezonate/pages/home.dart' as home_page;
 import 'package:new_rezonate/main.dart' as app;
@@ -10,6 +12,74 @@ import 'package:new_rezonate/pages/settings.dart';
 import 'package:new_rezonate/pages/services/user_settings.dart' as app_settings;
 
 const _teal = Color(0xFF0D7C66);
+
+//for private journal lock
+Future<bool> _promptForPin(BuildContext context) async {
+  final auth = FirebaseAuth.instance;
+  final db = FirebaseFirestore.instance;
+  final uid = auth.currentUser?.uid;
+  if (uid == null) return false;
+
+  final snap = await db.collection('users').doc(uid).get();
+  final storedHash = snap.data()?['journal_lock_pin'] as String?;
+  final enabled = snap.data()?['journal_lock_enabled'] as bool? ?? false;
+
+  // If no lock is enabled, just allow access
+  if (!enabled || storedHash == null) return true;
+
+  final pinCtrl = TextEditingController();
+  String? err;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) {
+      return StatefulBuilder(
+        builder: (ctx, setLocal) {
+          return AlertDialog(
+            title: const Text('Enter PIN'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: pinCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'PIN'),
+                ),
+                if (err != null) ...[
+                  const SizedBox(height: 8),
+                  Text(err!, style: const TextStyle(color: Colors.red)),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final entered = pinCtrl.text.trim();
+                  final enteredHash =
+                      sha256.convert(utf8.encode(entered)).toString();
+                  if (enteredHash == storedHash) {
+                    Navigator.pop(ctx, true);
+                  } else {
+                    setLocal(() => err = 'Incorrect PIN');
+                  }
+                },
+                child: const Text('Unlock'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  return ok == true;
+}
 
 /// Resolve usernames for display.
 class _UsernameResolver {
@@ -33,11 +103,12 @@ class _UsernameResolver {
   static Future<String?> resolveByEmail(String email) async {
     if (email.isEmpty) return null;
     try {
-      final q = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
+      final q =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
       if (q.docs.isNotEmpty) {
         final uid = q.docs.first.id;
         final name = (q.docs.first.data()['username'] as String?)?.trim();
@@ -62,6 +133,7 @@ class _UsernameResolver {
 }
 
 enum _TimeFilter { all, d1, d7, d30 }
+
 enum _OrderBy { dateDesc, dateAsc, mostReacted, mostReplies }
 
 class JournalPage extends StatefulWidget {
@@ -154,7 +226,9 @@ class _JournalPageState extends State<JournalPage>
     final anon = await _isAnonymousNow();
 
     final safeUsername =
-        anon ? 'anonymous user' : await _UsernameResolver.forCurrent(u, widget.userName);
+        anon
+            ? 'anonymous user'
+            : await _UsernameResolver.forCurrent(u, widget.userName);
 
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
@@ -234,7 +308,9 @@ class _JournalPageState extends State<JournalPage>
     final anon = await _isAnonymousNow();
 
     final safeUsername =
-        anon ? 'anonymous user' : await _UsernameResolver.forCurrent(u, widget.userName);
+        anon
+            ? 'anonymous user'
+            : await _UsernameResolver.forCurrent(u, widget.userName);
 
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
@@ -278,32 +354,34 @@ class _JournalPageState extends State<JournalPage>
     final ctl = TextEditingController(text: currentText);
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Edit post'),
-        content: TextField(
-          controller: ctl,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Edit post'),
+            content: TextField(
+              controller: ctl,
+              maxLines: 8,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final newText = ctl.text.trim();
+                  if (newText.isNotEmpty) {
+                    await _public.doc(postId).update({
+                      'content': newText,
+                      'updatedAt': FieldValue.serverTimestamp(),
+                    });
+                  }
+                  if (mounted) Navigator.pop(context);
+                },
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final newText = ctl.text.trim();
-              if (newText.isNotEmpty) {
-                await _public.doc(postId).update({
-                  'content': newText,
-                  'updatedAt': FieldValue.serverTimestamp(),
-                });
-              }
-              if (mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -313,43 +391,47 @@ class _JournalPageState extends State<JournalPage>
     final cCtl = TextEditingController();
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('New entry'),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: tCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Entry Title',
-                  border: OutlineInputBorder(),
-                ),
+      builder:
+          (_) => AlertDialog(
+            title: const Text('New entry'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: tCtl,
+                    decoration: const InputDecoration(
+                      labelText: 'Entry Title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: cCtl,
+                    maxLines: 10,
+                    decoration: const InputDecoration(
+                      labelText: 'Write a private entry…',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: cCtl,
-                maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: 'Write a private entry…',
-                  border: OutlineInputBorder(),
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await _createPrivateEntry(tCtl.text.trim(), cCtl.text.trim());
+                  if (mounted) Navigator.pop(context);
+                },
+                child: const Text('Save'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await _createPrivateEntry(tCtl.text.trim(), cCtl.text.trim());
-              if (mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -386,9 +468,10 @@ class _JournalPageState extends State<JournalPage>
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -409,40 +492,102 @@ class _JournalPageState extends State<JournalPage>
             return Container(
               decoration: BoxDecoration(
                 color: card,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 12),
+                ],
               ),
               child: Column(
                 children: [
                   const SizedBox(height: 10),
                   Container(
-                    height: 4, width: 44,
+                    height: 4,
+                    width: 44,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade400,
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text('Filters', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Filters',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView(
                       controller: scrollCtrl,
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       children: [
-                        const Text('Time range', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const Text(
+                          'Time range',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 6),
-                        _radioTile<_TimeFilter>(ctx, 'All time', _TimeFilter.all, t, (v) => t = v!),
-                        _radioTile<_TimeFilter>(ctx, 'Last 24 hours', _TimeFilter.d1, t, (v) => t = v!),
-                        _radioTile<_TimeFilter>(ctx, 'Last 7 days', _TimeFilter.d7, t, (v) => t = v!),
-                        _radioTile<_TimeFilter>(ctx, 'Last 30 days', _TimeFilter.d30, t, (v) => t = v!),
+                        _radioTile<_TimeFilter>(
+                          ctx,
+                          'All time',
+                          _TimeFilter.all,
+                          t,
+                          (v) => t = v!,
+                        ),
+                        _radioTile<_TimeFilter>(
+                          ctx,
+                          'Last 24 hours',
+                          _TimeFilter.d1,
+                          t,
+                          (v) => t = v!,
+                        ),
+                        _radioTile<_TimeFilter>(
+                          ctx,
+                          'Last 7 days',
+                          _TimeFilter.d7,
+                          t,
+                          (v) => t = v!,
+                        ),
+                        _radioTile<_TimeFilter>(
+                          ctx,
+                          'Last 30 days',
+                          _TimeFilter.d30,
+                          t,
+                          (v) => t = v!,
+                        ),
                         const SizedBox(height: 12),
-                        const Text('Sort by', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const Text(
+                          'Sort by',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 6),
-                        _radioTile<_OrderBy>(ctx, 'Newest', _OrderBy.dateDesc, o, (v) => o = v!),
-                        _radioTile<_OrderBy>(ctx, 'Oldest', _OrderBy.dateAsc, o, (v) => o = v!),
-                        _radioTile<_OrderBy>(ctx, 'Most reacted', _OrderBy.mostReacted, o, (v) => o = v!),
-                        _radioTile<_OrderBy>(ctx, 'Most replies', _OrderBy.mostReplies, o, (v) => o = v!),
+                        _radioTile<_OrderBy>(
+                          ctx,
+                          'Newest',
+                          _OrderBy.dateDesc,
+                          o,
+                          (v) => o = v!,
+                        ),
+                        _radioTile<_OrderBy>(
+                          ctx,
+                          'Oldest',
+                          _OrderBy.dateAsc,
+                          o,
+                          (v) => o = v!,
+                        ),
+                        _radioTile<_OrderBy>(
+                          ctx,
+                          'Most reacted',
+                          _OrderBy.mostReacted,
+                          o,
+                          (v) => o = v!,
+                        ),
+                        _radioTile<_OrderBy>(
+                          ctx,
+                          'Most replies',
+                          _OrderBy.mostReplies,
+                          o,
+                          (v) => o = v!,
+                        ),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -466,8 +611,13 @@ class _JournalPageState extends State<JournalPage>
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _teal,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 10,
+                            ),
                           ),
                           onPressed: () {
                             setState(() {
@@ -524,8 +674,9 @@ class _JournalPageState extends State<JournalPage>
         title: Image.asset(
           'assets/images/Logo.png',
           height: 60,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.bolt, color: _teal.withOpacity(.9), size: 32),
+          errorBuilder:
+              (_, __, ___) =>
+                  Icon(Icons.bolt, color: _teal.withOpacity(.9), size: 32),
         ),
       ),
       body: Container(
@@ -567,7 +718,10 @@ class _JournalPageState extends State<JournalPage>
                             shape: BoxShape.circle,
                           ),
                           padding: const EdgeInsets.all(10),
-                          child: const Icon(Icons.filter_list_rounded, color: _teal),
+                          child: const Icon(
+                            Icons.filter_list_rounded,
+                            color: _teal,
+                          ),
                         ),
                       ),
                     ),
@@ -585,7 +739,11 @@ class _JournalPageState extends State<JournalPage>
                         ),
                         child: Row(
                           children: const [
-                            Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange),
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 18,
+                              color: Colors.orange,
+                            ),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -598,57 +756,105 @@ class _JournalPageState extends State<JournalPage>
                       ),
                     ),
                   const SizedBox(height: 6),
-
                   Expanded(
-                    child: _seg == 0
-                        ? _CommunityFeed(
-                            user: u,
-                            blocked: _blocked,
-                            publicCol: _public,
-                            onReact: _reactOnce,
-                            onReply: _reply,
-                            onDelete: _deletePost,
-                            onEdit: _editPost,
-                            onBlock: _blockUser,
-                            openReplyFor: _openReplyFor,
-                            setOpenReplyFor: (id) {
-                              setState(() => _openReplyFor = id == _openReplyFor ? null : id);
-                            },
-                            replyCtlFor: (id) => _replyCtls.putIfAbsent(
-                              id,
-                              () => TextEditingController(),
+                    child:
+                        _seg == 0
+                            ? _CommunityFeed(
+                              user: u,
+                              blocked: _blocked,
+                              publicCol: _public,
+                              onReact: _reactOnce,
+                              onReply: _reply,
+                              onDelete: _deletePost,
+                              onEdit: _editPost,
+                              onBlock: _blockUser,
+                              openReplyFor: _openReplyFor,
+                              setOpenReplyFor: (id) {
+                                setState(
+                                  () =>
+                                      _openReplyFor =
+                                          id == _openReplyFor ? null : id,
+                                );
+                              },
+                              replyCtlFor:
+                                  (id) => _replyCtls.putIfAbsent(
+                                    id,
+                                    () => TextEditingController(),
+                                  ),
+                              fmtFull: _fmtFull,
+                              relative: _relative,
+                              filterFrom: _filterFromDate(_timeFilter),
+                              orderBy: _orderBy,
+                            )
+                            : FutureBuilder<bool>(
+                              future: _promptForPin(context),
+                              builder: (ctx, snap) {
+                                if (snap.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                if (snap.data == true) {
+                                  return _PrivateJournal(
+                                    uid: u?.uid,
+                                    col: u == null ? null : _privateCol(u.uid),
+                                    fmtFull: _fmtFull,
+                                  );
+                                } else {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text('My Journal is locked.'),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed: () async {
+                                            final ok = await _promptForPin(
+                                              context,
+                                            );
+                                            if (ok) {
+                                              // Force rebuild so the FutureBuilder runs again
+                                              setState(() {});
+                                            }
+                                          },
+                                          child: const Text('Unlock'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                              },
                             ),
-                            fmtFull: _fmtFull,
-                            relative: _relative,
-                            filterFrom: _filterFromDate(_timeFilter),
-                            orderBy: _orderBy,
-                          )
-                        : _PrivateJournal(
-                            uid: u?.uid,
-                            col: u == null ? null : _privateCol(u.uid),
-                            fmtFull: _fmtFull,
-                          ),
                   ),
 
                   // Composer (community only) – semi-translucent, rounded, cleaner.
-                  if (_seg == 0) _publicComposer() else const SizedBox(height: 8),
+                  if (_seg == 0)
+                    _publicComposer()
+                  else
+                    const SizedBox(height: 8),
 
                   _BottomNavTransparent(
                     selectedIndex: 1,
-                    onHome: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            home_page.HomePage(userName: widget.userName),
-                      ),
-                    ),
+                    onHome:
+                        () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => home_page.HomePage(
+                                  userName: widget.userName,
+                                ),
+                          ),
+                        ),
                     onJournal: () {},
-                    onSettings: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SettingsPage(userName: widget.userName),
-                      ),
-                    ),
+                    onSettings:
+                        () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => SettingsPage(userName: widget.userName),
+                          ),
+                        ),
                   ),
                 ],
               ),
@@ -704,7 +910,10 @@ class _JournalPageState extends State<JournalPage>
                 decoration: const InputDecoration(
                   hintText: 'start writing',
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
               ),
             ),
@@ -767,7 +976,10 @@ class _CommunityFeed extends StatelessWidget {
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> q = publicCol;
     if (filterFrom != null) {
-      q = q.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(filterFrom!));
+      q = q.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(filterFrom!),
+      );
     }
     switch (orderBy) {
       case _OrderBy.dateDesc:
@@ -777,10 +989,14 @@ class _CommunityFeed extends StatelessWidget {
         q = q.orderBy('createdAt', descending: false);
         break;
       case _OrderBy.mostReacted:
-        q = q.orderBy('reactionScore', descending: true).orderBy('createdAt', descending: true);
+        q = q
+            .orderBy('reactionScore', descending: true)
+            .orderBy('createdAt', descending: true);
         break;
       case _OrderBy.mostReplies:
-        q = q.orderBy('replyCount', descending: true).orderBy('createdAt', descending: true);
+        q = q
+            .orderBy('replyCount', descending: true)
+            .orderBy('createdAt', descending: true);
         break;
     }
     return q.limit(500);
@@ -864,7 +1080,11 @@ class _CommunityFeed extends StatelessWidget {
                           canEdit: canEdit,
                           canDelete: canEdit,
                           canBlock: canBlock,
-                          onEdit: () => onEdit(doc.id, (m['content'] as String?) ?? ''),
+                          onEdit:
+                              () => onEdit(
+                                doc.id,
+                                (m['content'] as String?) ?? '',
+                              ),
                           onDelete: () => onDelete(doc.id),
                           onBlock: () => onBlock(postUid),
                         ),
@@ -876,13 +1096,14 @@ class _CommunityFeed extends StatelessWidget {
                     const SizedBox(height: 12),
 
                     StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                      stream: (user == null)
-                          ? null
-                          : publicCol
-                              .doc(doc.id)
-                              .collection('reactions')
-                              .doc(user!.uid)
-                              .snapshots(),
+                      stream:
+                          (user == null)
+                              ? null
+                              : publicCol
+                                  .doc(doc.id)
+                                  .collection('reactions')
+                                  .doc(user!.uid)
+                                  .snapshots(),
                       builder: (context, rxSnap) {
                         final myEmoji =
                             (rxSnap.data?.data()?['emoji'] as String?) ?? '';
@@ -892,29 +1113,40 @@ class _CommunityFeed extends StatelessWidget {
                               emoji: '❤️',
                               count: (m['reactions']?['❤️'] ?? 0) as int,
                               selected: myEmoji == '❤️',
-                              onTap: user == null ? null : () => onReact(doc.id, '❤️'),
+                              onTap:
+                                  user == null
+                                      ? null
+                                      : () => onReact(doc.id, '❤️'),
                             ),
                             const SizedBox(width: 8),
                             _EmojiSelectable(
                               emoji: '👍',
                               count: (m['reactions']?['👍'] ?? 0) as int,
                               selected: myEmoji == '👍',
-                              onTap: user == null ? null : () => onReact(doc.id, '👍'),
+                              onTap:
+                                  user == null
+                                      ? null
+                                      : () => onReact(doc.id, '👍'),
                             ),
                             const SizedBox(width: 8),
                             _EmojiSelectable(
                               emoji: '🥲',
                               count: (m['reactions']?['🥲'] ?? 0) as int,
                               selected: myEmoji == '🥲',
-                              onTap: user == null ? null : () => onReact(doc.id, '🥲'),
+                              onTap:
+                                  user == null
+                                      ? null
+                                      : () => onReact(doc.id, '🥲'),
                             ),
                             const Spacer(),
                             _RepliesToggle(
                               col: publicCol,
                               postId: doc.id,
                               open: openReplyFor == doc.id,
-                              onPressed: () =>
-                                  setOpenReplyFor(openReplyFor == doc.id ? null : doc.id),
+                              onPressed:
+                                  () => setOpenReplyFor(
+                                    openReplyFor == doc.id ? null : doc.id,
+                                  ),
                             ),
                           ],
                         );
@@ -968,36 +1200,49 @@ class _PrivateJournal extends StatelessWidget {
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: col!.orderBy('createdAt', descending: true).limit(200).snapshots(),
+      stream:
+          col!.orderBy('createdAt', descending: true).limit(200).snapshots(),
       builder: (context, snap) {
         final list = snap.data?.docs ?? [];
         if (list.isEmpty) {
           return const Center(child: Text('No entries yet. Tap + to add one.'));
         }
 
-        Future<void> _viewEntry(QueryDocumentSnapshot<Map<String, dynamic>> d) async {
+        Future<void> _viewEntry(
+          QueryDocumentSnapshot<Map<String, dynamic>> d,
+        ) async {
           final m = d.data();
           await showDialog(
             context: context,
-            builder: (_) => AlertDialog(
-              title: Text((m['title'] as String?) ?? 'Untitled'),
-              content: SizedBox(
-                width: 520,
-                child: SingleChildScrollView(
-                  child: Text((m['content'] as String?) ?? ''),
+            builder:
+                (_) => AlertDialog(
+                  title: Text((m['title'] as String?) ?? 'Untitled'),
+                  content: SizedBox(
+                    width: 520,
+                    child: SingleChildScrollView(
+                      child: Text((m['content'] as String?) ?? ''),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _editEntry(
+                          context,
+                          col!,
+                          d.id,
+                          m['title'] ?? '',
+                          m['content'] ?? '',
+                        );
+                      },
+                      child: const Text('Edit'),
+                    ),
+                  ],
                 ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _editEntry(context, col!, d.id, m['title'] ?? '', m['content'] ?? '');
-                  },
-                  child: const Text('Edit'),
-                ),
-              ],
-            ),
           );
         }
 
@@ -1006,7 +1251,8 @@ class _PrivateJournal extends StatelessWidget {
           children: [
             ...list.map((d) {
               final m = d.data();
-              final ts = (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final ts =
+                  (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
               return _Card(
                 child: ListTile(
                   onTap: () => _viewEntry(d),
@@ -1037,29 +1283,45 @@ class _PrivateJournal extends StatelessWidget {
                   trailing: PopupMenuButton<String>(
                     onSelected: (v) async {
                       if (v == 'edit') {
-                        _editEntry(context, col!, d.id, m['title'] ?? '', m['content'] ?? '');
+                        _editEntry(
+                          context,
+                          col!,
+                          d.id,
+                          m['title'] ?? '',
+                          m['content'] ?? '',
+                        );
                       }
                       if (v == 'delete') {
                         final ok = await showDialog<bool>(
                           context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Delete entry?'),
-                            content: const Text('This cannot be undone.'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                              ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-                            ],
-                          ),
+                          builder:
+                              (_) => AlertDialog(
+                                title: const Text('Delete entry?'),
+                                content: const Text('This cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed:
+                                        () => Navigator.pop(context, true),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
                         );
                         if (ok == true) {
                           await col!.doc(d.id).delete();
                         }
                       }
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      PopupMenuItem(value: 'delete', child: Text('Delete')),
-                    ],
+                    itemBuilder:
+                        (_) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        ],
                   ),
                 ),
               );
@@ -1081,51 +1343,55 @@ class _PrivateJournal extends StatelessWidget {
     final cCtl = TextEditingController(text: content);
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Edit entry'),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: tCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Entry Title',
-                  border: OutlineInputBorder(),
-                ),
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Edit entry'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: tCtl,
+                    decoration: const InputDecoration(
+                      labelText: 'Entry Title',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: cCtl,
+                    maxLines: 10,
+                    decoration: const InputDecoration(
+                      labelText: 'Write a private entry…',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: cCtl,
-                maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: 'Write a private entry…',
-                  border: OutlineInputBorder(),
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final newTitle = tCtl.text.trim();
+                  final newContent = cCtl.text.trim();
+                  if (newTitle.isNotEmpty && newContent.isNotEmpty) {
+                    await col.doc(id).update({
+                      'title': newTitle,
+                      'content': newContent,
+                      'updatedAt': FieldValue.serverTimestamp(),
+                    });
+                  }
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: const Text('Save'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final newTitle = tCtl.text.trim();
-              final newContent = cCtl.text.trim();
-              if (newTitle.isNotEmpty && newContent.isNotEmpty) {
-                await col.doc(id).update({
-                  'title': newTitle,
-                  'content': newContent,
-                  'updatedAt': FieldValue.serverTimestamp(),
-                });
-              }
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1146,8 +1412,14 @@ class _SegPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = active ? (alt ? const Color(0xFFFFFFFF) : Colors.white) : Colors.white70;
-    final fg = active ? (alt ? const Color(0xFF000000) : Colors.black) : Colors.black87;
+    final bg =
+        active
+            ? (alt ? const Color(0xFFFFFFFF) : Colors.white)
+            : Colors.white70;
+    final fg =
+        active
+            ? (alt ? const Color(0xFF000000) : Colors.black)
+            : Colors.black87;
 
     return InkWell(
       borderRadius: BorderRadius.circular(28),
@@ -1177,7 +1449,10 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     const radius = 18.0;
     if (!anonymous && photoUrl != null && photoUrl!.isNotEmpty) {
-      return CircleAvatar(radius: radius, backgroundImage: NetworkImage(photoUrl!));
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(photoUrl!),
+      );
     }
     return const CircleAvatar(
       radius: radius,
@@ -1212,11 +1487,15 @@ class _PostMenu extends StatelessWidget {
         if (v == 'delete') onDelete();
         if (v == 'block') onBlock();
       },
-      itemBuilder: (c) => [
-        if (canEdit) const PopupMenuItem(value: 'edit', child: Text('Edit post')),
-        if (canDelete) const PopupMenuItem(value: 'delete', child: Text('Delete post')),
-        if (canBlock) const PopupMenuItem(value: 'block', child: Text('Block user')),
-      ],
+      itemBuilder:
+          (c) => [
+            if (canEdit)
+              const PopupMenuItem(value: 'edit', child: Text('Edit post')),
+            if (canDelete)
+              const PopupMenuItem(value: 'delete', child: Text('Delete post')),
+            if (canBlock)
+              const PopupMenuItem(value: 'block', child: Text('Block user')),
+          ],
     );
   }
 }
@@ -1362,130 +1641,182 @@ class _ReplyThread extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: public
-          .doc(postId)
-          .collection('replies')
-          .orderBy('createdAt', descending: false)
-          .limit(limit)
-          .snapshots(),
+      stream:
+          public
+              .doc(postId)
+              .collection('replies')
+              .orderBy('createdAt', descending: false)
+              .limit(limit)
+              .snapshots(),
       builder: (context, snap) {
         final replies = snap.data?.docs ?? [];
         if (replies.isEmpty) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Column(
-            children: replies.map((r) {
-              final m = r.data();
-              final ts = (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-              final replyUid = (m['uid'] as String?) ?? '';
-              final provided = (m['username'] as String?) ?? '';
-              final isAnon = (m['isAnonymous'] as bool?) == true;
-              final canEditReply = currentUid != null && currentUid == replyUid;
+            children:
+                replies.map((r) {
+                  final m = r.data();
+                  final ts =
+                      (m['createdAt'] as Timestamp?)?.toDate() ??
+                      DateTime.now();
+                  final replyUid = (m['uid'] as String?) ?? '';
+                  final provided = (m['username'] as String?) ?? '';
+                  final isAnon = (m['isAnonymous'] as bool?) == true;
+                  final canEditReply =
+                      currentUid != null && currentUid == replyUid;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Avatar(photoUrl: m['photoUrl'] as String?, anonymous: isAnon),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Avatar(
+                          photoUrl: m['photoUrl'] as String?,
+                          anonymous: isAnon,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: _UsernameTag(
-                                    uid: replyUid,
-                                    provided: provided,
-                                    isAnonymous: isAnon,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Text(
-                                  DateFormat('MMM d, yyyy • hh:mm a').format(ts),
-                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-                                ),
-                                if (canEditReply) ...[
-                                  const SizedBox(width: 6),
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_horiz, size: 18),
-                                    onSelected: (v) async {
-                                      if (v == 'edit-reply') {
-                                        final ctl = TextEditingController(
-                                          text: (m['content'] as String?) ?? '',
-                                        );
-                                        await showDialog(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            title: const Text('Edit reply'),
-                                            content: TextField(
-                                              controller: ctl,
-                                              maxLines: 6,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _UsernameTag(
+                                        uid: replyUid,
+                                        provided: provided,
+                                        isAnonymous: isAnon,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      DateFormat(
+                                        'MMM d, yyyy • hh:mm a',
+                                      ).format(ts),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    if (canEditReply) ...[
+                                      const SizedBox(width: 6),
+                                      PopupMenuButton<String>(
+                                        icon: const Icon(
+                                          Icons.more_horiz,
+                                          size: 18,
+                                        ),
+                                        onSelected: (v) async {
+                                          if (v == 'edit-reply') {
+                                            final ctl = TextEditingController(
+                                              text:
+                                                  (m['content'] as String?) ??
+                                                  '',
+                                            );
+                                            await showDialog(
+                                              context: context,
+                                              builder:
+                                                  (_) => AlertDialog(
+                                                    title: const Text(
+                                                      'Edit reply',
+                                                    ),
+                                                    content: TextField(
+                                                      controller: ctl,
+                                                      maxLines: 6,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            border:
+                                                                OutlineInputBorder(),
+                                                          ),
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed:
+                                                            () => Navigator.pop(
+                                                              context,
+                                                            ),
+                                                        child: const Text(
+                                                          'Cancel',
+                                                        ),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () async {
+                                                          final newText =
+                                                              ctl.text.trim();
+                                                          if (newText
+                                                              .isNotEmpty) {
+                                                            await public
+                                                                .doc(postId)
+                                                                .collection(
+                                                                  'replies',
+                                                                )
+                                                                .doc(r.id)
+                                                                .update({
+                                                                  'content':
+                                                                      newText,
+                                                                  'updatedAt':
+                                                                      FieldValue.serverTimestamp(),
+                                                                });
+                                                          }
+                                                          Navigator.pop(
+                                                            context,
+                                                          );
+                                                        },
+                                                        child: const Text(
+                                                          'Save',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                            );
+                                          }
+                                          if (v == 'delete-reply') {
+                                            await public
+                                                .doc(postId)
+                                                .collection('replies')
+                                                .doc(r.id)
+                                                .delete();
+                                            try {
+                                              await public.doc(postId).update({
+                                                'replyCount':
+                                                    FieldValue.increment(-1),
+                                              });
+                                            } catch (_) {}
+                                          }
+                                        },
+                                        itemBuilder:
+                                            (_) => const [
+                                              PopupMenuItem(
+                                                value: 'edit-reply',
+                                                child: Text('Edit reply'),
                                               ),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () async {
-                                                  final newText = ctl.text.trim();
-                                                  if (newText.isNotEmpty) {
-                                                    await public
-                                                        .doc(postId)
-                                                        .collection('replies')
-                                                        .doc(r.id)
-                                                        .update({
-                                                      'content': newText,
-                                                      'updatedAt': FieldValue.serverTimestamp(),
-                                                    });
-                                                  }
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('Save'),
+                                              PopupMenuItem(
+                                                value: 'delete-reply',
+                                                child: Text('Delete reply'),
                                               ),
                                             ],
-                                          ),
-                                        );
-                                      }
-                                      if (v == 'delete-reply') {
-                                        await public.doc(postId).collection('replies').doc(r.id).delete();
-                                        try {
-                                          await public
-                                              .doc(postId)
-                                              .update({'replyCount': FieldValue.increment(-1)});
-                                        } catch (_) {}
-                                      }
-                                    },
-                                    itemBuilder: (_) => const [
-                                      PopupMenuItem(value: 'edit-reply', child: Text('Edit reply')),
-                                      PopupMenuItem(value: 'delete-reply', child: Text('Delete reply')),
+                                      ),
                                     ],
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text((m['content'] as String?) ?? ''),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text((m['content'] as String?) ?? ''),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
           ),
         );
       },
@@ -1508,9 +1839,10 @@ class _ExpandableTextState extends State<_ExpandableText> {
   @override
   Widget build(BuildContext context) {
     final long = widget.text.length > widget.trimAt;
-    final visible = long && !_expanded
-        ? (widget.text.substring(0, widget.trimAt) + '…')
-        : widget.text;
+    final visible =
+        long && !_expanded
+            ? (widget.text.substring(0, widget.trimAt) + '…')
+            : widget.text;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1572,7 +1904,11 @@ class _EmptyHint extends StatelessWidget {
             const SizedBox(height: 12),
             const Text(
               'No posts yet',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1638,8 +1974,14 @@ class _BottomNavTransparent extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(icon: Icon(Icons.home, color: _c(0)), onPressed: onHome),
-          IconButton(icon: Icon(Icons.menu_book_rounded, color: _c(1)), onPressed: onJournal),
-          IconButton(icon: Icon(Icons.settings, color: _c(2)), onPressed: onSettings),
+          IconButton(
+            icon: Icon(Icons.menu_book_rounded, color: _c(1)),
+            onPressed: onJournal,
+          ),
+          IconButton(
+            icon: Icon(Icons.settings, color: _c(2)),
+            onPressed: onSettings,
+          ),
         ],
       ),
     );
@@ -1672,7 +2014,10 @@ class _UsernameTag extends StatelessWidget {
       future: _UsernameResolver.resolveByUid(uid),
       builder: (_, snap) {
         final fromDoc = (snap.data ?? '').trim();
-        final show = fromDoc.isNotEmpty ? fromDoc : (provided.trim().isEmpty ? 'user' : provided.trim());
+        final show =
+            fromDoc.isNotEmpty
+                ? fromDoc
+                : (provided.trim().isEmpty ? 'user' : provided.trim());
         return Text('@$show', style: style);
       },
     );

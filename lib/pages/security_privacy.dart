@@ -15,7 +15,7 @@ import 'settings.dart';
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
   const SecurityAndPrivacyPage({Key? key, required this.userName})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
@@ -34,9 +34,10 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -44,6 +45,112 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  Future<void> _changePin() async {
+    /////////////////////////////////////////////////////
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? err;
+
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final doc = await _db.collection('users').doc(uid).get();
+    final storedHash = doc.data()?['journal_lock_pin'] as String?;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            Future<void> onSave() async {
+              final curr = currentCtrl.text.trim();
+              final newPin = newCtrl.text.trim();
+              final confirm = confirmCtrl.text.trim();
+
+              if (curr.isEmpty || newPin.isEmpty || confirm.isEmpty) {
+                setLocal(() => err = 'All fields required.');
+                return;
+              }
+              if (_hash(curr) != storedHash) {
+                setLocal(() => err = 'Current PIN incorrect.');
+                return;
+              }
+              if (newPin != confirm) {
+                setLocal(() => err = 'New PINs do not match.');
+                return;
+              }
+              if (newPin.length < 4 || newPin.length > 8) {
+                setLocal(() => err = 'New PIN must be 4–8 digits.');
+                return;
+              }
+
+              await _db.collection('users').doc(uid).set({
+                'journal_lock_pin': _hash(newPin),
+              }, SetOptions(merge: true));
+              if (mounted) Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('PIN changed successfully.')),
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Change Journal PIN'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: currentCtrl,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(labelText: 'Current PIN'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: newCtrl,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(labelText: 'New PIN'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: confirmCtrl,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New PIN',
+                    ),
+                  ),
+                  if (err != null) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        err!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(onPressed: onSave, child: const Text('Save')),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _loadSettings() async {
@@ -66,19 +173,17 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   Future<void> _saveShareMode(String mode) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-    await _db
-        .collection('users')
-        .doc(uid)
-        .set({'share_mode': mode}, SetOptions(merge: true));
+    await _db.collection('users').doc(uid).set({
+      'share_mode': mode,
+    }, SetOptions(merge: true));
   }
 
   Future<void> _saveAppLock(bool enabled) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-    await _db
-        .collection('users')
-        .doc(uid)
-        .set({'journal_lock_enabled': enabled}, SetOptions(merge: true));
+    await _db.collection('users').doc(uid).set({
+      'journal_lock_enabled': enabled,
+    }, SetOptions(merge: true));
   }
 
   Future<String?> _resolveUsername(String uid) async {
@@ -134,10 +239,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                 setLocal(() => err = 'Not signed in.');
                 return;
               }
-              await _db
-                  .collection('users')
-                  .doc(uid)
-                  .set({'journal_lock_pin': _hash(pin)}, SetOptions(merge: true));
+              await _db.collection('users').doc(uid).set({
+                'journal_lock_pin': _hash(pin),
+              }, SetOptions(merge: true));
               if (mounted) Navigator.of(context).pop(true);
             }
 
@@ -151,8 +255,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     obscureText: true,
-                    decoration:
-                        const InputDecoration(labelText: 'PIN (4–8 digits)'),
+                    decoration: const InputDecoration(
+                      labelText: 'PIN (4–8 digits)',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -166,17 +271,19 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(err!,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 13)),
+                      child: Text(
+                        err!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
                     ),
                   ],
                 ],
               ),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel')),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
                 ElevatedButton(onPressed: onSave, child: const Text('Save')),
               ],
             );
@@ -200,8 +307,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     }, SetOptions(merge: true));
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('User unblocked.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('User unblocked.')));
   }
 
   // ---------- NEW: blocked list pop-up sheet ----------
@@ -209,7 +317,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign in to manage blocked users.')));
+        const SnackBar(content: Text('Sign in to manage blocked users.')),
+      );
       return;
     }
 
@@ -224,70 +333,87 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding:
-                EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
             child: SizedBox(
               height: MediaQuery.of(ctx).size.height * 0.6,
               child: Column(
                 children: [
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Text('Blocked Users',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w800)),
+                    child: Text(
+                      'Blocked Users',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                   const Divider(height: 1),
                   Expanded(
                     child: StreamBuilder<
-                        DocumentSnapshot<Map<String, dynamic>>>(
+                      DocumentSnapshot<Map<String, dynamic>>
+                    >(
                       stream: _db.collection('users').doc(uid).snapshots(),
                       builder: (context, snap) {
                         if (snap.connectionState == ConnectionState.waiting) {
                           return const Center(
-                              child: CircularProgressIndicator());
+                            child: CircularProgressIndicator(),
+                          );
                         }
                         final data = snap.data?.data() ?? {};
                         final blockedUids =
                             (data['blocked_uids'] as List?)?.cast<String>() ??
-                                [];
+                            [];
 
                         if (blockedUids.isEmpty) {
                           return const Center(
-                              child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text('No blocked users.'),
-                          ));
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('No blocked users.'),
+                            ),
+                          );
                         }
 
                         // Resolve usernames for each UID
                         return FutureBuilder<List<String>>(
-                          future: Future.wait(blockedUids.map((id) async {
-                            final name = await _resolveUsername(id);
-                            return (name == null || name.isEmpty)
-                                ? id
-                                : '@$name';
-                          })),
+                          future: Future.wait(
+                            blockedUids.map((id) async {
+                              final name = await _resolveUsername(id);
+                              return (name == null || name.isEmpty)
+                                  ? id
+                                  : '@$name';
+                            }),
+                          ),
                           builder: (context, namesSnap) {
                             if (!namesSnap.hasData) {
                               return const Center(
-                                  child: CircularProgressIndicator());
+                                child: CircularProgressIndicator(),
+                              );
                             }
                             final names = namesSnap.data!;
                             return ListView.separated(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
                               itemCount: blockedUids.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                              separatorBuilder:
+                                  (_, __) => const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final uidItem = blockedUids[i];
                                 final label = names[i];
                                 return ListTile(
-                                  leading: const Icon(Icons.block,
-                                      color: Colors.red),
-                                  title: Text(label,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600)),
+                                  leading: const Icon(
+                                    Icons.block,
+                                    color: Colors.red,
+                                  ),
+                                  title: Text(
+                                    label,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                   trailing: TextButton(
                                     onPressed: () => _unblockUser(uidItem),
                                     child: const Text('Unblock'),
@@ -328,19 +454,26 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                SettingsPage(userName: widget.userName)),
-                      ),
+                      onPressed:
+                          () => Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) =>
+                                      SettingsPage(userName: widget.userName),
+                            ),
+                          ),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
-                      child: Text('Security & Privacy',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'Security & Privacy',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 48),
                   ],
@@ -359,25 +492,32 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           color: green.withOpacity(.75),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 6)
+                            BoxShadow(color: Colors.black26, blurRadius: 6),
                           ],
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 12),
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
                             const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('My Journal Lock',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16)),
+                                  Text(
+                                    'My Journal Lock',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
+                                  ),
                                   SizedBox(height: 2),
-                                  Text('Enable PIN / Biometrics',
-                                      style: TextStyle(color: Colors.white)),
+                                  Text(
+                                    'Enable PIN / Biometrics',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
                                 ],
                               ),
                             ),
@@ -392,8 +532,10 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                     await _saveAppLock(true);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                          content: Text(
-                                              'My Journal Lock enabled.')),
+                                        content: Text(
+                                          'My Journal Lock enabled.',
+                                        ),
+                                      ),
                                     );
                                   } else {
                                     setState(() => _appLock = false);
@@ -403,8 +545,10 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                   await _saveAppLock(false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                        content: Text(
-                                            'My Journal Lock disabled.')),
+                                      content: Text(
+                                        'My Journal Lock disabled.',
+                                      ),
+                                    ),
                                   );
                                 }
                               },
@@ -414,16 +558,36 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           ],
                         ),
                       ),
-
-                      const SizedBox(height: 18),
+                      if (_appLock) ...[
+                        const SizedBox(height: 7),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: _changePin,
+                            child: Text(
+                              'Change PIN',
+                              style: TextStyle(
+                                color: green,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 1),
                       const _Header('Encryption'),
-                      const Text('All journal entries are encrypted',
-                          style: TextStyle(fontSize: 14)),
+                      const Text(
+                        'All journal entries are encrypted',
+                        style: TextStyle(fontSize: 14),
+                      ),
                       const SizedBox(height: 18),
 
                       const _Header('Default Entry Visibility'),
-                      const Text('Always sharing (you can go anonymous)',
-                          style: TextStyle(fontSize: 14)),
+                      const Text(
+                        'Always sharing (you can go anonymous)',
+                        style: TextStyle(fontSize: 14),
+                      ),
                       const SizedBox(height: 18),
 
                       const _Header('Public Sharing Options'),
@@ -462,20 +626,22 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           color: Colors.white.withOpacity(0.9),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 6)
+                            BoxShadow(color: Colors.black26, blurRadius: 6),
                           ],
                         ),
                         child: ListTile(
-                          leading:
-                              const Icon(Icons.block, color: Colors.redAccent),
+                          leading: const Icon(
+                            Icons.block,
+                            color: Colors.redAccent,
+                          ),
                           title: const Text('View blocked users'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _showBlockedSheet,
                         ),
                       ),
                       const SizedBox(height: 18),
-                      // ---------------------------------------------------------------------
 
+                      // ---------------------------------------------------------------------
                       const _Header('Privacy Policy'),
                       RichText(
                         text: TextSpan(
@@ -485,15 +651,17 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           ),
                           children: [
                             const TextSpan(
-                                text:
-                                    'When entry is shared publicly, it will appear in the community feed. '
-                                    'If "Share Anonymously" is selected, your identity won\'t be shown. '
-                                    'If you want to learn more please click '),
+                              text:
+                                  'When entry is shared publicly, it will appear in the community feed. '
+                                  'If "Share Anonymously" is selected, your identity won\'t be shown. '
+                                  'If you want to learn more please click ',
+                            ),
                             TextSpan(
                               text: 'here.',
                               style: const TextStyle(
-                                  decoration: TextDecoration.underline,
-                                  color: Colors.white),
+                                decoration: TextDecoration.underline,
+                                color: Colors.white,
+                              ),
                               recognizer: TapGestureRecognizer()..onTap = () {},
                             ),
                           ],
@@ -545,23 +713,29 @@ class _BottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-              icon: Icon(Icons.home, color: c(0)),
-              onPressed: () => Navigator.pushReplacement(
+            icon: Icon(Icons.home, color: c(0)),
+            onPressed:
+                () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => HomePage(userName: '')))),
+                  MaterialPageRoute(builder: (_) => HomePage(userName: '')),
+                ),
+          ),
           IconButton(
-              icon: Icon(Icons.menu_book, color: c(1)),
-              onPressed: () => Navigator.pushReplacement(
+            icon: Icon(Icons.menu_book, color: c(1)),
+            onPressed:
+                () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => JournalPage(userName: '')))),
+                  MaterialPageRoute(builder: (_) => JournalPage(userName: '')),
+                ),
+          ),
           IconButton(
-              icon: Icon(Icons.settings, color: c(2)),
-              onPressed: () => Navigator.pushReplacement(
+            icon: Icon(Icons.settings, color: c(2)),
+            onPressed:
+                () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => SettingsPage(userName: '')))),
+                  MaterialPageRoute(builder: (_) => SettingsPage(userName: '')),
+                ),
+          ),
         ],
       ),
     );
