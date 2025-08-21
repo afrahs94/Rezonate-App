@@ -5,7 +5,7 @@ import 'package:new_rezonate/pages/home.dart';
 import 'package:new_rezonate/pages/journal.dart';
 import 'package:new_rezonate/pages/edit_profile.dart';
 import 'package:new_rezonate/pages/change_password.dart';
-import 'package:new_rezonate/pages/security_privacy.dart';
+import 'package:new_rezonate/pages/security_privacy.dart'; // updated import
 import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
 import 'package:new_rezonate/pages/login_page.dart';
@@ -30,7 +30,15 @@ class _SettingsPageState extends State<SettingsPage> {
       _Item(
         label: 'Edit Profile',
         icon: Icons.person_outline,
-        keywords: const ['name', 'username', 'email', 'profile', 'photo', 'picture', 'birthday'],
+        keywords: const [
+          'name',
+          'username',
+          'email',
+          'profile',
+          'photo',
+          'picture',
+          'birthday'
+        ],
         builder: () => EditProfilePage(userName: widget.userName),
       ),
       _Item(
@@ -75,6 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    _searchCtrl.removeListener(_onSearch);
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -98,6 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _goToSearchResult() async {
     final results = _shown.where((it) => it.type == _RowType.link).toList();
     if (results.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('No matching settings found')));
       return;

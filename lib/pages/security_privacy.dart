@@ -15,7 +15,7 @@ import 'settings.dart';
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
   const SecurityAndPrivacyPage({Key? key, required this.userName})
-    : super(key: key);
+      : super(key: key);
 
   @override
   State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
@@ -23,8 +23,6 @@ class SecurityAndPrivacyPage extends StatefulWidget {
 
 class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   bool _appLock = false;
-  bool _shareWithUsername = true;
-  bool _anonymous = false;
 
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
@@ -34,10 +32,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors:
-          dark
-              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors: dark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -47,8 +44,73 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     _loadSettings();
   }
 
+  // --------- Anonymity helpers (same logic as in Settings version) ---------
+  bool _deriveAnon(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    bool anon = false;
+
+    if (data['share_anonymously'] == true) anon = true;
+    if (data['share_publicly'] == true) anon = false;
+    if (data['anonymous'] == true) anon = true;
+
+    final modeCamel = (data['shareMode'] as String?)?.toLowerCase().trim();
+    if (modeCamel == 'anonymous') anon = true;
+    if (modeCamel == 'public') anon = false;
+
+    final modeSnake = (data['share_mode'] as String?)?.toLowerCase().trim();
+    if (modeSnake == 'anonymous') anon = true;
+    if (modeSnake == 'username' || modeSnake == 'public') anon = false;
+
+    for (final e in data.entries) {
+      final k = e.key.toLowerCase();
+      final v = e.value;
+      if (k.contains('anon')) {
+        if (v is bool) anon = v;
+        if (v is String) {
+          final sv = v.toLowerCase().trim();
+          if (sv == 'true' || sv == '1' || sv == 'yes' || sv == 'anonymous') {
+            anon = true;
+          }
+          if (sv == 'false' || sv == '0' || sv == 'no' || sv == 'public') {
+            anon = false;
+          }
+        }
+      }
+    }
+    return anon;
+  }
+
+  Future<void> _setAnon(bool value) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to change anonymity')),
+      );
+      return;
+    }
+    await _db.collection('users').doc(uid).set({
+      // keep old & new keys in sync so all code paths work
+      'share_anonymously': value,
+      'share_publicly': !value,
+      'anonymous': value,
+      'shareMode': value ? 'anonymous' : 'public',
+      'share_mode': value ? 'anonymous' : 'username',
+    }, SetOptions(merge: true));
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value ? 'Sharing anonymously enabled' : 'Sharing publicly enabled',
+        ),
+        duration: const Duration(milliseconds: 1200),
+      ),
+    );
+  }
+  // ------------------------------------------------------------------------
+
   Future<void> _changePin() async {
-    /////////////////////////////////////////////////////
     final currentCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
@@ -123,9 +185,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                     obscureText: true,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Confirm New PIN',
-                    ),
+                    decoration:
+                        const InputDecoration(labelText: 'Confirm New PIN'),
                   ),
                   if (err != null) ...[
                     const SizedBox(height: 6),
@@ -160,23 +221,12 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     final d = snap.data();
     if (d == null) return;
 
-    final mode = (d['share_mode'] as String?) ?? 'username';
     setState(() {
       _appLock = (d['journal_lock_enabled'] as bool?) ?? false;
-      _shareWithUsername = mode == 'username';
-      _anonymous = mode == 'anonymous';
     });
   }
 
   String _hash(String v) => sha256.convert(utf8.encode(v)).toString();
-
-  Future<void> _saveShareMode(String mode) async {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return;
-    await _db.collection('users').doc(uid).set({
-      'share_mode': mode,
-    }, SetOptions(merge: true));
-  }
 
   Future<void> _saveAppLock(bool enabled) async {
     final uid = _auth.currentUser?.uid;
@@ -307,12 +357,10 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     }, SetOptions(merge: true));
 
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('User unblocked.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('User unblocked.')));
   }
 
-  // ---------- NEW: blocked list pop-up sheet ----------
   Future<void> _showBlockedSheet() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
@@ -344,28 +392,23 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                     child: Text(
                       'Blocked Users',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                     ),
                   ),
                   const Divider(height: 1),
                   Expanded(
-                    child: StreamBuilder<
-                      DocumentSnapshot<Map<String, dynamic>>
-                    >(
+                    child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                       stream: _db.collection('users').doc(uid).snapshots(),
                       builder: (context, snap) {
                         if (snap.connectionState == ConnectionState.waiting) {
                           return const Center(
-                            child: CircularProgressIndicator(),
-                          );
+                              child: CircularProgressIndicator());
                         }
                         final data = snap.data?.data() ?? {};
                         final blockedUids =
                             (data['blocked_uids'] as List?)?.cast<String>() ??
-                            [];
+                                [];
 
                         if (blockedUids.isEmpty) {
                           return const Center(
@@ -376,7 +419,6 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           );
                         }
 
-                        // Resolve usernames for each UID
                         return FutureBuilder<List<String>>(
                           future: Future.wait(
                             blockedUids.map((id) async {
@@ -389,31 +431,24 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           builder: (context, namesSnap) {
                             if (!namesSnap.hasData) {
                               return const Center(
-                                child: CircularProgressIndicator(),
-                              );
+                                  child: CircularProgressIndicator());
                             }
                             final names = namesSnap.data!;
                             return ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
                               itemCount: blockedUids.length,
-                              separatorBuilder:
-                                  (_, __) => const Divider(height: 1),
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final uidItem = blockedUids[i];
                                 final label = names[i];
                                 return ListTile(
-                                  leading: const Icon(
-                                    Icons.block,
-                                    color: Colors.red,
-                                  ),
-                                  title: Text(
-                                    label,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                  leading: const Icon(Icons.block,
+                                      color: Colors.red),
+                                  title: Text(label,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600)),
                                   trailing: TextButton(
                                     onPressed: () => _unblockUser(uidItem),
                                     child: const Text('Unblock'),
@@ -434,7 +469,6 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
       },
     );
   }
-  // ----------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -454,15 +488,13 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed:
-                          () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) =>
-                                      SettingsPage(userName: widget.userName),
-                            ),
-                          ),
+                      onPressed: () => Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              SettingsPage(userName: widget.userName),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
@@ -486,7 +518,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // My Journal Lock pill (unchanged)
+                      // My Journal Lock pill
                       Container(
                         decoration: BoxDecoration(
                           color: green.withOpacity(.75),
@@ -496,9 +528,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           ],
                         ),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
-                        ),
+                            horizontal: 18, vertical: 12),
                         child: Row(
                           children: [
                             const Expanded(
@@ -532,9 +562,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                     await _saveAppLock(true);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text(
-                                          'My Journal Lock enabled.',
-                                        ),
+                                        content:
+                                            Text('My Journal Lock enabled.'),
                                       ),
                                     );
                                   } else {
@@ -545,9 +574,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                   await _saveAppLock(false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text(
-                                        'My Journal Lock disabled.',
-                                      ),
+                                      content:
+                                          Text('My Journal Lock disabled.'),
                                     ),
                                   );
                                 }
@@ -585,41 +613,40 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
 
                       const _Header('Default Entry Visibility'),
                       const Text(
-                        'Always sharing (you can go anonymous)',
+                        'Choose how your posts show up by default.',
                         style: TextStyle(fontSize: 14),
                       ),
                       const SizedBox(height: 18),
 
-                      const _Header('Public Sharing Options'),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Share with Username'),
-                        value: _shareWithUsername,
-                        onChanged: (v) async {
-                          final val = v ?? false;
-                          setState(() {
-                            _shareWithUsername = val;
-                            if (val) _anonymous = false;
-                          });
-                          if (val) await _saveShareMode('username');
-                        },
-                      ),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Share Anonymously'),
-                        value: _anonymous,
-                        onChanged: (v) async {
-                          final val = v ?? false;
-                          setState(() {
-                            _anonymous = val;
-                            if (val) _shareWithUsername = false;
-                          });
-                          if (val) await _saveShareMode('anonymous');
+                      const _Header('Public Sharing'),
+                      // ===== NEW: Share Anonymously switch (stream-bound) =====
+                      Builder(
+                        builder: (ctx) {
+                          final u = _auth.currentUser;
+                          if (u == null) {
+                            return _AnonRow(
+                              on: false,
+                              enabled: false,
+                              onChanged: null,
+                            );
+                          }
+                          return StreamBuilder<
+                              DocumentSnapshot<Map<String, dynamic>>>(
+                            stream: _db.collection('users').doc(u.uid).snapshots(),
+                            builder: (context, snap) {
+                              final data = snap.data?.data();
+                              final on = _deriveAnon(data);
+                              return _AnonRow(
+                                on: on,
+                                enabled: true,
+                                onChanged: (v) => _setAnon(v),
+                              );
+                            },
+                          );
                         },
                       ),
                       const SizedBox(height: 18),
 
-                      // --------- REPLACED: show a button that opens the pop-up sheet ---------
                       const _Header('Blocked Users'),
                       Container(
                         decoration: BoxDecoration(
@@ -641,7 +668,6 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       ),
                       const SizedBox(height: 18),
 
-                      // ---------------------------------------------------------------------
                       const _Header('Privacy Policy'),
                       RichText(
                         text: TextSpan(
@@ -653,8 +679,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             const TextSpan(
                               text:
                                   'When entry is shared publicly, it will appear in the community feed. '
-                                  'If "Share Anonymously" is selected, your identity won\'t be shown. '
-                                  'If you want to learn more please click ',
+                                  'If "Share anonymously" is enabled, your identity is hidden on past and future posts & replies. '
+                                  'For more details, tap ',
                             ),
                             TextSpan(
                               text: 'here.',
@@ -677,6 +703,48 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AnonRow extends StatelessWidget {
+  final bool on;
+  final bool enabled;
+  final ValueChanged<bool>? onChanged;
+  const _AnonRow({required this.on, required this.enabled, this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final green = const Color(0xFF0D7C66);
+    return Container(
+      decoration: BoxDecoration(
+        color: green.withOpacity(.75),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.visibility_off_outlined, color: Colors.white),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Share anonymously',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          Switch(
+            value: on,
+            onChanged: enabled ? onChanged : null,
+            activeColor: Colors.white,
+            activeTrackColor: Colors.white54,
+          ),
+        ],
       ),
     );
   }
@@ -714,27 +782,24 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => HomePage(userName: '')),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => HomePage(userName: '')),
+            ),
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => JournalPage(userName: '')),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => JournalPage(userName: '')),
+            ),
           ),
           IconButton(
             icon: Icon(Icons.settings, color: c(2)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => SettingsPage(userName: '')),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => SettingsPage(userName: '')),
+            ),
           ),
         ],
       ),
