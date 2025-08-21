@@ -134,6 +134,23 @@ class _UsernameResolver {
   }
 }
 
+/// Resolve the latest profile photo from users/{uid}.photoUrl (cached).
+class _PhotoResolver {
+  static final Map<String, String?> _cache = {};
+  static Future<String?> byUid(String uid) async {
+    if (uid.isEmpty) return null;
+    if (_cache.containsKey(uid)) return _cache[uid];
+    try {
+      final snap = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final url = (snap.data()?['photoUrl'] as String?)?.trim();
+      _cache[uid] = (url != null && url.isNotEmpty) ? url : null;
+      return _cache[uid];
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 enum _TimeFilter { all, d1, d7, d30 }
 enum _OrderBy { dateDesc, dateAsc, mostReacted, mostReplies }
 
@@ -991,7 +1008,13 @@ class _CommunityFeed extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        _Avatar(photoUrl: m['photoUrl'] as String?, anonymous: displayAnon),
+                        _AvatarSmart(
+                          uid: postUid,
+                          photoUrlFromPost: m['photoUrl'] as String?,
+                          postAnonymous: displayAnon,
+                          preferFresh: isSelf,
+                          selfFallbackUrl: isSelf ? user?.photoURL : null,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _UsernameTag(
@@ -1327,26 +1350,81 @@ class _SegPill extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({this.photoUrl, this.anonymous = false});
-  final String? photoUrl;
-  final bool anonymous;
+/// Smart avatar that shows latest profile photo unless anonymous.
+/// - If `postAnonymous == true` → shows placeholder.
+/// - If `preferFresh == true` (e.g., your own posts) → fetch the latest users/{uid}.photoUrl.
+/// - Otherwise uses `photoUrlFromPost`, falling back to fetched `users/{uid}.photoUrl`.
+class _AvatarSmart extends StatelessWidget {
+  const _AvatarSmart({
+    required this.uid,
+    required this.photoUrlFromPost,
+    required this.postAnonymous,
+    this.preferFresh = false,
+    this.selfFallbackUrl,
+  });
+
+  final String? uid;
+  final String? photoUrlFromPost;
+  final bool postAnonymous;
+  final bool preferFresh;
+  final String? selfFallbackUrl;
 
   @override
   Widget build(BuildContext context) {
     const radius = 18.0;
-    if (!anonymous && photoUrl != null && photoUrl!.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(photoUrl!),
-      );
-    }
-    return const CircleAvatar(
+    final placeholder = const CircleAvatar(
       radius: radius,
       backgroundColor: Color(0xFFD7CFFC),
       child: Icon(Icons.person, color: Colors.black54),
     );
+
+    if (postAnonymous) return placeholder;
+
+    // If we prefer a fresh value and have a uid, fetch from users doc.
+    if (preferFresh && (uid != null && uid!.isNotEmpty)) {
+      return FutureBuilder<String?>(
+        future: _PhotoResolver.byUid(uid!),
+        builder: (_, snap) {
+          final url = (snap.data ?? '').isNotEmpty
+              ? snap.data
+              : (selfFallbackUrl?.isNotEmpty == true
+                  ? selfFallbackUrl
+                  : (photoUrlFromPost?.isNotEmpty == true ? photoUrlFromPost : null));
+          if (url != null && url.isNotEmpty) {
+            return CircleAvatar(radius: radius, backgroundImage: NetworkImage(url));
+          }
+          return placeholder;
+        },
+      );
     }
+
+    // If we already have a URL from the post and we're not forcing a refresh, use it.
+    if (photoUrlFromPost != null && photoUrlFromPost!.isNotEmpty) {
+      return CircleAvatar(radius: radius, backgroundImage: NetworkImage(photoUrlFromPost!));
+    }
+
+    // Otherwise, try fetching by uid (if any), else fallback to provided self url, else placeholder.
+    if (uid != null && uid!.isNotEmpty) {
+      return FutureBuilder<String?>(
+        future: _PhotoResolver.byUid(uid!),
+        builder: (_, snap) {
+          final url = (snap.data ?? '').isNotEmpty
+              ? snap.data
+              : (selfFallbackUrl?.isNotEmpty == true ? selfFallbackUrl : null);
+          if (url != null && url.isNotEmpty) {
+            return CircleAvatar(radius: radius, backgroundImage: NetworkImage(url));
+          }
+          return placeholder;
+        },
+      );
+    }
+
+    if (selfFallbackUrl != null && selfFallbackUrl!.isNotEmpty) {
+      return CircleAvatar(radius: radius, backgroundImage: NetworkImage(selfFallbackUrl!));
+    }
+
+    return placeholder;
+  }
 }
 
 class _PostMenu extends StatelessWidget {
@@ -1566,7 +1644,13 @@ class _ReplyThread extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Avatar(photoUrl: m['photoUrl'] as String?, anonymous: displayAnon),
+                    _AvatarSmart(
+                      uid: replyUid,
+                      photoUrlFromPost: m['photoUrl'] as String?,
+                      postAnonymous: displayAnon,
+                      preferFresh: isSelf,
+                      selfFallbackUrl: isSelf ? FirebaseAuth.instance.currentUser?.photoURL : null,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Container(

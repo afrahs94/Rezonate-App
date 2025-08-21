@@ -1,14 +1,15 @@
 // lib/pages/edit_profile.dart
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
 class EditProfilePage extends StatefulWidget {
-  final String userName; // shown in title/subtitle if you like
+  final String userName;
   const EditProfilePage({super.key, required this.userName});
 
   @override
@@ -16,6 +17,11 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  // ---- Cloudinary (unsigned) ----
+  static const String _cloudinaryCloudName = 'dg66js0z6'; // <= YOUR cloud name
+  static const String _cloudinaryUnsignedPreset =
+      'a3ws0a1s'; // <= your unsigned upload preset
+
   final _form = GlobalKey<FormState>();
 
   final _nameCtl = TextEditingController();
@@ -27,7 +33,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _loading = true;
   bool _saving = false;
 
-  String? _userDocId; // Firestore doc id for updates
+  String? _userDocId;
   String? _photoUrl;
 
   final _fs = FirebaseFirestore.instance;
@@ -53,22 +59,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final user = _auth.currentUser;
     if (user == null) {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not signed in')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Not signed in')));
+      }
       return;
     }
 
     try {
-      // 1) Prefer a doc whose id == uid
       DocumentSnapshot<Map<String, dynamic>>? snap;
       final uidDoc = await _fs.collection('users').doc(user.uid).get();
       if (uidDoc.exists) {
         snap = uidDoc;
         _userDocId = uidDoc.id;
       } else {
-        // 2) Fallback: the app may have used .add() on signup.
-        // Try by email, then by username == displayName
         final byEmail = await _fs
             .collection('users')
             .where('email', isEqualTo: user.email)
@@ -77,7 +81,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         if (byEmail.docs.isNotEmpty) {
           snap = byEmail.docs.first;
           _userDocId = snap.id;
-        } else if (user.displayName != null && user.displayName!.isNotEmpty) {
+        } else if ((user.displayName ?? '').isNotEmpty) {
           final byUname = await _fs
               .collection('users')
               .where('username', isEqualTo: user.displayName)
@@ -92,7 +96,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       final data = snap?.data() ?? <String, dynamic>{};
 
-      // Pre-fill all fields (fall back to Auth values where sensible)
       final first = (data['first_name'] ?? '').toString().trim();
       final last = (data['last_name'] ?? '').toString().trim();
       final combinedName = (first.isEmpty && last.isEmpty)
@@ -110,60 +113,85 @@ class _EditProfilePageState extends State<EditProfilePage> {
       setState(() => _loading = false);
     } catch (e) {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load profile: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load profile: $e')),
+        );
+      }
     }
   }
 
-  // NEW: allow picking from camera or gallery
+  // ---------- Cloudinary upload ----------
+  Future<String> _uploadToCloudinary(File localFile) async {
+    final uri = Uri.parse(
+        'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload');
+
+    final req = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = _cloudinaryUnsignedPreset
+      ..files.add(await http.MultipartFile.fromPath('file', localFile.path));
+
+    final resp = await req.send();
+    final body = await resp.stream.bytesToString();
+
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      throw Exception(
+          'Cloudinary upload failed (${resp.statusCode}): $body');
+    }
+
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    final url = (json['secure_url'] ?? json['url'])?.toString();
+    if (url == null || url.isEmpty) {
+      throw Exception('Cloudinary did not return a URL.');
+    }
+    return url;
+  }
+
+  // Pick from camera or gallery, upload to Cloudinary, save URL.
   Future<void> _pickAndUploadPhoto(ImageSource source) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(
+      final picked = await picker.pickImage(
         source: source,
-        maxWidth: 900,
+        maxWidth: 1200,
         imageQuality: 85,
       );
-      if (file == null) return;
+      if (picked == null) return;
 
       setState(() => _saving = true);
 
-      final ref =
-          FirebaseStorage.instance.ref().child('users/${user.uid}/profile.jpg');
-      await ref.putFile(File(file.path));
-      final url = await ref.getDownloadURL();
+      final url = await _uploadToCloudinary(File(picked.path));
 
       await user.updatePhotoURL(url);
-      if (_userDocId != null) {
-        await _fs.collection('users').doc(_userDocId).set(
-          {'photoUrl': url},
-          SetOptions(merge: true),
-        );
-      } else {
-        await _fs.collection('users').doc(user.uid).set(
-          {'photoUrl': url, 'uid': user.uid},
-          SetOptions(merge: true),
-        );
-        _userDocId = user.uid;
-      }
+      await _fs.collection('users').doc(user.uid).set(
+        {'photoUrl': url, 'uid': user.uid},
+        SetOptions(merge: true),
+      );
+      _userDocId ??= user.uid;
 
       setState(() {
         _photoUrl = url;
         _saving = false;
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated')),
+        );
+      }
     } catch (e) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Photo upload failed: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Photo upload failed: $e')),
+        );
+      }
     }
   }
 
-  // NEW: delete profile photo (auth + firestore + storage)
+  // Clear photo (cannot delete from Cloudinary without signed API)
   Future<void> _removePhoto() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -171,28 +199,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       setState(() => _saving = true);
 
-      // Try to delete from storage (best effort)
-      final ref =
-          FirebaseStorage.instance.ref().child('users/${user.uid}/profile.jpg');
-      try {
-        await ref.delete();
-      } catch (_) {
-        // ignore if not found/no permission
-      }
-
-      // Clear auth photo and Firestore field
       try {
         await user.updatePhotoURL(null);
       } catch (_) {}
-      await _fs.collection('users').doc(user.uid).set(
-        {'photoUrl': null},
-        SetOptions(merge: true),
-      );
+
+      await _fs
+          .collection('users')
+          .doc(user.uid)
+          .set({'photoUrl': null}, SetOptions(merge: true));
 
       setState(() {
         _photoUrl = null;
         _saving = false;
       });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile photo removed')),
@@ -200,13 +220,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     } catch (e) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not remove photo: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not remove photo: $e')),
+        );
+      }
     }
   }
 
-  // NEW: bottom sheet to choose Camera / Gallery / Remove
   Future<void> _showPhotoOptions() async {
     if (_saving) return;
     await showModalBottomSheet(
@@ -239,7 +260,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               if (_photoUrl != null)
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  leading:
+                      const Icon(Icons.delete_outline, color: Colors.red),
                   title: const Text('Remove photo',
                       style: TextStyle(color: Colors.red)),
                   onTap: () {
@@ -264,11 +286,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _saving = true);
 
     try {
-      // Split name into first/last (best-effort)
       final name = _nameCtl.text.trim();
       final parts = name.split(RegExp(r'\s+'));
       final firstName = parts.isNotEmpty ? parts.first : '';
-      final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      final lastName =
+          parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
       final payload = <String, dynamic>{
         'first_name': firstName,
@@ -279,49 +301,57 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'email': _emailCtl.text.trim(),
         if (_photoUrl != null) 'photoUrl': _photoUrl,
         'updated_at': DateTime.now().toIso8601String(),
-        'uid': user.uid, // make future lookups easy
+        'uid': user.uid,
       };
 
-      // Ensure the user has a deterministic doc keyed by uid
-      await _fs.collection('users').doc(user.uid).set(payload, SetOptions(merge: true));
+      await _fs
+          .collection('users')
+          .doc(user.uid)
+          .set(payload, SetOptions(merge: true));
       _userDocId = user.uid;
 
-      // Keep FirebaseAuth displayName/email in sync (email may require re-auth)
-      if (user.displayName != name && name.isNotEmpty) {
+      if (name.isNotEmpty && user.displayName != name) {
         await user.updateDisplayName(name);
       }
+
       final newEmail = _emailCtl.text.trim();
       if (newEmail.isNotEmpty && newEmail != (user.email ?? '')) {
         try {
           await user.verifyBeforeUpdateEmail(newEmail);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('We sent a verification link to update your email.'),
-            ),
-          );
-        } catch (_) {
-          try {
-            // ignore: deprecated_member_use
-            await user.updateEmail(newEmail);
-          } catch (_) {}
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'We sent a verification link to update your email.'),
+              ),
+            );
+          }
+        } catch (e) {
+          // If verifyBeforeUpdateEmail fails (e.g., requires re-auth),
+          // just show a message; we avoid calling updateEmail directly to keep this compile-safe.
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Email not updated: $e')),
+            );
+          }
         }
       }
 
       setState(() => _saving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile saved')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Profile saved')));
       }
     } catch (e) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e')),
+        );
+      }
     }
   }
 
-  // Smaller input styling
   InputDecoration _dec(IconData icon, String hint) => InputDecoration(
         prefixIcon: Icon(icon, size: 18),
         hintText: hint,
@@ -331,19 +361,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       );
 
   @override
   Widget build(BuildContext context) {
-    final gradientTop = const Color(0xFFFFFFFF);
-    final gradientMiddle = const Color(0xFFD7C3F1);
-    final gradientBottom = const Color(0xFF41B3A2);
+    // gradient
+    const gradientTop = Color(0xFFFFFFFF);
+    const gradientMiddle = Color(0xFFD7C3F1);
+    const gradientBottom = Color(0xFF41B3A2);
+
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [gradientTop, gradientMiddle, gradientBottom],
             begin: Alignment.topCenter,
@@ -356,7 +389,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               : Form(
                   key: _form,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 10, 16, 20),
                     children: [
                       Row(
                         children: [
@@ -366,9 +400,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                           const SizedBox(width: 6),
                           const Text(
-                            'edit profile', // CHANGED text
+                            'Edit Profile',
                             style: TextStyle(
-                              fontSize: 22, // smaller
+                              fontSize: 22,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -380,12 +414,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           alignment: Alignment.bottomRight,
                           children: [
                             CircleAvatar(
-                              radius: 46, // smaller
-                              backgroundColor: Colors.white.withOpacity(.6),
-                              backgroundImage:
-                                  _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                              child: _photoUrl == null
-                                  ? const Icon(Icons.person, size: 44, color: Color(0xFF0D7C66))
+                              radius: 46,
+                              backgroundColor:
+                                  Colors.white.withOpacity(.6),
+                              backgroundImage: (_photoUrl != null &&
+                                      _photoUrl!.isNotEmpty)
+                                  ? NetworkImage(_photoUrl!)
+                                  : null,
+                              child: (_photoUrl == null ||
+                                      _photoUrl!.isEmpty)
+                                  ? const Icon(Icons.person,
+                                      size: 44, color: Color(0xFF0D7C66))
                                   : null,
                             ),
                             IconButton(
@@ -393,7 +432,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 backgroundColor: Colors.white,
                                 padding: const EdgeInsets.all(8),
                               ),
-                              onPressed: _saving ? null : _showPhotoOptions, // opens camera/gallery/remove
+                              onPressed:
+                                  _saving ? null : _showPhotoOptions,
                               icon: const Icon(Icons.edit, size: 18),
                               tooltip: 'Change photo',
                             ),
@@ -402,12 +442,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Fields (all pre-filled now) — smaller paddings/gaps
                       TextFormField(
                         controller: _nameCtl,
                         decoration: _dec(Icons.person_outline, 'name'),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Required'
+                            : null,
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
@@ -415,7 +455,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         readOnly: true,
                         onTap: () async {
                           final now = DateTime.now();
-                          final initial = now.subtract(const Duration(days: 365 * 20));
+                          final initial =
+                              now.subtract(const Duration(days: 365 * 20));
                           final picked = await showDatePicker(
                             context: context,
                             firstDate: DateTime(1900),
@@ -427,32 +468,38 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 '${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}/${picked.year}';
                           }
                         },
-                        decoration: _dec(Icons.cake_outlined, 'birthday'),
+                        decoration:
+                            _dec(Icons.cake_outlined, 'birthday'),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _phoneCtl,
                         keyboardType: TextInputType.phone,
-                        decoration: _dec(Icons.phone_outlined, 'phone number'),
+                        decoration: _dec(
+                            Icons.phone_outlined, 'phone number'),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _usernameCtl,
-                        decoration: _dec(Icons.alternate_email, 'username'),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        decoration:
+                            _dec(Icons.alternate_email, 'username'),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Required'
+                            : null,
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailCtl,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: _dec(Icons.email_outlined, 'email'),
-                        validator: (v) =>
-                            (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                        decoration:
+                            _dec(Icons.email_outlined, 'email'),
+                        validator: (v) => (v == null || !v.contains('@'))
+                            ? 'Enter a valid email'
+                            : null,
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
-                        height: 48, // smaller
+                        height: 48,
                         child: ElevatedButton(
                           onPressed: _saving ? null : _save,
                           style: ElevatedButton.styleFrom(
@@ -468,10 +515,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor:
-                                        AlwaysStoppedAnimation<Color>(Colors.white),
+                                        AlwaysStoppedAnimation<Color>(
+                                            Colors.white),
                                   ),
                                 )
-                              : const Text('Save', style: TextStyle(fontSize: 16)),
+                              : const Text('Save',
+                                  style: TextStyle(fontSize: 16)),
                         ),
                       ),
                     ],
@@ -481,8 +530,4 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ),
     );
   }
-}
-
-extension on User {
-  updateEmail(String newEmail) {}
 }
