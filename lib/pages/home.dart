@@ -72,8 +72,12 @@ class _HomePageState extends State<HomePage> {
   final Map<String, Map<String, double>> _daily = {};
   final Set<String> _daysWithAnyLog = {};
 
-  // NEW: track the most recent log time to apply 24h grace logic
+  // Most recent log across all days (for 24h grace when no "today" log)
   DateTime? _lastLogAt;
+
+  // To enforce strict 24h rule even when there IS a log today
+  DateTime? _firstLogTodayAt;       // earliest log time for "today"
+  DateTime? _lastLogBeforeTodayAt;  // most recent log time BEFORE "today"
 
   // ---- Lifecycle
   @override
@@ -120,21 +124,26 @@ class _HomePageState extends State<HomePage> {
       final map = <String, Map<String, double>>{};
       final daysWithLogs = <String>{};
 
-      DateTime? newest; // NEW: compute most recent updatedAt across docs
+      DateTime? newest; // most recent updatedAt across docs
+      DateTime? firstToday; // earliest log today
+      DateTime? prevBeforeToday; // last log before today
+
+      final todayKey = _dayKey(DateTime.now());
 
       for (final d in snap.docs) {
         final m = d.data();
-        final vals = (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
-            <String, double>{};
+        final vals =
+            (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
+                <String, double>{};
         map[d.id] = vals.cast<String, double>();
         if (vals.isNotEmpty) daysWithLogs.add(d.id);
 
-        // NEW: pick up server timestamp if present; fall back to day end if missing
-        final ts = (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
+        final ts =
+            (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
         if (ts != null) {
           if (newest == null || ts.isAfter(newest)) newest = ts;
         } else if (vals.isNotEmpty) {
-          // fallback: use end-of-day local time for that doc's 'day' field
+          // Fallback only when updatedAt missing
           final dayInt = (m['day'] as num?)?.toInt();
           if (dayInt != null) {
             final y = dayInt ~/ 10000;
@@ -142,6 +151,19 @@ class _HomePageState extends State<HomePage> {
             final da = dayInt % 100;
             final fallback = DateTime(y, mo, da, 23, 59, 59);
             if (newest == null || fallback.isAfter(newest)) newest = fallback;
+          }
+        }
+
+        // Pick up first log today and last log before today
+        if (d.id == todayKey) {
+          final f =
+              (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
+          if (f != null) firstToday = f;
+        } else {
+          if (ts != null) {
+            if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
+              prevBeforeToday = ts;
+            }
           }
         }
       }
@@ -152,7 +174,9 @@ class _HomePageState extends State<HomePage> {
         _daysWithAnyLog
           ..clear()
           ..addAll(daysWithLogs);
-        _lastLogAt = newest; // NEW
+        _lastLogAt = newest;
+        _firstLogTodayAt = firstToday;
+        _lastLogBeforeTodayAt = prevBeforeToday;
       });
     });
   }
@@ -188,34 +212,47 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // UPDATED: streak logic with 24h grace window
+  // Strict 24h break enforcement
   int get _streak {
     if (_daysWithAnyLog.isEmpty) return 0;
 
     final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
     final todayKey = _dayKey(now);
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
-    // If last log was within 24h, treat "today" as filled even if there's no doc for today yet.
+    // If no log today and it's been >24h since last log -> streak lost.
     final within24h = _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
-
     if (!hasToday && !within24h) {
-      // More than 24h since last log → streak resets to 0
       return 0;
     }
 
-    int s = 0;
-    var d = DateTime(now.year, now.month, now.day); // start at today's midnight
+    // If there IS a log today, but the first log today occurred >24h after the previous log,
+    // the chain is broken between yesterday and today.
+    bool brokeBetweenYesterdayAndToday = false;
+    if (hasToday && _firstLogTodayAt != null && _lastLogBeforeTodayAt != null) {
+      final gap = _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
+      if (gap > 24) brokeBetweenYesterdayAndToday = true;
+    }
 
-    // Count today as filled if (hasToday) OR (grace applies)
+    int s = 0;
+    var d = todayMidnight;
+
+    // Count today via grace if last log <24h ago but no doc yet
     bool graceForToday = !hasToday && within24h;
 
     while (true) {
       final key = _dayKey(d);
-      final filled = _daysWithAnyLog.contains(key) || (graceForToday && d.isAtSameMomentAs(DateTime(now.year, now.month, now.day)));
+      final isYesterday = d.isAtSameMomentAs(todayMidnight.subtract(const Duration(days: 1)));
+      final filled =
+          _daysWithAnyLog.contains(key) || (graceForToday && d.isAtSameMomentAs(todayMidnight));
+
+      // Apply the strict break when stepping from today to yesterday
+      if (isYesterday && brokeBetweenYesterdayAndToday) break;
       if (!filled) break;
+
       s++;
-      graceForToday = false; // grace only for the current day
+      graceForToday = false;
       d = d.subtract(const Duration(days: 1));
     }
     return s;
@@ -284,18 +321,24 @@ class _HomePageState extends State<HomePage> {
     _daily.putIfAbsent(key, () => {});
     _daily[key]![t.id] = v;
     _daysWithAnyLog.add(key);
-    // NEW: update last log time locally so UI reflects 24h grace instantly
     _lastLogAt = now;
+    _firstLogTodayAt ??= now; // capture earliest local write for today
     setState(() => t.value = v);
 
-    // remote
+    // remote (ensure we write 'firstAt' only once per day)
     final dayInt = int.parse(DateFormat('yyyyMMdd').format(now));
-    await _db.collection('users').doc(u.uid).collection('daily_logs').doc(key).set({
+    final docRef = _db.collection('users').doc(u.uid).collection('daily_logs').doc(key);
+    final snap = await docRef.get();
+
+    final data = <String, dynamic>{
       'day': dayInt,
       'values': {t.id: v},
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      if (!snap.exists || !(snap.data()?['firstAt'] is Timestamp))
+        'firstAt': FieldValue.serverTimestamp(),
+    };
 
+    await docRef.set(data, SetOptions(merge: true));
     await _updateTracker(t, latest: v);
   }
 
@@ -357,7 +400,9 @@ class _HomePageState extends State<HomePage> {
           vals.sublist(21, 28),
         ];
         seriesValues.add(
-          chunks.map<double>((w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length).toList(),
+          chunks
+              .map<double>((w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length)
+              .toList(),
         );
       }
     } else {
@@ -373,7 +418,9 @@ class _HomePageState extends State<HomePage> {
           vals.sublist(size * 3, size * 4),
         ];
         seriesValues.add(
-          chunks.map<double>((w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length).toList(),
+          chunks
+              .map<double>((w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length)
+              .toList(),
         );
       }
     }
@@ -421,7 +468,8 @@ class _HomePageState extends State<HomePage> {
         show: true,
         drawVerticalLine: false,
         horizontalInterval: 2,
-        getDrawingHorizontalLine: (v) => FlLine(strokeWidth: 0.6, color: Colors.black12),
+        getDrawingHorizontalLine: (v) =>
+            FlLine(strokeWidth: 0.6, color: Colors.black12),
       ),
       titlesData: const FlTitlesData(
         leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -487,7 +535,7 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 18),
 
-                      // UPDATED: Streak pill (hidden when 0; show helper text instead)
+                      // Streak pill (hidden when 0; show helper text instead)
                       if (streakNow > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -740,7 +788,8 @@ class _HomePageState extends State<HomePage> {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         height: 320,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.88),
+                          // 45% transparent background (55% opacity)
+                          color: Colors.white.withOpacity(.55),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
                         ),
@@ -763,46 +812,59 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---- Select trackers dialog (prettier chip UI)
+  // ---- Select trackers dialog (clean, obvious selection, searchable)
   Future<void> _openSelectDialog() async {
     final chosen = Set<String>.from(_selectedForChart);
+
     await showDialog(
       context: context,
       builder: (ctx) {
         final dark = app.ThemeControllerScope.of(context).isDark;
-        final bg = dark ? const Color(0xFF123A36) : Colors.white;
+        final bg = dark ? const Color(0xFF102D29) : Colors.white;
+        final surface = dark ? const Color(0xFF123A36) : const Color(0xFFF4F6F6);
         final accent = const Color(0xFF0D7C66);
+        final textColor = dark ? Colors.white : const Color(0xFF20312F);
+
+        String query = '';
+        final searchCtl = TextEditingController();
 
         return Dialog(
           backgroundColor: bg,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: StatefulBuilder(
-              builder: (context, setSheet) {
-                void toggle(String id, bool v) {
-                  if (v) {
-                    chosen.add(id);
-                  } else {
-                    chosen.remove(id);
-                  }
-                  setSheet(() {});
-                }
+          child: StatefulBuilder(
+            builder: (context, setSheet) {
+              final filtered = _trackers
+                  .where((t) => t.label.toLowerCase().contains(query.toLowerCase()))
+                  .toList();
 
-                return Column(
+              void toggle(String id, bool v) {
+                if (v) {
+                  chosen.add(id);
+                } else {
+                  chosen.remove(id);
+                }
+                setSheet(() {});
+              }
+
+              final allSelected = chosen.length == _trackers.length && _trackers.isNotEmpty;
+
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Header row (no icon as requested)
                     Row(
                       children: [
-                        Icon(Icons.checklist, size: 20, color: accent),
-                        const SizedBox(width: 8),
-                        const Text('Select trackers to view',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        const Text(
+                          'Select trackers to view',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
                         const Spacer(),
-                        TextButton.icon(
+                        TextButton(
                           onPressed: () {
-                            if (chosen.length == _trackers.length) {
+                            if (allSelected) {
                               chosen.clear();
                             } else {
                               chosen
@@ -811,82 +873,132 @@ class _HomePageState extends State<HomePage> {
                             }
                             setSheet(() {});
                           },
-                          icon: Icon(
-                            chosen.length == _trackers.length ? Icons.clear_all : Icons.select_all,
-                            size: 18,
-                            color: accent,
-                          ),
-                          label: Text(
-                            chosen.length == _trackers.length ? 'Clear' : 'Select all',
-                            style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+                          child: Text(
+                            allSelected ? 'Clear' : 'Select all',
+                            style: TextStyle(color: accent, fontWeight: FontWeight.w700),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Search
+                    Container(
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        controller: searchCtl,
+                        onChanged: (v) => setSheet(() => query = v),
+                        textInputAction: TextInputAction.search,
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Search trackers',
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
 
                     // Chips grid
                     Flexible(
-                      child: SingleChildScrollView(
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _trackers.map((t) {
-                            final checked = chosen.contains(t.id);
-                            return FilterChip(
-                              selected: checked,
-                              showCheckmark: true,
-                              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                              avatar: CircleAvatar(
-                                radius: 6,
-                                backgroundColor: t.color,
+                      child: filtered.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                'No trackers found',
+                                style: TextStyle(color: textColor.withOpacity(.7)),
                               ),
-                              label: Text(t.label, overflow: TextOverflow.ellipsis),
-                              selectedColor: t.color.withOpacity(.18),
-                              onSelected: (v) => toggle(t.id, v),
-                            );
-                          }).toList(),
-                        ),
-                      ),
+                            )
+                          : SingleChildScrollView(
+                              child: Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: filtered.map((t) {
+                                  final checked = chosen.contains(t.id);
+                                  final base = t.color;
+
+                                  final bgTint = checked
+                                      ? base.withOpacity(.36) // much stronger for selected
+                                      : base.withOpacity(.10);
+                                  final borderColor =
+                                      checked ? base.withOpacity(.95) : Colors.black12;
+                                  final borderWidth = checked ? 2.0 : 1.0;
+                                  final labelStyle = TextStyle(
+                                    fontWeight: checked ? FontWeight.w900 : FontWeight.w600,
+                                    fontSize: 13,
+                                    color: Colors.black.withOpacity(checked ? .95 : .85),
+                                  );
+
+                                  return FilterChip(
+                                    selected: checked,
+                                    showCheckmark: false, // keep checkmarks removed
+                                    pressElevation: 0,
+                                    labelPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 2, vertical: 0),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      side: BorderSide(color: borderColor, width: borderWidth),
+                                    ),
+                                    // no avatar — background color is enough
+                                    label: Text(t.label,
+                                        overflow: TextOverflow.ellipsis, style: labelStyle),
+                                    backgroundColor: bgTint,
+                                    selectedColor: bgTint,
+                                    onSelected: (v) => toggle(t.id, v),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     const Divider(height: 1),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
 
-                    // Actions
+                    // Footer actions
                     Row(
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: Text('Cancel',
-                              style: TextStyle(color: Colors.black.withOpacity(.7))),
+                          child:
+                              Text('Cancel', style: TextStyle(color: textColor.withOpacity(.8))),
                         ),
                         const Spacer(),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _selectedForChart
-                                ..clear()
-                                ..addAll(chosen);
-                            });
-                            Navigator.pop(ctx);
-                          },
-                          icon: const Icon(Icons.check, size: 18),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: accent,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                        SizedBox(
+                          height: 44,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.check_rounded, size: 18),
+                            onPressed: () {
+                              setState(() {
+                                _selectedForChart
+                                  ..clear()
+                                  ..addAll(chosen);
+                              });
+                              Navigator.pop(ctx);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 18),
+                            ),
+                            label: Text('Done (${chosen.length})',
+                                style: const TextStyle(fontWeight: FontWeight.w800)),
                           ),
-                          label: const Text('Done'),
                         ),
                       ],
                     ),
                   ],
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         );
       },
@@ -916,7 +1028,10 @@ class _HomePageState extends State<HomePage> {
 
             return Container(
               padding: EdgeInsets.only(
-                left: 16, right: 16, top: 12, bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
               ),
               decoration: BoxDecoration(
                 color: dark ? const Color(0xFF123A36) : Colors.white,
@@ -1044,7 +1159,8 @@ class _HueRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth;
     final radius = min(size.width, size.height) / 2 - ringWidth / 2;
-    canvas.drawCircle(Offset(size.width / 2, size.height / 2), radius, paint);
+    canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2), radius, paint);
   }
 
   @override
@@ -1057,7 +1173,9 @@ class _KnobPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = Colors.white..style = PaintingStyle.fill;
+    final p = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
     final b = Paint()
       ..color = Colors.black.withOpacity(.35)
       ..style = PaintingStyle.stroke
@@ -1067,7 +1185,8 @@ class _KnobPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _KnobPainter oldDelegate) => oldDelegate.position != position;
+  bool shouldRepaint(covariant _KnobPainter oldDelegate) =>
+      oldDelegate.position != position;
 }
 
 class _SVSquare extends StatelessWidget {
