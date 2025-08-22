@@ -72,6 +72,9 @@ class _HomePageState extends State<HomePage> {
   final Map<String, Map<String, double>> _daily = {};
   final Set<String> _daysWithAnyLog = {};
 
+  // NEW: track the most recent log time to apply 24h grace logic
+  DateTime? _lastLogAt;
+
   // ---- Lifecycle
   @override
   void initState() {
@@ -116,12 +119,31 @@ class _HomePageState extends State<HomePage> {
         .listen((snap) {
       final map = <String, Map<String, double>>{};
       final daysWithLogs = <String>{};
+
+      DateTime? newest; // NEW: compute most recent updatedAt across docs
+
       for (final d in snap.docs) {
         final m = d.data();
         final vals = (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
             <String, double>{};
         map[d.id] = vals.cast<String, double>();
         if (vals.isNotEmpty) daysWithLogs.add(d.id);
+
+        // NEW: pick up server timestamp if present; fall back to day end if missing
+        final ts = (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
+        if (ts != null) {
+          if (newest == null || ts.isAfter(newest)) newest = ts;
+        } else if (vals.isNotEmpty) {
+          // fallback: use end-of-day local time for that doc's 'day' field
+          final dayInt = (m['day'] as num?)?.toInt();
+          if (dayInt != null) {
+            final y = dayInt ~/ 10000;
+            final mo = (dayInt % 10000) ~/ 100;
+            final da = dayInt % 100;
+            final fallback = DateTime(y, mo, da, 23, 59, 59);
+            if (newest == null || fallback.isAfter(newest)) newest = fallback;
+          }
+        }
       }
       setState(() {
         _daily
@@ -130,6 +152,7 @@ class _HomePageState extends State<HomePage> {
         _daysWithAnyLog
           ..clear()
           ..addAll(daysWithLogs);
+        _lastLogAt = newest; // NEW
       });
     });
   }
@@ -165,12 +188,34 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // UPDATED: streak logic with 24h grace window
   int get _streak {
+    if (_daysWithAnyLog.isEmpty) return 0;
+
+    final now = DateTime.now();
+    final todayKey = _dayKey(now);
+    final hasToday = _daysWithAnyLog.contains(todayKey);
+
+    // If last log was within 24h, treat "today" as filled even if there's no doc for today yet.
+    final within24h = _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
+
+    if (!hasToday && !within24h) {
+      // More than 24h since last log → streak resets to 0
+      return 0;
+    }
+
     int s = 0;
-    DateTime d = DateTime.now();
-    bool hasDay(DateTime x) => _daysWithAnyLog.contains(_dayKey(x));
-    while (hasDay(d)) {
+    var d = DateTime(now.year, now.month, now.day); // start at today's midnight
+
+    // Count today as filled if (hasToday) OR (grace applies)
+    bool graceForToday = !hasToday && within24h;
+
+    while (true) {
+      final key = _dayKey(d);
+      final filled = _daysWithAnyLog.contains(key) || (graceForToday && d.isAtSameMomentAs(DateTime(now.year, now.month, now.day)));
+      if (!filled) break;
       s++;
+      graceForToday = false; // grace only for the current day
       d = d.subtract(const Duration(days: 1));
     }
     return s;
@@ -239,6 +284,8 @@ class _HomePageState extends State<HomePage> {
     _daily.putIfAbsent(key, () => {});
     _daily[key]![t.id] = v;
     _daysWithAnyLog.add(key);
+    // NEW: update last log time locally so UI reflects 24h grace instantly
+    _lastLogAt = now;
     setState(() => t.value = v);
 
     // remote
@@ -332,9 +379,8 @@ class _HomePageState extends State<HomePage> {
     }
 
     // EXTRA INNER PADDING so curves & dots never touch/cut the rounded edges.
-    // (Bigger headroom than before to fully avoid clipping.)
-    const double yPad = 2.0;     // vertical headroom (was 0.5)
-    const double xPad = 0.8;     // horizontal headroom (was 0.15)
+    const double yPad = 2.0;
+    const double xPad = 0.8;
     final double minX = (xPoints.isEmpty ? 0 : xPoints.first) - xPad;
     final double maxX = (xPoints.isEmpty ? 0 : xPoints.last) + xPad;
     const double minY = 0 - yPad;
@@ -385,7 +431,6 @@ class _HomePageState extends State<HomePage> {
       ),
       borderData: FlBorderData(show: false),
       lineBarsData: bars,
-      // Keep everything inside the chart rect (after we added safe padding).
       clipData: const FlClipData.all(),
     );
   }
@@ -396,6 +441,7 @@ class _HomePageState extends State<HomePage> {
     const green = Color(0xFF0D7C66);
     final now = DateTime.now();
     final dateLine = DateFormat('EEEE • MMM d, yyyy').format(now);
+    final streakNow = _streak;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -441,25 +487,38 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 18),
 
-                      // Streak pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.9),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                      // UPDATED: Streak pill (hidden when 0; show helper text instead)
+                      if (streakNow > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(.9),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.local_fire_department,
+                                  color: Colors.deepOrange, size: 18),
+                              const SizedBox(width: 6),
+                              Text('$streakNow-day streak',
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'Track daily to start a streak',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black.withOpacity(.7),
+                            ),
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.local_fire_department,
-                                color: Colors.deepOrange, size: 18),
-                            const SizedBox(width: 6),
-                            Text('$_streak-day streak',
-                                style: const TextStyle(fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                      ),
 
                       const SizedBox(height: 14),
 
@@ -617,7 +676,7 @@ class _HomePageState extends State<HomePage> {
                         tooltip: 'Add tracker',
                         onPressed: () => _createTracker(label: 'add tracker'),
                         icon: const Icon(Icons.add_circle_outline, size: 28),
-                        color: green,
+                        color: const Color(0xFF0D7C66),
                       ),
 
                       const SizedBox(height: 24),
@@ -639,7 +698,7 @@ class _HomePageState extends State<HomePage> {
                                   style: const TextStyle(
                                       fontSize: 12, fontWeight: FontWeight.w600)),
                               selected: sel,
-                              selectedColor: green.withOpacity(.15),
+                              selectedColor: const Color(0xFF0D7C66).withOpacity(.15),
                               onSelected: (_) => setState(() => _view = v),
                             ),
                           );
@@ -666,7 +725,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.arrow_drop_down_circle_outlined),
-                            color: green,
+                            color: const Color(0xFF0D7C66),
                             onPressed: _openSelectDialog,
                             tooltip: 'Select trackers to view',
                           ),
@@ -704,75 +763,129 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---- Select trackers dialog (on-theme)
+  // ---- Select trackers dialog (prettier chip UI)
   Future<void> _openSelectDialog() async {
     final chosen = Set<String>.from(_selectedForChart);
     await showDialog(
       context: context,
       builder: (ctx) {
         final dark = app.ThemeControllerScope.of(context).isDark;
+        final bg = dark ? const Color(0xFF123A36) : Colors.white;
+        final accent = const Color(0xFF0D7C66);
+
         return Dialog(
-          backgroundColor: dark ? const Color(0xFF123A36) : Colors.white,
+          backgroundColor: bg,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.checklist, size: 20, color: Color(0xFF0D7C66)),
-                    SizedBox(width: 8),
-                    Text('Select trackers to view',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: _trackers.map((t) {
-                        final checked = chosen.contains(t.id);
-                        return CheckboxListTile(
-                          value: checked,
-                          onChanged: (v) {
-                            if (v == true) {
-                              chosen.add(t.id);
+            child: StatefulBuilder(
+              builder: (context, setSheet) {
+                void toggle(String id, bool v) {
+                  if (v) {
+                    chosen.add(id);
+                  } else {
+                    chosen.remove(id);
+                  }
+                  setSheet(() {});
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.checklist, size: 20, color: accent),
+                        const SizedBox(width: 8),
+                        const Text('Select trackers to view',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () {
+                            if (chosen.length == _trackers.length) {
+                              chosen.clear();
                             } else {
-                              chosen.remove(t.id);
+                              chosen
+                                ..clear()
+                                ..addAll(_trackers.map((e) => e.id));
                             }
-                            (ctx as Element).markNeedsBuild();
+                            setSheet(() {});
                           },
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(t.label),
-                          secondary: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(color: t.color, shape: BoxShape.circle),
+                          icon: Icon(
+                            chosen.length == _trackers.length ? Icons.clear_all : Icons.select_all,
+                            size: 18,
+                            color: accent,
                           ),
-                        );
-                      }).toList(),
+                          label: Text(
+                            chosen.length == _trackers.length ? 'Clear' : 'Select all',
+                            style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                const Divider(),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _selectedForChart
-                          ..clear()
-                          ..addAll(chosen);
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text('Done', style: TextStyle(color: Color(0xFF0D7C66))),
-                  ),
-                )
-              ],
+                    const SizedBox(height: 12),
+
+                    // Chips grid
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _trackers.map((t) {
+                            final checked = chosen.contains(t.id);
+                            return FilterChip(
+                              selected: checked,
+                              showCheckmark: true,
+                              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                              avatar: CircleAvatar(
+                                radius: 6,
+                                backgroundColor: t.color,
+                              ),
+                              label: Text(t.label, overflow: TextOverflow.ellipsis),
+                              selectedColor: t.color.withOpacity(.18),
+                              onSelected: (v) => toggle(t.id, v),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
+                    const SizedBox(height: 6),
+
+                    // Actions
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text('Cancel',
+                              style: TextStyle(color: Colors.black.withOpacity(.7))),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _selectedForChart
+                                ..clear()
+                                ..addAll(chosen);
+                            });
+                            Navigator.pop(ctx);
+                          },
+                          icon: const Icon(Icons.check, size: 18),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          label: const Text('Done'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         );

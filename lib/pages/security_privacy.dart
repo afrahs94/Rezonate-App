@@ -44,7 +44,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     _loadSettings();
   }
 
-  // --------- Anonymity helpers (same logic as in Settings version) ---------
+  // --------- Anonymity helpers ---------
   bool _deriveAnon(Map<String, dynamic>? data) {
     if (data == null) return false;
     bool anon = false;
@@ -90,7 +90,6 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
       return;
     }
     await _db.collection('users').doc(uid).set({
-      // keep old & new keys in sync so all code paths work
       'share_anonymously': value,
       'share_publicly': !value,
       'anonymous': value,
@@ -108,7 +107,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
       ),
     );
   }
-  // ------------------------------------------------------------------------
+  // -------------------------------------
 
   Future<void> _changePin() async {
     final currentCtrl = TextEditingController();
@@ -611,20 +610,14 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       ),
                       const SizedBox(height: 18),
 
-                      const _Header('Default Entry Visibility'),
-                      const Text(
-                        'Choose how your posts show up by default.',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 18),
+                      // (Default Entry Visibility section has been removed.)
 
                       const _Header('Public Sharing'),
-                      // ===== NEW: Share Anonymously switch (stream-bound) =====
                       Builder(
                         builder: (ctx) {
                           final u = _auth.currentUser;
                           if (u == null) {
-                            return _AnonRow(
+                            return const _AnonRow(
                               on: false,
                               enabled: false,
                               onChanged: null,

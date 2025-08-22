@@ -446,6 +446,24 @@
       "languageVersion": "2.19"
     },
     {
+      "name": "image_cropper",
+      "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/image_cropper-9.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "image_cropper_for_web",
+      "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/image_cropper_for_web-6.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "image_cropper_platform_interface",
+      "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/image_cropper_platform_interface-7.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
       "name": "image_picker",
       "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/image_picker-1.2.0",
       "packageUri": "lib/",
@@ -992,7 +1010,7 @@
       "languageVersion": "3.7"
     }
   ],
-  "generated": "2025-08-21T23:15:05.717114Z",
+  "generated": "2025-08-22T14:58:23.905171Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///Users/saniaahmad/flutter",
