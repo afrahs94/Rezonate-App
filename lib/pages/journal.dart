@@ -200,9 +200,16 @@ class _JournalPageState extends State<JournalPage>
     super.initState();
     _loadBlocked();
 
+    // Show warning on focus (tap) and hide on blur.
     _pubFocus.addListener(() {
-      if (_pubFocus.hasFocus && !_showTriggerAdvice) {
-        setState(() => _showTriggerAdvice = true);
+      if (_pubFocus.hasFocus) {
+        if (!_showTriggerAdvice) {
+          setState(() => _showTriggerAdvice = true);
+        }
+      } else {
+        if (_showTriggerAdvice) {
+          setState(() => _showTriggerAdvice = false);
+        }
       }
     });
 
@@ -616,27 +623,7 @@ class _JournalPageState extends State<JournalPage>
       backgroundColor: Colors.transparent,
       extendBody: true,
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Image.asset(
-          'assets/images/Logo.png',
-          height: 60,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.bolt, color: _teal.withOpacity(.9), size: 32),
-        ),
-        actions: [
-          if (_seg == 0)
-            IconButton(
-              icon: const Icon(Icons.filter_list_rounded),
-              tooltip: 'Sort & filters',
-              onPressed: _openSortSheet,
-            ),
-          const SizedBox(width: 4),
-        ],
-      ),
+      // AppBar removed
       body: Stack(
         children: [
           // FIXED, NON-SCROLLING BACKGROUND LAYER
@@ -672,36 +659,6 @@ class _JournalPageState extends State<JournalPage>
                         ),
                       ],
                     ),
-
-                    // (Row of individual filter icons removed; single icon now in AppBar)
-
-                    if (_seg == 0 && _showTriggerAdvice)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border:
-                                Border.all(color: Colors.orange.shade200),
-                          ),
-                          child: Row(
-                            children: const [
-                              Icon(Icons.warning_amber_rounded,
-                                  size: 18, color: Colors.orange),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'If discussing sensitive topics, please add a trigger warning to your post.',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
 
                     const SizedBox(height: 6),
 
@@ -772,6 +729,37 @@ class _JournalPageState extends State<JournalPage>
                             ),
                     ),
 
+                    // ↓ Slightly reduced space above the composer
+                    const SizedBox(height: 16),
+
+                    // Warning appears RIGHT ABOVE when user taps into the bar
+                    if (_seg == 0 && _showTriggerAdvice)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.warning_amber_rounded,
+                                  size: 18, color: Colors.orange),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'If discussing sensitive topics, please add a trigger warning to your post.',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     // Composer (community only) – inline @-mentions
                     if (_seg == 0)
                       _ComposerWithMentions(
@@ -780,9 +768,7 @@ class _JournalPageState extends State<JournalPage>
                         hintText: 'start writing',
                         onSubmit: _postPublic,
                         showTriggerAdvice: (s) {
-                          if (!_showTriggerAdvice) {
-                            setState(() => _showTriggerAdvice = s);
-                          }
+                          setState(() => _showTriggerAdvice = s);
                         },
                         leadingAvatarUrl: u?.photoURL,
                       )
@@ -954,7 +940,7 @@ class _CommunityFeed extends StatelessWidget {
 
         return ListView.builder(
           // ⬇️ extra bottom padding to add more space above the composer
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 160),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 220),
           itemCount: docs.length,
           itemBuilder: (_, i) {
             final doc = docs[i];
@@ -1628,7 +1614,7 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
   }
 
   void _onTextChanged() {
-    widget.showTriggerAdvice?.call(true);
+    // (No-op for showing/hiding the warning; handled by focus listener)
     final sel = widget.controller.selection;
     final text = widget.controller.text;
     final q = _extractMentionQuery(text, sel);
