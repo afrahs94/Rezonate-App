@@ -193,10 +193,9 @@ class _LoginPageState extends State<LoginPage> {
                         // Full logo like sign-up — bigger now
                         Image.asset(
                           'assets/images/Full_logo.png',
-                          height: 230, // ⬅️ increased from 170
+                          height: 245, // ⬅️ increased from 170
                           fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: 10),
 
                         // "welcome back" in the same font style as sign-up
                         const Text('welcome', textAlign: TextAlign.center, style: titleStyle),
