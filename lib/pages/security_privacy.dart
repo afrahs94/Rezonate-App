@@ -602,7 +602,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 1),
+                      const SizedBox(height: 9),
                       const _Header('Encryption'),
                       const Text(
                         'All journal entries are encrypted',

@@ -27,7 +27,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController dobController = TextEditingController();
@@ -57,8 +58,9 @@ class _SignUpPageState extends State<SignUpPage> {
   // ---------- Password validators ----------
   bool _isStrongPassword(String p) {
     if (p.length < 6) return false;
-    if (!RegExp(r'\d').hasMatch(p)) return false;           // at least one number
-    if (!RegExp(r'[^\w\s]').hasMatch(p)) return false;      // at least one special char
+    if (!RegExp(r'\d').hasMatch(p)) return false; // at least one number
+    if (!RegExp(r'[^\w\s]').hasMatch(p))
+      return false; // at least one special char
     return true;
   }
 
@@ -67,7 +69,8 @@ class _SignUpPageState extends State<SignUpPage> {
     if (v.isEmpty) return 'Required';
     if (v.length < 6) return 'At least 6 characters';
     if (!RegExp(r'\d').hasMatch(v)) return 'Include at least one number';
-    if (!RegExp(r'[^\w\s]').hasMatch(v)) return 'Include at least one special character';
+    if (!RegExp(r'[^\w\s]').hasMatch(v))
+      return 'Include at least one special character';
     return null;
   }
 
@@ -106,11 +109,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
       // Legacy fallback: some old user docs may not have a reservation doc
       if (!taken) {
-        final q = await _firestore
-            .collection('users')
-            .where('username_lower', isEqualTo: lower)
-            .limit(1)
-            .get();
+        final q =
+            await _firestore
+                .collection('users')
+                .where('username_lower', isEqualTo: lower)
+                .limit(1)
+                .get();
         taken = q.docs.isNotEmpty;
       }
 
@@ -146,11 +150,12 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _checkEmailAvailability(String email) async {
     try {
-      final q = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: email.trim())
-          .limit(1)
-          .get();
+      final q =
+          await _firestore
+              .collection('users')
+              .where('email', isEqualTo: email.trim())
+              .limit(1)
+              .get();
 
       if (!mounted) return;
       setState(() {
@@ -249,7 +254,10 @@ class _SignUpPageState extends State<SignUpPage> {
           hintText: hint,
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 22,
+            vertical: 18,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30),
             borderSide: BorderSide.none,
@@ -259,7 +267,9 @@ class _SignUpPageState extends State<SignUpPage> {
           helperStyle: const TextStyle(color: Color(0xFF0D7C66)),
           suffixIcon: suffix,
         ),
-        validator: validator ?? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+        validator:
+            validator ??
+            (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
       ),
     );
   }
@@ -281,7 +291,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 Center(
                   child: Image.asset(
                     'assets/images/Full_logo.png',
-                    height: 190,
+                    height: 200,
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -304,13 +314,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   onChanged: _onUsernameChanged,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
-                    if (_usernameAvailable == false) return 'Username already taken';
+                    if (_usernameAvailable == false)
+                      return 'Username already taken';
                     return null;
                   },
                   errorText: _usernameError,
-                  helperText: (_usernameError == null && _usernameAvailable == true)
-                      ? 'Username available'
-                      : null,
+                  helperText:
+                      (_usernameError == null && _usernameAvailable == true)
+                          ? 'Username available'
+                          : null,
                   suffix: _availabilitySuffix(_usernameAvailable),
                 ),
 
@@ -320,14 +332,18 @@ class _SignUpPageState extends State<SignUpPage> {
                   onChanged: _onEmailChanged,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
-                    final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim());
+                    final ok = RegExp(
+                      r'^[^@]+@[^@]+\.[^@]+',
+                    ).hasMatch(v.trim());
                     if (!ok) return 'Enter a valid email';
                     if (_emailAvailable == false) return 'Email already in use';
                     return null;
                   },
                   errorText: _emailError,
                   helperText:
-                      (_emailError == null && _emailAvailable == true) ? 'Email available' : null,
+                      (_emailError == null && _emailAvailable == true)
+                          ? 'Email available'
+                          : null,
                   suffix: _availabilitySuffix(_emailAvailable),
                 ),
 
@@ -339,10 +355,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   validator: _passwordValidator,
                   errorText: _passwordLiveError,
                   suffix: IconButton(
-                    icon: Icon(_passwordObscured ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() {
-                      _passwordObscured = !_passwordObscured;
-                    }),
+                    icon: Icon(
+                      _passwordObscured
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed:
+                        () => setState(() {
+                          _passwordObscured = !_passwordObscured;
+                        }),
                   ),
                 ),
 
@@ -352,10 +373,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   obscureText: _confirmPasswordObscured,
                   validator: _confirmPasswordValidator,
                   suffix: IconButton(
-                    icon: Icon(_confirmPasswordObscured ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() {
-                      _confirmPasswordObscured = !_confirmPasswordObscured;
-                    }),
+                    icon: Icon(
+                      _confirmPasswordObscured
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed:
+                        () => setState(() {
+                          _confirmPasswordObscured = !_confirmPasswordObscured;
+                        }),
                   ),
                 ),
 
@@ -377,21 +403,21 @@ class _SignUpPageState extends State<SignUpPage> {
                     minimumSize: const Size(double.infinity, 55),
                     elevation: 5,
                   ),
-                  child: const Text('continue',
-                      style: TextStyle(fontSize: 18, color: Colors.white)),
+                  child: const Text(
+                    'continue',
+                    style: TextStyle(fontSize: 18, color: Colors.white),
+                  ),
                 ),
 
                 const SizedBox(height: 10),
-                const Align(
-                  alignment: Alignment.center,
-                  child: Text('1 of 2'),
-                ),
+                const Align(alignment: Alignment.center, child: Text('1 of 2')),
                 const SizedBox(height: 2),
                 GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                  ),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
+                      ),
                   child: const Align(
                     alignment: Alignment.center,
                     child: Text.rich(
@@ -443,7 +469,7 @@ class _SignUpPageState extends State<SignUpPage> {
               Center(
                 child: Image.asset(
                   'assets/images/Full_logo.png',
-                  height: 190,
+                  height: 200,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -457,8 +483,6 @@ class _SignUpPageState extends State<SignUpPage> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-
-              const SizedBox(height: 8),
 
               // Constrain width a bit so it feels centered/clean on larger screens
               Align(
@@ -482,7 +506,10 @@ class _SignUpPageState extends State<SignUpPage> {
                       const Text(
                         'gender',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: Color(0xFF0D7C66)),
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: Color(0xFF0D7C66),
+                        ),
                       ),
                       const SizedBox(height: 10),
 
@@ -504,10 +531,11 @@ class _SignUpPageState extends State<SignUpPage> {
                         children: [
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () => _controller.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              ),
+                              onPressed:
+                                  () => _controller.previousPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0D7C66),
                                 shape: RoundedRectangleBorder(
@@ -516,8 +544,13 @@ class _SignUpPageState extends State<SignUpPage> {
                                 minimumSize: const Size(double.infinity, 55),
                                 elevation: 5,
                               ),
-                              child: const Text('back',
-                                  style: TextStyle(fontSize: 18, color: Colors.white)),
+                              child: const Text(
+                                'back',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 20),
@@ -532,8 +565,13 @@ class _SignUpPageState extends State<SignUpPage> {
                                 minimumSize: const Size(double.infinity, 55),
                                 elevation: 5,
                               ),
-                              child: const Text('done',
-                                  style: TextStyle(fontSize: 18, color: Colors.white)),
+                              child: const Text(
+                                'done',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -547,10 +585,11 @@ class _SignUpPageState extends State<SignUpPage> {
               const Text('2 of 2', textAlign: TextAlign.center),
               const SizedBox(height: 4),
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                ),
+                onTap:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                    ),
                 child: const Text.rich(
                   TextSpan(
                     text: 'already have an account? ',
@@ -579,7 +618,9 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<void> _handleSignUp() async {
     try {
       if (dobController.text.isEmpty) {
-        setState(() => _dobError = 'Please select date of birth'); // inline error
+        setState(
+          () => _dobError = 'Please select date of birth',
+        ); // inline error
         return;
       }
 
@@ -610,11 +651,12 @@ class _SignUpPageState extends State<SignUpPage> {
       }
 
       // Pre-check against usernames/{username_lower}
-      final pre = await _firestore.collection('usernames').doc(usernameLower).get();
+      final pre =
+          await _firestore.collection('usernames').doc(usernameLower).get();
       if (pre.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Username already taken')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Username already taken')));
         return;
       }
 
@@ -630,7 +672,9 @@ class _SignUpPageState extends State<SignUpPage> {
       // Atomically claim username + create profile
       try {
         await _firestore.runTransaction((tx) async {
-          final unameRef = _firestore.collection('usernames').doc(usernameLower);
+          final unameRef = _firestore
+              .collection('usernames')
+              .doc(usernameLower);
           final unameSnap = await tx.get(unameRef);
           if (unameSnap.exists) {
             throw Exception('USERNAME_TAKEN');
@@ -687,9 +731,9 @@ class _SignUpPageState extends State<SignUpPage> {
       try {
         await FirebaseAuth.instance.currentUser?.delete();
       } catch (_) {}
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -720,36 +764,43 @@ class _SignUpPageState extends State<SignUpPage> {
   // -------------------- Gender tile --------------------
   Widget _genderTile(String g) {
     final isSelected = gender == g;
-    final color = g == 'male'
-        ? Colors.blue
-        : g == 'female'
+    final color =
+        g == 'male'
+            ? Colors.blue
+            : g == 'female'
             ? Colors.pink
             : Colors.purple;
 
     return GestureDetector(
       onTap: () => setState(() => gender = g),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        width: 94, // 🔹 fixed width
+        height: 90, // 🔹 fixed height
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(18),
+          
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center, // 🔹 center everything
           children: [
             Icon(
               g == 'male'
                   ? Icons.male
                   : g == 'female'
-                      ? Icons.female
-                      : Icons.transgender,
+                  ? Icons.female
+                  : Icons.transgender,
               color: color,
-              size: 24,
+              size: 34,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               g,
-              style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
             ),
           ],
         ),
