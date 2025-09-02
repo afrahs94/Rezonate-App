@@ -5,7 +5,7 @@ import 'package:new_rezonate/pages/home.dart';
 import 'package:new_rezonate/pages/journal.dart';
 import 'package:new_rezonate/pages/edit_profile.dart';
 import 'package:new_rezonate/pages/change_password.dart';
-import 'package:new_rezonate/pages/security_privacy.dart'; // updated import
+import 'package:new_rezonate/pages/security_privacy.dart';
 import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
 import 'package:new_rezonate/pages/login_page.dart';
@@ -22,56 +22,58 @@ class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _searchCtrl = TextEditingController();
   late List<_Item> _all;
   late List<_Item> _shown;
+  late List<String> _suggestions;
 
   @override
   void initState() {
     super.initState();
+    _suggestions = [];
     _all = [
       _Item(
         label: 'Edit Profile',
         icon: Icons.person_outline,
         keywords: const [
-          'name',
-          'username',
-          'email',
-          'profile',
-          'photo',
-          'picture',
-          'birthday'
+          'edit profile', 'profile', 'name', 'username', 'email', 'bio', 'photo',
+          'picture', 'avatar', 'birthday', 'account info', 'details'
         ],
         builder: () => EditProfilePage(userName: widget.userName),
       ),
       _Item(
         label: 'Change Password',
         icon: Icons.lock_outline,
-        keywords: const ['password', 'security', 'update', 'credentials'],
+        keywords: const [
+          'change password', 'password', 'update password', 'reset password',
+          'credentials', 'security', 'old password', 'new password', 'confirm password'
+        ],
         builder: () => const ChangePasswordPage(userName: ''),
       ),
       _Item(
         label: 'Security & Privacy',
         icon: Icons.security,
         keywords: const [
-          'privacy',
-          'security',
-          'encryption',
-          'anonymous',
-          'sharing',
-          'app lock',
-          'blocked users',
-          'my journal lock'
+          'security & privacy', 'security', 'privacy', 'encryption', 'permissions',
+          'anonymous', 'sharing', 'app lock', 'pin', 'blocked users', 'journal lock',
+          'data', 'tracking', 'biometrics', 'face id', 'touch id'
         ],
         builder: () => SecurityAndPrivacyPage(userName: widget.userName),
       ),
       _Item(
         label: 'Push Notifications',
         icon: Icons.notifications_active_outlined,
-        keywords: const ['push', 'notifications', 'reminders', 'alerts'],
+        keywords: const [
+          'push notifications', 'notifications', 'notify', 'reminders', 'alerts',
+          'daily reminder', 'journal reminder', 'mute', 'do not disturb', 'schedule'
+        ],
         builder: () => PushNotificationsPage(userName: widget.userName),
       ),
       _Item(
         label: 'Deactivate Account',
         icon: Icons.person_off_outlined,
-        keywords: const ['deactivate', 'disable', 'delete', 'close account', 'remove'],
+        keywords: const [
+          'deactivate account', 'deactivate', 'delete account', 'delete',
+          'close account', 'disable', 'remove account', 'account deletion',
+          'permanently delete'
+        ],
         builder: () => DeactivateAccountPage(userName: widget.userName),
       ),
       _Item.darkMode(), // inline toggle row
@@ -88,18 +90,105 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
+  // ---------- Simple helpers + fuzzy suggestions (used only when no results) ----------
+  String _norm(String s) => s.toLowerCase().trim();
+
+  int _lev(String a, String b) {
+    a = _norm(a); b = _norm(b);
+    if (a == b) return 0;
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+
+    final m = a.length, n = b.length;
+    final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
+    for (var i = 0; i <= m; i++) dp[i][0] = i;
+    for (var j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (var i = 1; i <= m; i++) {
+      for (var j = 1; j <= n; j++) {
+        final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+        final del = dp[i - 1][j] + 1;
+        final ins = dp[i][j - 1] + 1;
+        final sub = dp[i - 1][j - 1] + cost;
+        dp[i][j] = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
+      }
+    }
+    return dp[m][n];
+  }
+
+  // Top-N label suggestions when nothing matches (lightweight fuzzy)
+  List<String> _suggestFor(String query, {int maxReturn = 3}) {
+    final q = _norm(query);
+    if (q.isEmpty) return [];
+    final scores = <String, int>{}; // label -> best distance
+
+    for (final it in _all) {
+      if (it.type == _RowType.darkMode) continue; // skip dark mode row
+
+      var best = 9999;
+      for (final text in [it.label, ...it.keywords]) {
+        final parts = _norm(text).split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty);
+        for (final w in parts) {
+          final d = _lev(q, w);
+          if (d < best) best = d;
+          if (best == 0) break;
+        }
+        if (best == 0) break;
+      }
+
+      if (best <= 3) { // threshold; tune to 2 for stricter suggestions
+        scores[it.label] = scores.containsKey(it.label)
+            ? (best < scores[it.label]! ? best : scores[it.label]!)
+            : best;
+      }
+    }
+
+    final sorted = scores.entries.toList()
+      ..sort((a, b) => a.value != b.value ? a.value - b.value : a.key.compareTo(b.key));
+    return sorted.take(maxReturn).map((e) => e.key).toList();
+  }
+
+  // ---------- Search ----------
   void _onSearch() {
-    final q = _searchCtrl.text.trim().toLowerCase();
+    final q = _searchCtrl.text.toLowerCase().trim();
     if (q.isEmpty) {
-      setState(() => _shown = List.of(_all));
+      setState(() {
+        _shown = List.of(_all);
+        _suggestions = [];
+      });
       return;
     }
+
+    // split multi-word queries: "change pass" -> ["change","pass"]
+    final tokens = q.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+
+    bool matches(_Item it) {
+      final isLogout = it.type == _RowType.logout;
+      final isSearchable = it.type == _RowType.link || isLogout; // exclude dark mode from search
+      if (!isSearchable) return false;
+
+      final haystack = <String>[
+        it.label.toLowerCase(),
+        ...it.keywords.map((k) => k.toLowerCase()),
+      ];
+
+      // Logout row: allow partials like "log", "sign" (min length 3)
+      if (isLogout) {
+        const minLen = 3;
+        return tokens.any((tok) =>
+            tok.length >= minLen && haystack.any((h) => h.contains(tok)));
+      }
+
+      // Normal items: every token must match somewhere (simple "contains")
+      return tokens.every((tok) => haystack.any((h) => h.contains(tok)));
+    }
+
+    final results = _all.where(matches).toList();
+
     setState(() {
-      _shown = _all.where((it) {
-        if (it.type != _RowType.link) return false;
-        if (it.label.toLowerCase().contains(q)) return true;
-        return it.keywords.any((k) => k.contains(q));
-      }).toList();
+      _shown = results;
+      // Hybrid: fuzzy suggestions only when there are zero matches
+      _suggestions = results.isEmpty ? _suggestFor(_searchCtrl.text) : [];
     });
   }
 
@@ -151,11 +240,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 ...results.map((it) => ListTile(
                       leading: Icon(it.icon, color: const Color(0xFF0D7C66)),
-                      title: Text(it.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      title: Text(it.label,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => it.builder()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => it.builder()),
+                        );
                       },
                     )),
               ],
@@ -237,8 +329,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                 _onSearch();
                               },
                             ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 14),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(28),
                         borderSide: BorderSide.none,
@@ -248,13 +340,33 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
 
+              // Did you mean… suggestions (only when no results)
+              if (_suggestions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                  child: _DidYouMean(
+                    suggestions: _suggestions,
+                    onTap: (label) {
+                      _searchCtrl.text = label;
+                      _searchCtrl.selection = TextSelection.fromPosition(
+                        TextPosition(offset: _searchCtrl.text.length),
+                      );
+                      _onSearch();
+                    },
+                  ),
+                ),
+
               // Results list
               Expanded(
                 child: _shown.isEmpty
                     ? const Center(
-                        child: Text('No results',
-                            style:
-                                TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+                        child: Text(
+                          'No results',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black54,
+                          ),
+                        ),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
@@ -341,15 +453,16 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(it.icon, color: Colors.white, size: 22),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                it.label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+            child: Text(
+              it.label,   
+              style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+            fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
+
             const Icon(Icons.arrow_forward_rounded, color: Colors.white),
           ],
         ),
@@ -414,14 +527,43 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _logoutRow(BuildContext context) {
     final bg = const Color.fromARGB(131, 0, 150, 135);
-    return InkWell(
-      onTap: () async {
+
+    Future<void> _confirmLogout() async {
+      final theme = Theme.of(context);
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Log out?',
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          content: Text('Are you sure you want to log out?', style: theme.textTheme.bodyMedium),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel',
+                  style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Log out',
+                  style: theme.textTheme.labelLarge?.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+      if (ok == true && context.mounted) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const LoginPage()),
           (_) => false,
         );
-      },
+      }
+    }
+
+    return InkWell(
+      onTap: _confirmLogout,
       borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -463,8 +605,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    final color =
-        selected ? const Color.fromARGB(255, 13, 124, 102) : Colors.white;
+    final color = selected ? const Color.fromARGB(255, 13, 124, 102) : Colors.white;
     return IconButton(
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
@@ -493,8 +634,7 @@ class _Item {
   })  : _builder = builder,
         type = _RowType.link;
 
-  _Item._special(this.label, this.icon, this.keywords, this.type)
-      : _builder = null;
+  _Item._special(this.label, this.icon, this.keywords, this.type) : _builder = null;
 
   factory _Item.darkMode() => _Item._special(
         'Dark Mode',
@@ -506,9 +646,42 @@ class _Item {
   factory _Item.logout() => _Item._special(
         'Log out',
         Icons.logout_rounded,
-        const ['logout'],
+        const ['logout', 'log out', 'sign out', 'logoff', 'log off'],
         _RowType.logout,
       );
 
   Widget builder() => _builder!.call();
 }
+
+// ————————— UI: Did you mean —————————
+
+class _DidYouMean extends StatelessWidget {
+  final List<String> suggestions;
+  final ValueChanged<String> onTap;
+  const _DidYouMean({required this.suggestions, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Did you mean:',
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: -6,
+            children: suggestions
+                .map((s) => ActionChip(label: Text(s), onPressed: () => onTap(s), elevation: 0))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

@@ -296,17 +296,21 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                 ),
 
-                const Align(
-                  alignment: Alignment.center,
-                  child: Text(
-                    'sign up',
-                    style: TextStyle(
-                      fontSize: 45,
-                      color: Color(0xFF0D7C66),
-                      fontWeight: FontWeight.w500,
+                Transform.translate(
+                    offset: const Offset(0, -14), 
+                    child: const Align(
+                    alignment: Alignment.center,
+                      child: Text(
+                        'sign up',
+                         style: TextStyle(
+                          fontSize: 45,
+                          color: Color(0xFF0D7C66),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+
 
                 _buildTextField(
                   'username *',

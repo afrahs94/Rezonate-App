@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:new_rezonate/main.dart' as app;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 import 'home.dart';
 import 'journal.dart';
@@ -39,10 +41,30 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _loadSettings();
+void initState() {
+  super.initState();
+  _policyTap = TapGestureRecognizer()..onTap = _openPrivacyPolicy;
+  _loadSettings();
+}
+
+Future<void> _openPrivacyPolicy() async {
+  // Replace with your real URL
+  final uri = Uri.parse('https://www.notion.so/DRAFT-5-FINAL-THINGS-TO-FIX-2544f261ee2380918c1ac5f28387842c?source=copy_link');
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open Privacy Policy')),
+    );
   }
+}
+@override
+void dispose() {
+  _policyTap.dispose();
+  super.dispose();
+}
+
+
+
 
   // --------- Anonymity helpers ---------
   bool _deriveAnon(Map<String, dynamic>? data) {
@@ -487,13 +509,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              SettingsPage(userName: widget.userName),
-                        ),
-                      ),
+                      onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
@@ -660,32 +676,32 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                         ),
                       ),
                       const SizedBox(height: 18),
-
                       const _Header('Privacy Policy'),
-                      RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                          children: [
-                            const TextSpan(
-                              text:
-                                  'When entry is shared publicly, it will appear in the community feed. '
-                                  'If "Share anonymously" is enabled, your identity is hidden on past and future posts & replies. '
-                                  'For more details, tap ',
-                            ),
-                            TextSpan(
-                              text: 'here.',
-                              style: const TextStyle(
-                                decoration: TextDecoration.underline,
-                                color: Colors.white,
-                              ),
-                              recognizer: TapGestureRecognizer()..onTap = () {},
-                            ),
-                          ],
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
                         ),
+                        children: [
+                          const TextSpan(
+                            text:
+                                'When entry is shared publicly, it will appear in the community feed. '
+                                'If "Share anonymously" is enabled, your identity is hidden on past and future posts & replies. '
+                                'For more details, tap ',
+                          ),
+                          TextSpan(
+                            text: 'here.',
+                            style: const TextStyle(
+                              decoration: TextDecoration.underline,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            recognizer: _policyTap,
+                          ),
+                        ],
                       ),
+                                          ),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -699,6 +715,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
       ),
     );
   }
+
+  late final TapGestureRecognizer _policyTap;
+
 }
 
 class _AnonRow extends StatelessWidget {

@@ -125,15 +125,19 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                       icon: Icon(Icons.arrow_back,
                           color: theme.colorScheme.onSurface),
                       onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SettingsPage(
-                              userName: widget.userName,
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          Navigator.of(context).pushReplacement(
+                            PageRouteBuilder(
+                              pageBuilder: (_, __, ___) => SettingsPage(userName: widget.userName),
+                              transitionDuration: Duration.zero,
+                              reverseTransitionDuration: Duration.zero,
                             ),
-                          ),
-                        );
+                          );
+                        }
                       },
+
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -153,7 +157,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Image.asset(
                   'assets/images/Full_logo.png',
-                  height: 150,
+                  height: 230,
                   fit: BoxFit.contain,
                 ),
               ),

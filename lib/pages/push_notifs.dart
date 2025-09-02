@@ -166,15 +166,10 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                       icon: Icon(Icons.arrow_back,
                           color: theme.colorScheme.onSurface),
                       onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SettingsPage(userName: widget.userName),
-                          ),
-                        );
+                        Navigator.pop(context);
                       },
                     ),
+
                     const SizedBox(width: 4),
                     Text(
                       'Push Notifications',
