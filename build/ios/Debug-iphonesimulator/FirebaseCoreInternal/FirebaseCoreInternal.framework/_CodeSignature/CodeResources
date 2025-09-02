@@ -26,11 +26,11 @@
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		Jd1vWULtNUXRlNGqhvuU7BC2KsE=
+		C7qRuoA+9TCIzAyczgmRQ1nGlAI=
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		zpUSvr/eeNXL6M5ubWfRqZuktcA=
+		BHYLlxHgIYTtHhBNYiz+f/F2ydo=
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -42,7 +42,7 @@
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		Zm+3QdC2rmGPSVkPxB1cikqDg+4=
+		PFYqUlddAUsBO3HSYrONmNzPA54=
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -54,7 +54,7 @@
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		QwQk7tTZfX2B/eNW4IFtBz3nwDM=
+		TjQirju5sE009NUzhr67dJ+AGt4=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -95,14 +95,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			xrpIYWiJQg1NYdn6XpHG2SjMumAvJ777FJqUf5tzg5Y=
+			q1zFWN4yCEQQZDlpg5Hz42Epj6LjiyDy7k42bfsTBk0=
 			</data>
 		</dict>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			0aShhSYyfSYxXf3aZxRtYP4pu+q0uHZD07HS4t2tQSk=
+			cVfEKK+IGljy2DJ/6/cF1+PGbVlqPEDrt37PgLLkwck=
 			</data>
 		</dict>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -123,7 +123,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			JqzPP07x5mIKex0wOxvXZMnj9zdVBcYGYylf1hHcias=
+			94KeX4uAjYHENg8q7TtE2bPDzenlzV1tOBtJPNijenk=
 			</data>
 		</dict>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -144,7 +144,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			J0vkVpLzlUt9VbUINcK+mfycUYdZBK9mofeoRtYzPs8=
+			zbF05IY9MCj+i5ImU2de7WpIXksetEbhlYgHnwZDR8w=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

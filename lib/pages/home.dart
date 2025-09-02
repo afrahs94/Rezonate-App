@@ -26,13 +26,13 @@ class Tracker {
   int sort;
 
   Map<String, dynamic> toMap() => {
-        'label': label,
-        'color': color.value,
-        'latest_value': value,
-        'sort': sort,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+    'label': label,
+    'color': color.value,
+    'latest_value': value,
+    'sort': sort,
+    'updatedAt': FieldValue.serverTimestamp(),
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 
   static Tracker fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? {};
@@ -76,8 +76,8 @@ class _HomePageState extends State<HomePage> {
   DateTime? _lastLogAt;
 
   // To enforce strict 24h rule even when there IS a log today
-  DateTime? _firstLogTodayAt;       // earliest log time for "today"
-  DateTime? _lastLogBeforeTodayAt;  // most recent log time BEFORE "today"
+  DateTime? _firstLogTodayAt; // earliest log time for "today"
+  DateTime? _lastLogBeforeTodayAt; // most recent log time BEFORE "today"
 
   // ---- Lifecycle
   @override
@@ -98,19 +98,19 @@ class _HomePageState extends State<HomePage> {
         .orderBy('sort')
         .snapshots()
         .listen((snap) async {
-      final list = snap.docs.map(Tracker.fromDoc).toList();
-      if (list.isEmpty) {
-        // seed a default tracker
-        await _createTracker(label: 'add tracker');
-        return;
-      }
-      setState(() {
-        _trackers = list;
-        if (_selectedForChart.isEmpty) {
-          _selectedForChart.addAll(_trackers.map((t) => t.id));
-        }
-      });
-    });
+          final list = snap.docs.map(Tracker.fromDoc).toList();
+          if (list.isEmpty) {
+            // seed a default tracker
+            await _createTracker(label: 'add tracker');
+            return;
+          }
+          setState(() {
+            _trackers = list;
+            _selectedForChart
+              ..clear()
+              ..addAll(_trackers.map((t) => t.id));
+          });
+        });
 
     // Pull last 120 days of logs and keep in memory
     _db
@@ -121,64 +121,71 @@ class _HomePageState extends State<HomePage> {
         .limit(120)
         .snapshots()
         .listen((snap) {
-      final map = <String, Map<String, double>>{};
-      final daysWithLogs = <String>{};
+          final map = <String, Map<String, double>>{};
+          final daysWithLogs = <String>{};
 
-      DateTime? newest; // most recent updatedAt across docs
-      DateTime? firstToday; // earliest log today
-      DateTime? prevBeforeToday; // last log before today
+          DateTime? newest; // most recent updatedAt across docs
+          DateTime? firstToday; // earliest log today
+          DateTime? prevBeforeToday; // last log before today
 
-      final todayKey = _dayKey(DateTime.now());
+          final todayKey = _dayKey(DateTime.now());
 
-      for (final d in snap.docs) {
-        final m = d.data();
-        final vals =
-            (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
+          for (final d in snap.docs) {
+            final m = d.data();
+            final vals =
+                (m['values'] as Map?)?.map(
+                  (k, v) => MapEntry('$k', (v as num).toDouble()),
+                ) ??
                 <String, double>{};
-        map[d.id] = vals.cast<String, double>();
-        if (vals.isNotEmpty) daysWithLogs.add(d.id);
+            map[d.id] = vals.cast<String, double>();
+            if (vals.isNotEmpty) daysWithLogs.add(d.id);
 
-        final ts =
-            (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
-        if (ts != null) {
-          if (newest == null || ts.isAfter(newest)) newest = ts;
-        } else if (vals.isNotEmpty) {
-          // Fallback only when updatedAt missing
-          final dayInt = (m['day'] as num?)?.toInt();
-          if (dayInt != null) {
-            final y = dayInt ~/ 10000;
-            final mo = (dayInt % 10000) ~/ 100;
-            final da = dayInt % 100;
-            final fallback = DateTime(y, mo, da, 23, 59, 59);
-            if (newest == null || fallback.isAfter(newest)) newest = fallback;
-          }
-        }
+            final ts =
+                (m['updatedAt'] is Timestamp)
+                    ? (m['updatedAt'] as Timestamp).toDate()
+                    : null;
+            if (ts != null) {
+              if (newest == null || ts.isAfter(newest)) newest = ts;
+            } else if (vals.isNotEmpty) {
+              // Fallback only when updatedAt missing
+              final dayInt = (m['day'] as num?)?.toInt();
+              if (dayInt != null) {
+                final y = dayInt ~/ 10000;
+                final mo = (dayInt % 10000) ~/ 100;
+                final da = dayInt % 100;
+                final fallback = DateTime(y, mo, da, 23, 59, 59);
+                if (newest == null || fallback.isAfter(newest))
+                  newest = fallback;
+              }
+            }
 
-        // Pick up first log today and last log before today
-        if (d.id == todayKey) {
-          final f =
-              (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
-          if (f != null) firstToday = f;
-        } else {
-          if (ts != null) {
-            if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
-              prevBeforeToday = ts;
+            // Pick up first log today and last log before today
+            if (d.id == todayKey) {
+              final f =
+                  (m['firstAt'] is Timestamp)
+                      ? (m['firstAt'] as Timestamp).toDate()
+                      : null;
+              if (f != null) firstToday = f;
+            } else {
+              if (ts != null) {
+                if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
+                  prevBeforeToday = ts;
+                }
+              }
             }
           }
-        }
-      }
-      setState(() {
-        _daily
-          ..clear()
-          ..addAll(map);
-        _daysWithAnyLog
-          ..clear()
-          ..addAll(daysWithLogs);
-        _lastLogAt = newest;
-        _firstLogTodayAt = firstToday;
-        _lastLogBeforeTodayAt = prevBeforeToday;
-      });
-    });
+          setState(() {
+            _daily
+              ..clear()
+              ..addAll(map);
+            _daysWithAnyLog
+              ..clear()
+              ..addAll(daysWithLogs);
+            _lastLogAt = newest;
+            _firstLogTodayAt = firstToday;
+            _lastLogBeforeTodayAt = prevBeforeToday;
+          });
+        });
   }
 
   // ---- Helpers
@@ -187,7 +194,10 @@ class _HomePageState extends State<HomePage> {
   List<DateTime> _currentWeekMonToSun() {
     final now = DateTime.now();
     final start = now.subtract(Duration(days: (now.weekday - DateTime.monday)));
-    return List.generate(7, (i) => DateTime(start.year, start.month, start.day + i));
+    return List.generate(
+      7,
+      (i) => DateTime(start.year, start.month, start.day + i),
+    );
   }
 
   List<DateTime> _lastNDays(int n) {
@@ -222,7 +232,8 @@ class _HomePageState extends State<HomePage> {
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
     // If no log today and it's been >24h since last log -> streak lost.
-    final within24h = _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
+    final within24h =
+        _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
     if (!hasToday && !within24h) {
       return 0;
     }
@@ -243,9 +254,12 @@ class _HomePageState extends State<HomePage> {
 
     while (true) {
       final key = _dayKey(d);
-      final isYesterday = d.isAtSameMomentAs(todayMidnight.subtract(const Duration(days: 1)));
+      final isYesterday = d.isAtSameMomentAs(
+        todayMidnight.subtract(const Duration(days: 1)),
+      );
       final filled =
-          _daysWithAnyLog.contains(key) || (graceForToday && d.isAtSameMomentAs(todayMidnight));
+          _daysWithAnyLog.contains(key) ||
+          (graceForToday && d.isAtSameMomentAs(todayMidnight));
 
       // Apply the strict break when stepping from today to yesterday
       if (isYesterday && brokeBetweenYesterdayAndToday) break;
@@ -263,9 +277,10 @@ class _HomePageState extends State<HomePage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -274,13 +289,24 @@ class _HomePageState extends State<HomePage> {
     final u = _user;
     if (u == null) return;
     final id = 't${DateTime.now().microsecondsSinceEpoch}';
-    final color = Colors.primaries[_rnd.nextInt(Colors.primaries.length)].shade700;
+    final color =
+        Colors.primaries[_rnd.nextInt(Colors.primaries.length)].shade700;
     final sort = _trackers.length;
     final t = Tracker(id: id, label: label, color: color, value: 5, sort: sort);
-    await _db.collection('users').doc(u.uid).collection('trackers').doc(id).set(t.toMap());
+    await _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('trackers')
+        .doc(id)
+        .set(t.toMap());
   }
 
-  Future<void> _updateTracker(Tracker t, {String? label, Color? color, double? latest}) async {
+  Future<void> _updateTracker(
+    Tracker t, {
+    String? label,
+    Color? color,
+    double? latest,
+  }) async {
     final u = _user;
     if (u == null) return;
     final data = <String, dynamic>{
@@ -289,10 +315,12 @@ class _HomePageState extends State<HomePage> {
       if (latest != null) 'latest_value': latest,
       'updatedAt': FieldValue.serverTimestamp(),
     };
-    await _db.collection('users').doc(u.uid).collection('trackers').doc(t.id).set(
-          data,
-          SetOptions(merge: true),
-        );
+    await _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('trackers')
+        .doc(t.id)
+        .set(data, SetOptions(merge: true));
   }
 
   Future<void> _persistOrder() async {
@@ -327,7 +355,11 @@ class _HomePageState extends State<HomePage> {
 
     // remote (ensure we write 'firstAt' only once per day)
     final dayInt = int.parse(DateFormat('yyyyMMdd').format(now));
-    final docRef = _db.collection('users').doc(u.uid).collection('daily_logs').doc(key);
+    final docRef = _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('daily_logs')
+        .doc(key);
     final snap = await docRef.get();
 
     final data = <String, dynamic>{
@@ -345,7 +377,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _deleteTracker(Tracker t) async {
     final u = _user;
     if (u == null) return;
-    await _db.collection('users').doc(u.uid).collection('trackers').doc(t.id).delete();
+    await _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('trackers')
+        .doc(t.id)
+        .delete();
     setState(() {
       _trackers.removeWhere((x) => x.id == t.id);
       _selectedForChart.remove(t.id);
@@ -360,24 +397,31 @@ class _HomePageState extends State<HomePage> {
   String _dateRangeHeading() {
     if (_view == ChartView.weekly) {
       final days = _currentWeekMonToSun();
-      final a = '${DateFormat('MMM').format(days.first)} ${_ordinal(days.first.day)}';
-      final b = '${DateFormat('MMM').format(days.last)} ${_ordinal(days.last.day)}';
+      final a =
+          '${DateFormat('MMM').format(days.first)} ${_ordinal(days.first.day)}';
+      final b =
+          '${DateFormat('MMM').format(days.last)} ${_ordinal(days.last.day)}';
       return '$a – $b';
     } else if (_view == ChartView.monthly) {
       final days = _lastNDays(28);
-      final a = '${DateFormat('MMM').format(days.first)} ${_ordinal(days.first.day)}';
-      final b = '${DateFormat('MMM').format(days.last)} ${_ordinal(days.last.day)}';
+      final a =
+          '${DateFormat('MMM').format(days.first)} ${_ordinal(days.first.day)}';
+      final b =
+          '${DateFormat('MMM').format(days.last)} ${_ordinal(days.last.day)}';
       return 'Last 28 days • $a – $b';
     } else {
       final days = _lastNDays(84);
-      final a = '${DateFormat('MMM').format(days.first)} ${_ordinal(days.first.day)}';
-      final b = '${DateFormat('MMM').format(days.last)} ${_ordinal(days.last.day)}';
+      final a =
+          '${DateFormat('MMM').format(days.first)} ${_ordinal(days.first.day)}';
+      final b =
+          '${DateFormat('MMM').format(days.last)} ${_ordinal(days.last.day)}';
       return 'Last 12 weeks • $a – $b';
     }
   }
 
   LineChartData _chartData() {
-    final sel = _trackers.where((t) => _selectedForChart.contains(t.id)).toList();
+    final sel =
+        _trackers.where((t) => _selectedForChart.contains(t.id)).toList();
 
     late List<double> xPoints;
     final List<List<double>> seriesValues = [];
@@ -401,7 +445,9 @@ class _HomePageState extends State<HomePage> {
         ];
         seriesValues.add(
           chunks
-              .map<double>((w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length)
+              .map<double>(
+                (w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length,
+              )
               .toList(),
         );
       }
@@ -419,7 +465,9 @@ class _HomePageState extends State<HomePage> {
         ];
         seriesValues.add(
           chunks
-              .map<double>((w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length)
+              .map<double>(
+                (w) => w.isEmpty ? 0.0 : w.reduce((a, b) => a + b) / w.length,
+              )
               .toList(),
         );
       }
@@ -468,8 +516,8 @@ class _HomePageState extends State<HomePage> {
         show: true,
         drawVerticalLine: false,
         horizontalInterval: 2,
-        getDrawingHorizontalLine: (v) =>
-            FlLine(strokeWidth: 0.6, color: Colors.black12),
+        getDrawingHorizontalLine:
+            (v) => FlLine(strokeWidth: 0.6, color: Colors.black12),
       ),
       titlesData: const FlTitlesData(
         leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -512,8 +560,12 @@ class _HomePageState extends State<HomePage> {
                           'assets/images/Logo.png',
                           height: 72,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) =>
-                              Icon(Icons.flash_on, size: 72, color: green.withOpacity(.85)),
+                          errorBuilder:
+                              (_, __, ___) => Icon(
+                                Icons.flash_on,
+                                size: 72,
+                                color: green.withOpacity(.85),
+                              ),
                         ),
                       ),
 
@@ -530,7 +582,10 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 2),
                       Text(
                         dateLine,
-                        style: TextStyle(color: Colors.black.withOpacity(.65), fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.black.withOpacity(.65),
+                          fontSize: 12,
+                        ),
                       ),
 
                       const SizedBox(height: 18),
@@ -538,20 +593,32 @@ class _HomePageState extends State<HomePage> {
                       // Streak pill (hidden when 0; show helper text instead)
                       if (streakNow > 0)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(.9),
                             borderRadius: BorderRadius.circular(24),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black12, blurRadius: 4),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.local_fire_department,
-                                  color: Colors.deepOrange, size: 18),
+                              const Icon(
+                                Icons.local_fire_department,
+                                color: Colors.deepOrange,
+                                size: 18,
+                              ),
                               const SizedBox(width: 6),
-                              Text('$streakNow-day streak',
-                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                              Text(
+                                '$streakNow-day streak',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                           ),
                         )
@@ -594,8 +661,10 @@ class _HomePageState extends State<HomePage> {
                                   SizedBox(
                                     width: 140,
                                     child: Padding(
-                                      padding:
-                                          const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 8,
+                                      ),
                                       child: Text(
                                         t.label,
                                         overflow: TextOverflow.ellipsis,
@@ -611,7 +680,8 @@ class _HomePageState extends State<HomePage> {
                                       data: SliderTheme.of(context).copyWith(
                                         trackHeight: 8,
                                         thumbShape: const RoundSliderThumbShape(
-                                            enabledThumbRadius: 9),
+                                          enabledThumbRadius: 9,
+                                        ),
                                       ),
                                       child: Slider(
                                         value: t.value,
@@ -619,7 +689,8 @@ class _HomePageState extends State<HomePage> {
                                         max: 10,
                                         divisions: 20,
                                         activeColor: t.color,
-                                        onChanged: (v) => _recordTrackerValue(t, v),
+                                        onChanged:
+                                            (v) => _recordTrackerValue(t, v),
                                       ),
                                     ),
                                   ),
@@ -632,40 +703,65 @@ class _HomePageState extends State<HomePage> {
                                     offset: const Offset(0, 8),
                                     onSelected: (v) async {
                                       if (v == 'rename') {
-                                        final ctl = TextEditingController(text: t.label);
+                                        final ctl = TextEditingController(
+                                          text: t.label,
+                                        );
                                         await showDialog(
                                           context: context,
-                                          builder: (_) => AlertDialog(
-                                            shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(16)),
-                                            title: const Text('Rename tracker'),
-                                            content: TextField(
-                                              controller: ctl,
-                                              decoration:
-                                                  const InputDecoration(hintText: 'Name'),
-                                              autofocus: true,
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                  onPressed: () => Navigator.pop(context),
-                                                  child: const Text('Cancel')),
-                                              ElevatedButton(
-                                                onPressed: () async {
-                                                  final v2 = ctl.text.trim();
-                                                  if (v2.isNotEmpty) {
-                                                    setState(() => t.label = v2);
-                                                    await _updateTracker(t, label: v2);
-                                                  }
-                                                  if (context.mounted) Navigator.pop(context);
-                                                },
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: const Color(0xFF0D7C66),
-                                                  foregroundColor: Colors.white,
+                                          builder:
+                                              (_) => AlertDialog(
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
                                                 ),
-                                                child: const Text('Save'),
+                                                title: const Text(
+                                                  'Rename tracker',
+                                                ),
+                                                content: TextField(
+                                                  controller: ctl,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        hintText: 'Name',
+                                                      ),
+                                                  autofocus: true,
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          context,
+                                                        ),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () async {
+                                                      final v2 =
+                                                          ctl.text.trim();
+                                                      if (v2.isNotEmpty) {
+                                                        setState(
+                                                          () => t.label = v2,
+                                                        );
+                                                        await _updateTracker(
+                                                          t,
+                                                          label: v2,
+                                                        );
+                                                      }
+                                                      if (context.mounted)
+                                                        Navigator.pop(context);
+                                                    },
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                0xFF0D7C66,
+                                                              ),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                        ),
+                                                    child: const Text('Save'),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
                                         );
                                       } else if (v == 'color') {
                                         await _openColorPicker(t);
@@ -673,41 +769,67 @@ class _HomePageState extends State<HomePage> {
                                       } else if (v == 'delete') {
                                         final ok = await showDialog<bool>(
                                           context: context,
-                                          builder: (_) => AlertDialog(
-                                            shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(16)),
-                                            title: const Text('Delete tracker?'),
-                                            content: Text(
-                                                'This will remove "${t.label}" from your trackers.'),
-                                            actions: [
-                                              TextButton(
-                                                  onPressed: () => Navigator.pop(context, false),
-                                                  child: const Text('Cancel')),
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context, true),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: Colors.red,
+                                          builder:
+                                              (_) => AlertDialog(
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
                                                 ),
-                                                child: const Text('Delete'),
+                                                title: const Text(
+                                                  'Delete tracker?',
+                                                ),
+                                                content: Text(
+                                                  'This will remove "${t.label}" from your trackers.',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          context,
+                                                          false,
+                                                        ),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          context,
+                                                          true,
+                                                        ),
+                                                    style: TextButton.styleFrom(
+                                                      foregroundColor:
+                                                          Colors.red,
+                                                    ),
+                                                    child: const Text('Delete'),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
                                         );
                                         if (ok == true) {
                                           await _deleteTracker(t);
                                         }
                                       }
                                     },
-                                    itemBuilder: (c) => [
-                                      const PopupMenuItem(
-                                          value: 'rename', child: Text('Rename')),
-                                      const PopupMenuItem(value: 'color', child: Text('Color')),
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('Delete',
-                                            style: TextStyle(color: Colors.red)),
-                                      ),
-                                    ],
+                                    itemBuilder:
+                                        (c) => [
+                                          const PopupMenuItem(
+                                            value: 'rename',
+                                            child: Text('Rename'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'color',
+                                            child: Text('Color'),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text(
+                                              'Delete',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                   ),
                                   const Icon(Icons.drag_indicator, size: 18),
                                 ],
@@ -732,25 +854,35 @@ class _HomePageState extends State<HomePage> {
                       // View selector
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: ChartView.values.map((v) {
-                          final sel = v == _view;
-                          String lbl = switch (v) {
-                            ChartView.weekly => 'Weekly',
-                            ChartView.monthly => 'Monthly',
-                            ChartView.overall => 'Overall',
-                          };
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: ChoiceChip(
-                              label: Text(lbl,
-                                  style: const TextStyle(
-                                      fontSize: 12, fontWeight: FontWeight.w600)),
-                              selected: sel,
-                              selectedColor: const Color(0xFF0D7C66).withOpacity(.15),
-                              onSelected: (_) => setState(() => _view = v),
-                            ),
-                          );
-                        }).toList(),
+                        children:
+                            ChartView.values.map((v) {
+                              final sel = v == _view;
+                              String lbl = switch (v) {
+                                ChartView.weekly => 'Weekly',
+                                ChartView.monthly => 'Monthly',
+                                ChartView.overall => 'Overall',
+                              };
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    lbl,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  selected: sel,
+                                  showCheckmark: false,
+                                  selectedColor: const Color(
+                                    0xFF0D7C66,
+                                  ).withOpacity(.15),
+                                  onSelected: (_) => setState(() => _view = v),
+                                ),
+                              );
+                            }).toList(),
                       ),
 
                       const SizedBox(height: 8),
@@ -760,7 +892,9 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
                               child: Text(
                                 _dateRangeHeading(),
                                 style: TextStyle(
@@ -772,7 +906,9 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.arrow_drop_down_circle_outlined),
+                            icon: const Icon(
+                              Icons.arrow_drop_down_circle_outlined,
+                            ),
                             color: const Color(0xFF0D7C66),
                             onPressed: _openSelectDialog,
                             tooltip: 'Select trackers to view',
@@ -785,19 +921,28 @@ class _HomePageState extends State<HomePage> {
                       // Chart card
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
                         height: 320,
                         decoration: BoxDecoration(
                           // 45% transparent background (55% opacity)
                           color: Colors.white.withOpacity(.55),
                           borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 6),
+                          ],
                         ),
-                        child: _selectedForChart.isEmpty
-                            ? const Center(
-                                child: Text('Select trackers to view',
-                                    style: TextStyle(fontSize: 13)))
-                            : LineChart(_chartData()),
+                        child:
+                            _selectedForChart.isEmpty
+                                ? const Center(
+                                  child: Text(
+                                    'Select trackers to view',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                )
+                                : LineChart(_chartData()),
                       ),
                     ],
                   ),
@@ -821,7 +966,8 @@ class _HomePageState extends State<HomePage> {
       builder: (ctx) {
         final dark = app.ThemeControllerScope.of(context).isDark;
         final bg = dark ? const Color(0xFF102D29) : Colors.white;
-        final surface = dark ? const Color(0xFF123A36) : const Color(0xFFF4F6F6);
+        final surface =
+            dark ? const Color(0xFF123A36) : const Color(0xFFF4F6F6);
         final accent = const Color(0xFF0D7C66);
         final textColor = dark ? Colors.white : const Color(0xFF20312F);
 
@@ -830,13 +976,22 @@ class _HomePageState extends State<HomePage> {
 
         return Dialog(
           backgroundColor: bg,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: StatefulBuilder(
             builder: (context, setSheet) {
-              final filtered = _trackers
-                  .where((t) => t.label.toLowerCase().contains(query.toLowerCase()))
-                  .toList();
+              final filtered =
+                  _trackers
+                      .where(
+                        (t) =>
+                            t.label.toLowerCase().contains(query.toLowerCase()),
+                      )
+                      .toList();
 
               void toggle(String id, bool v) {
                 if (v) {
@@ -847,7 +1002,8 @@ class _HomePageState extends State<HomePage> {
                 setSheet(() {});
               }
 
-              final allSelected = chosen.length == _trackers.length && _trackers.isNotEmpty;
+              final allSelected =
+                  chosen.length == _trackers.length && _trackers.isNotEmpty;
 
               return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -859,7 +1015,10 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         const Text(
                           'Select trackers to view',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const Spacer(),
                         TextButton(
@@ -875,7 +1034,10 @@ class _HomePageState extends State<HomePage> {
                           },
                           child: Text(
                             allSelected ? 'Clear' : 'Select all',
-                            style: TextStyle(color: accent, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              color: accent,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -896,7 +1058,10 @@ class _HomePageState extends State<HomePage> {
                           prefixIcon: Icon(Icons.search),
                           hintText: 'Search trackers',
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -904,56 +1069,86 @@ class _HomePageState extends State<HomePage> {
 
                     // Chips grid
                     Flexible(
-                      child: filtered.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Text(
-                                'No trackers found',
-                                style: TextStyle(color: textColor.withOpacity(.7)),
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              child: Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: filtered.map((t) {
-                                  final checked = chosen.contains(t.id);
-                                  final base = t.color;
+                      child:
+                          filtered.isEmpty
+                              ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Text(
+                                  'No trackers found',
+                                  style: TextStyle(
+                                    color: textColor.withOpacity(.7),
+                                  ),
+                                ),
+                              )
+                              : SingleChildScrollView(
+                                child: Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children:
+                                      filtered.map((t) {
+                                        final checked = chosen.contains(t.id);
+                                        final base = t.color;
 
-                                  final bgTint = checked
-                                      ? base.withOpacity(.36) // much stronger for selected
-                                      : base.withOpacity(.10);
-                                  final borderColor =
-                                      checked ? base.withOpacity(.95) : Colors.black12;
-                                  final borderWidth = checked ? 2.0 : 1.0;
-                                  final labelStyle = TextStyle(
-                                    fontWeight: checked ? FontWeight.w900 : FontWeight.w600,
-                                    fontSize: 13,
-                                    color: Colors.black.withOpacity(checked ? .95 : .85),
-                                  );
+                                        final bgTint =
+                                            checked
+                                                ? base.withOpacity(
+                                                  .36,
+                                                ) // much stronger for selected
+                                                : base.withOpacity(.10);
+                                        final borderColor =
+                                            checked
+                                                ? base.withOpacity(.95)
+                                                : Colors.black12;
+                                        final borderWidth = checked ? 2.0 : 1.0;
+                                        final labelStyle = TextStyle(
+                                          fontWeight:
+                                              checked
+                                                  ? FontWeight.w900
+                                                  : FontWeight.w600,
+                                          fontSize: 13,
+                                          color: Colors.black.withOpacity(
+                                            checked ? .95 : .85,
+                                          ),
+                                        );
 
-                                  return FilterChip(
-                                    selected: checked,
-                                    showCheckmark: false, // keep checkmarks removed
-                                    pressElevation: 0,
-                                    labelPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 4),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 2, vertical: 0),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      side: BorderSide(color: borderColor, width: borderWidth),
-                                    ),
-                                    // no avatar — background color is enough
-                                    label: Text(t.label,
-                                        overflow: TextOverflow.ellipsis, style: labelStyle),
-                                    backgroundColor: bgTint,
-                                    selectedColor: bgTint,
-                                    onSelected: (v) => toggle(t.id, v),
-                                  );
-                                }).toList(),
+                                        return FilterChip(
+                                          selected: checked,
+                                          showCheckmark:
+                                              false, // keep checkmarks removed
+                                          pressElevation: 0,
+                                          labelPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 4,
+                                              ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 2,
+                                            vertical: 0,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            side: BorderSide(
+                                              color: borderColor,
+                                              width: borderWidth,
+                                            ),
+                                          ),
+                                          // no avatar — background color is enough
+                                          label: Text(
+                                            t.label,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: labelStyle,
+                                          ),
+                                          backgroundColor: bgTint,
+                                          selectedColor: bgTint,
+                                          onSelected: (v) => toggle(t.id, v),
+                                        );
+                                      }).toList(),
+                                ),
                               ),
-                            ),
                     ),
 
                     const SizedBox(height: 10),
@@ -965,8 +1160,10 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child:
-                              Text('Cancel', style: TextStyle(color: textColor.withOpacity(.8))),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(color: textColor.withOpacity(.8)),
+                          ),
                         ),
                         const Spacer(),
                         SizedBox(
@@ -987,10 +1184,16 @@ class _HomePageState extends State<HomePage> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 18),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                              ),
                             ),
-                            label: Text('Done (${chosen.length})',
-                                style: const TextStyle(fontWeight: FontWeight.w800)),
+                            label: Text(
+                              'Done (${chosen.length})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1035,7 +1238,9 @@ class _HomePageState extends State<HomePage> {
               ),
               decoration: BoxDecoration(
                 color: dark ? const Color(0xFF123A36) : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1049,7 +1254,10 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  const Text('Pick color', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Pick color',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 12),
 
                   SizedBox(
@@ -1067,12 +1275,17 @@ class _HomePageState extends State<HomePage> {
                         );
 
                         return GestureDetector(
-                          onPanDown: (d) => setHueFromOffset(d.localPosition, size),
-                          onPanUpdate: (d) => setHueFromOffset(d.localPosition, size),
+                          onPanDown:
+                              (d) => setHueFromOffset(d.localPosition, size),
+                          onPanUpdate:
+                              (d) => setHueFromOffset(d.localPosition, size),
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              CustomPaint(size: size, painter: _HueRingPainter(ringWidth: ringWidth)),
+                              CustomPaint(
+                                size: size,
+                                painter: _HueRingPainter(ringWidth: ringWidth),
+                              ),
                               SizedBox(
                                 width: size.width - ringWidth * 2.4,
                                 height: size.height - ringWidth * 2.4,
@@ -1080,13 +1293,19 @@ class _HomePageState extends State<HomePage> {
                                   hue: hsv.hue,
                                   s: hsv.saturation,
                                   v: hsv.value,
-                                  onChanged: (s, v) => setSheet(() {
-                                    hsv = hsv.withSaturation(s).withValue(v);
-                                  }),
+                                  onChanged:
+                                      (s, v) => setSheet(() {
+                                        hsv = hsv
+                                            .withSaturation(s)
+                                            .withValue(v);
+                                      }),
                                 ),
                               ),
                               IgnorePointer(
-                                child: CustomPaint(painter: _KnobPainter(position: knob), size: size),
+                                child: CustomPaint(
+                                  painter: _KnobPainter(position: knob),
+                                  size: size,
+                                ),
                               ),
                             ],
                           ),
@@ -1112,7 +1331,9 @@ class _HomePageState extends State<HomePage> {
                       Expanded(
                         child: Text(
                           '#${hsv.toColor().value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-                          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+                          style: const TextStyle(
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                       ElevatedButton(
@@ -1146,21 +1367,23 @@ class _HueRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final paint = Paint()
-      ..shader = const SweepGradient(colors: <Color>[
-        Color(0xFFFF0000),
-        Color(0xFFFFFF00),
-        Color(0xFF00FF00),
-        Color(0xFF00FFFF),
-        Color(0xFF0000FF),
-        Color(0xFFFF00FF),
-        Color(0xFFFF0000),
-      ]).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = ringWidth;
+    final paint =
+        Paint()
+          ..shader = const SweepGradient(
+            colors: <Color>[
+              Color(0xFFFF0000),
+              Color(0xFFFFFF00),
+              Color(0xFF00FF00),
+              Color(0xFF00FFFF),
+              Color(0xFF0000FF),
+              Color(0xFFFF00FF),
+              Color(0xFFFF0000),
+            ],
+          ).createShader(rect)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = ringWidth;
     final radius = min(size.width, size.height) / 2 - ringWidth / 2;
-    canvas.drawCircle(
-        Offset(size.width / 2, size.height / 2), radius, paint);
+    canvas.drawCircle(Offset(size.width / 2, size.height / 2), radius, paint);
   }
 
   @override
@@ -1173,13 +1396,15 @@ class _KnobPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final b = Paint()
-      ..color = Colors.black.withOpacity(.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    final p =
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.fill;
+    final b =
+        Paint()
+          ..color = Colors.black.withOpacity(.35)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
     canvas.drawCircle(position, 8, p);
     canvas.drawCircle(position, 8, b);
   }
@@ -1244,7 +1469,9 @@ class _SVSquare extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 2),
+                    ],
                   ),
                 ),
               ),
@@ -1280,17 +1507,23 @@ class _BottomNav extends StatelessWidget {
           IconButton(icon: Icon(Icons.home, color: c(0)), onPressed: () {}),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => JournalPage(userName: userName)),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => JournalPage(userName: userName),
+                  ),
+                ),
           ),
           IconButton(
             icon: Icon(Icons.settings, color: c(2)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => SettingsPage(userName: userName)),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SettingsPage(userName: userName),
+                  ),
+                ),
           ),
         ],
       ),
