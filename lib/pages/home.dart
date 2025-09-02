@@ -1017,7 +1017,7 @@ class _HomePageState extends State<HomePage> {
                           'Select trackers to view',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const Spacer(),
@@ -1042,7 +1042,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
 
                     // Search
                     Container(
@@ -1065,9 +1064,8 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
 
-                    // Chips grid
+                    // Tracker list instead of chips
                     Flexible(
                       child:
                           filtered.isEmpty
@@ -1082,72 +1080,38 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 ),
                               )
-                              : SingleChildScrollView(
-                                child: Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children:
-                                      filtered.map((t) {
-                                        final checked = chosen.contains(t.id);
-                                        final base = t.color;
+                              : ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: filtered.length,
+                                itemBuilder: (context, i) {
+                                  final t = filtered[i];
+                                  final checked = chosen.contains(t.id);
 
-                                        final bgTint =
+                                  return CheckboxListTile(
+                                    value: checked,
+                                    onChanged: (v) => toggle(t.id, v ?? false),
+                                    activeColor: t.color,
+                                    title: Text(
+                                      t.label,
+                                      style: TextStyle(
+                                        fontWeight:
                                             checked
-                                                ? base.withOpacity(
-                                                  .36,
-                                                ) // much stronger for selected
-                                                : base.withOpacity(.10);
-                                        final borderColor =
-                                            checked
-                                                ? base.withOpacity(.95)
-                                                : Colors.black12;
-                                        final borderWidth = checked ? 2.0 : 1.0;
-                                        final labelStyle = TextStyle(
-                                          fontWeight:
-                                              checked
-                                                  ? FontWeight.w900
-                                                  : FontWeight.w600,
-                                          fontSize: 13,
-                                          color: Colors.black.withOpacity(
-                                            checked ? .95 : .85,
-                                          ),
-                                        );
-
-                                        return FilterChip(
-                                          selected: checked,
-                                          showCheckmark:
-                                              false, // keep checkmarks removed
-                                          pressElevation: 0,
-                                          labelPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 4,
-                                              ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 2,
-                                            vertical: 0,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                            side: BorderSide(
-                                              color: borderColor,
-                                              width: borderWidth,
-                                            ),
-                                          ),
-                                          // no avatar — background color is enough
-                                          label: Text(
-                                            t.label,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: labelStyle,
-                                          ),
-                                          backgroundColor: bgTint,
-                                          selectedColor: bgTint,
-                                          onSelected: (v) => toggle(t.id, v),
-                                        );
-                                      }).toList(),
-                                ),
+                                                ? FontWeight.w600
+                                                : FontWeight.w400,
+                                        fontSize: 14,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
+                                    contentPadding:
+                                        EdgeInsets
+                                            .zero, // removes left/right padding
+                                    visualDensity: const VisualDensity(
+                                      vertical: -4,
+                                    ), // tighter spacing
+                                  );
+                                },
                               ),
                     ),
 
