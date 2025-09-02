@@ -187,7 +187,7 @@ class _JournalPageState extends State<JournalPage>
 
   Set<String> _blocked = {};
 
-  // filters (time-range UI removed; we keep only sort)
+  // filters (UI for time filters removed; sort remains)
   _TimeFilter _timeFilter = _TimeFilter.all;
   _OrderBy _orderBy = _OrderBy.dateDesc;
 
@@ -199,19 +199,6 @@ class _JournalPageState extends State<JournalPage>
   void initState() {
     super.initState();
     _loadBlocked();
-
-    // Show warning on focus (tap) and hide on blur.
-    _pubFocus.addListener(() {
-      if (_pubFocus.hasFocus) {
-        if (!_showTriggerAdvice) {
-          setState(() => _showTriggerAdvice = true);
-        }
-      } else {
-        if (_showTriggerAdvice) {
-          setState(() => _showTriggerAdvice = false);
-        }
-      }
-    });
 
     // 🔐 Listen to current user's anonymity setting in Firestore (if signed in)
     final u = _user;
@@ -331,6 +318,7 @@ class _JournalPageState extends State<JournalPage>
       'reactionScore': 0,
       'replyCount': 0,
       if (mentions.isNotEmpty) 'mentions': mentions,
+      'edited': false,
     });
 
     _pubCtl.clear();
@@ -414,6 +402,7 @@ class _JournalPageState extends State<JournalPage>
         'updatedAt': FieldValue.serverTimestamp(),
         if (mentions.isNotEmpty) 'mentions': mentions,
         if (parentId != null) 'parentId': parentId,
+        'edited': false,
       });
       tx.update(postRef, {'replyCount': FieldValue.increment(1)});
     });
@@ -464,6 +453,7 @@ class _JournalPageState extends State<JournalPage>
                 await _public.doc(postId).update({
                   'content': newText,
                   'updatedAt': FieldValue.serverTimestamp(),
+                  'edited': true,
                   if (mentions.isNotEmpty)
                     'mentions': mentions
                   else
@@ -539,6 +529,8 @@ class _JournalPageState extends State<JournalPage>
       'content': body,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'edited': false,
+      'iconKey': 'book',
     });
   }
 
@@ -660,7 +652,19 @@ class _JournalPageState extends State<JournalPage>
                       ],
                     ),
 
-                    const SizedBox(height: 6),
+                    // Only sort button (time filters removed)
+                    if (_seg == 0)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                            tooltip: 'Sort',
+                            onPressed: _openSortSheet,
+                            icon: const Icon(Icons.sort_rounded),
+                          ),
+                        ),
+                      ),
 
                     Expanded(
                       child: _seg == 0
@@ -683,7 +687,7 @@ class _JournalPageState extends State<JournalPage>
                                   id, () => TextEditingController()),
                               fmtFull: _fmtFull,
                               relative: _relative,
-                              filterFrom: null, // 👈 time range filter removed
+                              filterFrom: _filterFromDate(_timeFilter),
                               orderBy: _orderBy,
                               selfAnon: _anonNow,
                             )
@@ -729,10 +733,9 @@ class _JournalPageState extends State<JournalPage>
                             ),
                     ),
 
-                    // ↓ Slightly reduced space above the composer
                     const SizedBox(height: 16),
 
-                    // Warning appears RIGHT ABOVE when user taps into the bar
+                    // Warning appears RIGHT ABOVE only when typing
                     if (_seg == 0 && _showTriggerAdvice)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -760,7 +763,7 @@ class _JournalPageState extends State<JournalPage>
                         ),
                       ),
 
-                    // Composer (community only) – inline @-mentions
+                    // Composer (community only)
                     if (_seg == 0)
                       _ComposerWithMentions(
                         controller: _pubCtl,
@@ -939,7 +942,8 @@ class _CommunityFeed extends StatelessWidget {
         }
 
         return ListView.builder(
-          // ⬇️ extra bottom padding to add more space above the composer
+          // ⬇️ extra bottom padding adds space above the composer
+          key: const PageStorageKey<String>('community_feed_list'),
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 220),
           itemCount: docs.length,
           itemBuilder: (_, i) {
@@ -976,14 +980,32 @@ class _CommunityFeed extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _UsernameTag(
-                            uid: postUid,
-                            provided: providedName,
-                            isAnonymous: displayAnon,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _UsernameTag(
+                                  uid: postUid,
+                                  provided: providedName,
+                                  isAnonymous: displayAnon,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              if ((m['edited'] as bool?) == true)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Text(
+                                    'Edited',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         Text(
@@ -1076,6 +1098,8 @@ class _CommunityFeed extends StatelessWidget {
                         currentUid: user?.uid,
                         selfAnon: selfAnon,
                         onReply: onReply, // supports nested
+                        onBlock: onBlock,
+                        blocked: blocked,
                       ),
                       _InlineReplyComposer(
                         currentUserName:
@@ -1110,6 +1134,76 @@ class _PrivateJournal extends StatelessWidget {
   final String? uid;
   final CollectionReference<Map<String, dynamic>>? col;
   final String Function(DateTime) fmtFull;
+
+  // --- Icon options for private entries
+  static const Map<String, IconData> _iconChoices = {
+    'book': Icons.menu_book_rounded,
+    'star': Icons.star_rounded,
+    'heart': Icons.favorite_rounded,
+    'bolt': Icons.bolt_rounded,
+    'check': Icons.check_circle_rounded,
+    'note': Icons.note_rounded,
+    'flower': Icons.local_florist_rounded,
+  };
+
+  IconData _iconForKey(String? key) {
+    return _iconChoices[key] ?? Icons.menu_book_rounded;
+  }
+
+  Future<void> _chooseIcon(
+    BuildContext context,
+    CollectionReference<Map<String, dynamic>> col,
+    String id,
+    String currentKey,
+  ) async {
+    String selected = currentKey;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Choose an icon'),
+        content: SizedBox(
+          width: 420,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: _iconChoices.entries.map((e) {
+              final isSel = e.key == selected;
+              return InkWell(
+                onTap: () {
+                  selected = e.key;
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: isSel ? _teal.withOpacity(.12) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSel ? _teal : Colors.black12,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black12, blurRadius: 6)
+                    ],
+                  ),
+                  child: Icon(e.value, color: _teal, size: 30),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (selected != currentKey) {
+      await col.doc(id).update({'iconKey': selected});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1164,12 +1258,15 @@ class _PrivateJournal extends StatelessWidget {
           children: [
             ...list.map((d) {
               final m = d.data();
-              final ts = (m['createdAt'] as Timestamp?)?.toDate() ??
-                  DateTime.now();
+              final created = (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final updated = (m['updatedAt'] as Timestamp?)?.toDate();
+              final edited = (m['edited'] as bool?) == true;
+              final iconKey = (m['iconKey'] as String?) ?? 'book';
+
               return _Card(
                 child: ListTile(
                   onTap: () => _viewEntry(d),
-                  leading: const Icon(Icons.lock_outline),
+                  leading: Icon(_iconForKey(iconKey), color: _teal),
                   title: Text(
                     (m['title'] as String?) ?? 'Untitled',
                     style:
@@ -1186,12 +1283,23 @@ class _PrivateJournal extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        fmtFull(ts),
+                        'Created • ${fmtFull(created)}',
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 12,
                         ),
                       ),
+                      if (edited && updated != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Edited • ${fmtFull(updated)}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   trailing: PopupMenuButton<String>(
@@ -1224,11 +1332,19 @@ class _PrivateJournal extends StatelessWidget {
                           await col!.doc(d.id).delete();
                         }
                       }
+                      if (v == 'icon') {
+                        await _chooseIcon(
+                          context,
+                          col!,
+                          d.id,
+                          iconKey,
+                        );
+                      }
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      PopupMenuItem(
-                          value: 'delete', child: Text('Delete')),
+                      PopupMenuItem(value: 'icon', child: Text('Change icon')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
                     ],
                   ),
                 ),
@@ -1292,6 +1408,7 @@ class _PrivateJournal extends StatelessWidget {
                   'title': newTitle,
                   'content': newContent,
                   'updatedAt': FieldValue.serverTimestamp(),
+                  'edited': true,
                 });
               }
               if (context.mounted) Navigator.pop(context);
@@ -1614,9 +1731,11 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
   }
 
   void _onTextChanged() {
-    // (No-op for showing/hiding the warning; handled by focus listener)
-    final sel = widget.controller.selection;
     final text = widget.controller.text;
+    final hasText = text.trim().isNotEmpty;
+    widget.showTriggerAdvice?.call(hasText);
+
+    final sel = widget.controller.selection;
     final q = _extractMentionQuery(text, sel);
     if (q == null || q.isEmpty) {
       _activeQuery = null;
@@ -1932,6 +2051,8 @@ class _ReplyThread extends StatefulWidget {
     this.currentUid,
     required this.selfAnon,
     required this.onReply,
+    required this.onBlock,
+    required this.blocked,
   });
 
   final String postId;
@@ -1941,6 +2062,8 @@ class _ReplyThread extends StatefulWidget {
   final bool selfAnon;
   final Future<void> Function(String postId, String text, {String? parentId})
       onReply;
+  final Future<void> Function(String otherUid) onBlock;
+  final Set<String> blocked;
 
   @override
   State<_ReplyThread> createState() => _ReplyThreadState();
@@ -1971,7 +2094,12 @@ class _ReplyThreadState extends State<_ReplyThread> {
           .limit(widget.limit)
           .snapshots(),
       builder: (context, snap) {
-        final replies = snap.data?.docs ?? [];
+        final repliesAll = snap.data?.docs ?? [];
+        final replies = repliesAll.where((r) {
+          final uid = (r.data()['uid'] as String?) ?? '';
+          return !widget.blocked.contains(uid);
+        }).toList();
+
         if (replies.isEmpty) return const SizedBox.shrink();
 
         // Build parent -> children map (parentId may be null)
@@ -2002,6 +2130,7 @@ class _ReplyThreadState extends State<_ReplyThread> {
               widget.currentUid != null && widget.currentUid == replyUid;
           final displayAnon = isSelf ? widget.selfAnon : storedAnon;
           final canEditReply = isSelf;
+          final canBlock = !isSelf && replyUid.isNotEmpty;
 
           final kids = children[r.id] ?? const [];
 
@@ -2041,13 +2170,25 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                     fontWeight: FontWeight.w600),
                               ),
                             ),
+                            if ((m['edited'] as bool?) == true)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Text(
+                                  'Edited',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
                             Text(
                               DateFormat('MMM d, yyyy • hh:mm a').format(ts),
                               style: TextStyle(
                                   color: Colors.grey.shade600,
                                   fontSize: 11),
                             ),
-                            if (canEditReply) ...[
+                            if (canEditReply || canBlock) ...[
                               const SizedBox(width: 6),
                               PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_horiz, size: 18),
@@ -2088,6 +2229,7 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                                   'content': newText,
                                                   'updatedAt': FieldValue
                                                       .serverTimestamp(),
+                                                  'edited': true,
                                                 });
                                               }
                                               Navigator.pop(context);
@@ -2113,14 +2255,23 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                       });
                                     } catch (_) {}
                                   }
+                                  if (v == 'block-user') {
+                                    await widget.onBlock(replyUid);
+                                  }
                                 },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: 'edit-reply',
-                                      child: Text('Edit reply')),
-                                  PopupMenuItem(
-                                      value: 'delete-reply',
-                                      child: Text('Delete reply')),
+                                itemBuilder: (_) => [
+                                  if (canEditReply)
+                                    const PopupMenuItem(
+                                        value: 'edit-reply',
+                                        child: Text('Edit reply')),
+                                  if (canEditReply)
+                                    const PopupMenuItem(
+                                        value: 'delete-reply',
+                                        child: Text('Delete reply')),
+                                  if (canBlock)
+                                    const PopupMenuItem(
+                                        value: 'block-user',
+                                        child: Text('Block user')),
                                 ],
                               ),
                             ],
@@ -2330,9 +2481,9 @@ class _EmptyHint extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: Colors.white70),
             const SizedBox(height: 12),
-            const Text(
-              'No posts yet',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
