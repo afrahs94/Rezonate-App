@@ -508,8 +508,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     return LineChartData(
-      minX: minX,
-      maxX: maxX,
+      minX: -0.3,
+      maxX:
+          _view == ChartView.weekly
+              ? 7 // 7 days (0–6)
+              : 4, // 4 weeks/chunks (0–3)
       minY: minY,
       maxY: maxY,
       gridData: FlGridData(
@@ -545,8 +548,39 @@ class _HomePageState extends State<HomePage> {
             },
           ),
         ),
-        bottomTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            interval: 1,
+            getTitlesWidget: (value, meta) {
+              if (_view == ChartView.weekly) {
+                final days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+                if (value >= 0 && value < days.length) {
+                  return Text(
+                    days[value.toInt()],
+                    style: const TextStyle(fontSize: 12.5),
+                  );
+                }
+              } else if (_view == ChartView.monthly) {
+                final weeks = ["Week 1", "Week 2", "Week 3", "Week 4"];
+                if (value >= 0 && value < 4) {
+                  return Text(
+                    weeks[value.toInt()],
+                    style: const TextStyle(fontSize: 12),
+                  );
+                }
+              } /*else if (_view == ChartView.overall) {
+                final labels = ["W1–3", "W4–6", "W7–9", "W10–12"];
+                if (value >= 0 && value < labels.length) {
+                  return Text(
+                    labels[value.toInt()],
+                    style: const TextStyle(fontSize: 12),
+                  );
+                }
+              }*/
+              return const SizedBox.shrink();
+            },
+          ),
         ),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: const AxisTitles(
