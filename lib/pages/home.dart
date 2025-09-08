@@ -519,11 +519,39 @@ class _HomePageState extends State<HomePage> {
         getDrawingHorizontalLine:
             (v) => FlLine(strokeWidth: 0.6, color: Colors.black12),
       ),
-      titlesData: const FlTitlesData(
-        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      titlesData: FlTitlesData(
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 30, // space for emojis
+            interval: 2, // show every 2 units (0,2,4,6,8,10)
+            getTitlesWidget: (value, meta) {
+              switch (value.toInt()) {
+                case 0:
+                  return const Text("😄", style: TextStyle(fontSize: 20));
+                case 2:
+                  return const Text("🙂", style: TextStyle(fontSize: 20));
+                case 4:
+                  return const Text("😐", style: TextStyle(fontSize: 20));
+                case 6:
+                  return const Text("😕", style: TextStyle(fontSize: 20));
+                case 8:
+                  return const Text("☹️", style: TextStyle(fontSize: 20));
+                case 10:
+                  return const Text("😢", style: TextStyle(fontSize: 20));
+                default:
+                  return const SizedBox.shrink();
+              }
+            },
+          ),
+        ),
+        bottomTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
       ),
       borderData: FlBorderData(show: false),
       lineBarsData: bars,
@@ -676,22 +704,40 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ),
                                   Expanded(
-                                    child: SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        trackHeight: 8,
-                                        thumbShape: const RoundSliderThumbShape(
-                                          enabledThumbRadius: 9,
+                                    child: Row(
+                                      children: [
+                                        const Text(
+                                          "😄",
+                                          style: TextStyle(fontSize: 20),
+                                        ), // left emoji
+                                        Expanded(
+                                          child: SliderTheme(
+                                            data: SliderTheme.of(
+                                              context,
+                                            ).copyWith(
+                                              trackHeight: 8,
+                                              thumbShape:
+                                                  const RoundSliderThumbShape(
+                                                    enabledThumbRadius: 8,
+                                                  ),
+                                            ),
+                                            child: Slider(
+                                              value: t.value,
+                                              min: 0,
+                                              max: 10,
+                                              divisions: 20,
+                                              activeColor: t.color,
+                                              onChanged:
+                                                  (v) =>
+                                                      _recordTrackerValue(t, v),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Slider(
-                                        value: t.value,
-                                        min: 0,
-                                        max: 10,
-                                        divisions: 20,
-                                        activeColor: t.color,
-                                        onChanged:
-                                            (v) => _recordTrackerValue(t, v),
-                                      ),
+                                        const Text(
+                                          "😢",
+                                          style: TextStyle(fontSize: 20),
+                                        ), // right emoji
+                                      ],
                                     ),
                                   ),
                                   PopupMenuButton<String>(
