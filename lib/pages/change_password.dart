@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'settings.dart';
-
 class ChangePasswordPage extends StatefulWidget {
   final String userName; // kept for your existing navigation pattern
   const ChangePasswordPage({Key? key, required this.userName}) : super(key: key);

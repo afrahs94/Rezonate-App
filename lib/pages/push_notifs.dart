@@ -15,6 +15,21 @@ class PushNotificationsPage extends StatefulWidget {
   State<PushNotificationsPage> createState() => _PushNotificationsPageState();
 }
 
+class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
+  NoTransitionPageRoute({required WidgetBuilder builder})
+    : super(builder: builder);
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child; // no animation
+  }
+}
+
 class _PushNotificationsPageState extends State<PushNotificationsPage> {
   bool enableAll = false;
   bool daily = false;
@@ -67,7 +82,8 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
   Future<bool> _requestNotificationPermission() async {
     final messaging = FirebaseMessaging.instance;
     final settings = await messaging.requestPermission();
-    final granted = settings.authorizationStatus == AuthorizationStatus.authorized;
+    final granted =
+        settings.authorizationStatus == AuthorizationStatus.authorized;
 
     if (granted) {
       await _registerFcmToken();
@@ -115,16 +131,21 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 6),
-                  Text(subtitle,
-                      style: TextStyle(color: Colors.white.withOpacity(.9))),
-                ]
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: Colors.white.withOpacity(.9)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -133,7 +154,7 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
             onChanged: onChanged,
             activeColor: Colors.white,
             activeTrackColor: Colors.white.withOpacity(.5),
-          )
+          ),
         ],
       ),
     );
@@ -163,8 +184,10 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(Icons.arrow_back,
-                          color: theme.colorScheme.onSurface),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       onPressed: () {
                         Navigator.pop(context);
                       },
@@ -221,24 +244,26 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                         subtitle:
                             "Send a friendly reminder if you haven’t tracked today.",
                         value: daily,
-                        onChanged: enableAll
-                            ? (v) async {
-                                setState(() => daily = v);
-                                await _saveSettings(dailyReminder: v);
-                              }
-                            : null,
+                        onChanged:
+                            enableAll
+                                ? (v) async {
+                                  setState(() => daily = v);
+                                  await _saveSettings(dailyReminder: v);
+                                }
+                                : null,
                       ),
                       _pill(
                         title: 'Replies to your Posts',
                         subtitle:
                             "Receive notifications about replies on the community feed.",
                         value: replies,
-                        onChanged: enableAll
-                            ? (v) async {
-                                setState(() => replies = v);
-                                await _saveSettings(replyNotifications: v);
-                              }
-                            : null,
+                        onChanged:
+                            enableAll
+                                ? (v) async {
+                                  setState(() => replies = v);
+                                  await _saveSettings(replyNotifications: v);
+                                }
+                                : null,
                       ),
                     ],
                   ),
@@ -274,30 +299,33 @@ class _BottomNav extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(Icons.home_filled, color: _c(0)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HomePage(userName: userName),
-                ),
-              ),
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    NoTransitionPageRoute(
+                      builder: (_) => HomePage(userName: userName),
+                    ),
+                  ),
             ),
             IconButton(
               icon: Icon(Icons.menu_book_rounded, color: _c(1)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => JournalPage(userName: userName),
-                ),
-              ),
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    NoTransitionPageRoute(
+                      builder: (_) => JournalPage(userName: userName),
+                    ),
+                  ),
             ),
             IconButton(
               icon: Icon(Icons.settings, color: _c(2)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SettingsPage(userName: userName),
-                ),
-              ),
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    NoTransitionPageRoute(
+                      builder: (_) => SettingsPage(userName: userName),
+                    ),
+                  ),
             ),
           ],
         ),
@@ -305,7 +333,3 @@ class _BottomNav extends StatelessWidget {
     );
   }
 }
-
-
-
-

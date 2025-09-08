@@ -52,17 +52,16 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   InputDecoration _dec(String hint, {Widget? suffix}) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        suffixIcon: suffix,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
-      );
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    suffixIcon: suffix,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(30),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   Future<void> _handleLogin() async {
     final rawId = _idCtrl.text.trim();
@@ -84,14 +83,17 @@ class _LoginPageState extends State<LoginPage> {
 
       // If it doesn't look like an email, treat input as username
       if (!rawId.contains('@')) {
-        final q = await _db
-            .collection('users')
-            .where('username', isEqualTo: rawId)
-            .limit(1)
-            .get();
+        final q =
+            await _db
+                .collection('users')
+                .where('username', isEqualTo: rawId)
+                .limit(1)
+                .get();
         if (q.docs.isEmpty) {
           // Show inline error under password instead of snackbar
-          setState(() => _authInlineError = 'Invalid credentials. Please try again.');
+          setState(
+            () => _authInlineError = 'Invalid credentials. Please try again.',
+          );
           return;
         }
         final data = q.docs.first.data();
@@ -110,25 +112,27 @@ class _LoginPageState extends State<LoginPage> {
 
       // Fill greeting name if needed
       if (helloName.isEmpty) {
-        final q = await _db
-            .collection('users')
-            .where('email', isEqualTo: email)
-            .limit(1)
-            .get();
+        final q =
+            await _db
+                .collection('users')
+                .where('email', isEqualTo: email)
+                .limit(1)
+                .get();
         if (q.docs.isNotEmpty) {
           helloName =
               (q.docs.first.data()['first_name'] as String?)?.trim() ?? '';
         }
       }
-      helloName = helloName.isEmpty
-          ? (cred.user?.displayName ??
-              email.split('@').first.replaceAll('.', ' '))
-          : helloName;
+      helloName =
+          helloName.isEmpty
+              ? (cred.user?.displayName ??
+                  email.split('@').first.replaceAll('.', ' '))
+              : helloName;
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(userName: helloName)),
+        NoTransitionPageRoute(builder: (_) => HomePage(userName: helloName)),
       );
     } on FirebaseAuthException catch (e) {
       // Map the mismatch cases to inline error under password
@@ -138,7 +142,9 @@ class _LoginPageState extends State<LoginPage> {
         'wrong-password',
       };
       if (mismatchCodes.contains(e.code)) {
-        setState(() => _authInlineError = 'Invalid credentials. Please try again.');
+        setState(
+          () => _authInlineError = 'Invalid credentials. Please try again.',
+        );
       } else if (e.code == 'invalid-email') {
         _snack('Please enter a valid email.');
       } else if (e.code == 'too-many-requests') {
@@ -198,8 +204,16 @@ class _LoginPageState extends State<LoginPage> {
                         ),
 
                         // "welcome back" in the same font style as sign-up
-                        const Text('welcome', textAlign: TextAlign.center, style: titleStyle),
-                        const Text('back', textAlign: TextAlign.center, style: titleStyle),
+                        const Text(
+                          'welcome',
+                          textAlign: TextAlign.center,
+                          style: titleStyle,
+                        ),
+                        const Text(
+                          'back',
+                          textAlign: TextAlign.center,
+                          style: titleStyle,
+                        ),
                         const SizedBox(height: 20),
 
                         // Username/email (smaller spacing)
@@ -219,10 +233,13 @@ class _LoginPageState extends State<LoginPage> {
                             'password',
                             suffix: IconButton(
                               icon: Icon(
-                                _showPw ? Icons.visibility_off : Icons.visibility,
+                                _showPw
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
                                 color: Colors.grey[700],
                               ),
-                              onPressed: () => setState(() => _showPw = !_showPw),
+                              onPressed:
+                                  () => setState(() => _showPw = !_showPw),
                             ),
                           ),
                         ),
@@ -234,7 +251,10 @@ class _LoginPageState extends State<LoginPage> {
                             alignment: Alignment.centerLeft,
                             child: Text(
                               _authInlineError!,
-                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -248,7 +268,9 @@ class _LoginPageState extends State<LoginPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
+                                NoTransitionPageRoute(
+                                  builder: (_) => const ResetPasswordPage(),
+                                ),
                               );
                             },
                             child: Text(
@@ -279,16 +301,23 @@ class _LoginPageState extends State<LoginPage> {
                               elevation: 3,
                               shadowColor: Colors.black26,
                             ),
-                            child: _loading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            child:
+                                _loading
+                                    ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.4,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    )
+                                    : const Text(
+                                      'log in',
+                                      style: TextStyle(fontSize: 18),
                                     ),
-                                  )
-                                : const Text('log in', style: TextStyle(fontSize: 18)),
                           ),
                         ),
 
@@ -298,7 +327,10 @@ class _LoginPageState extends State<LoginPage> {
                             Expanded(child: Divider(thickness: 1)),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: 10),
-                              child: Text('or', style: TextStyle(color: Colors.grey)),
+                              child: Text(
+                                'or',
+                                style: TextStyle(color: Colors.grey),
+                              ),
                             ),
                             Expanded(child: Divider(thickness: 1)),
                           ],
@@ -313,7 +345,9 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const SignUpPage()),
+                                NoTransitionPageRoute(
+                                  builder: (_) => const SignUpPage(),
+                                ),
                               );
                             },
                             style: OutlinedButton.styleFrom(

@@ -166,6 +166,19 @@ class JournalPage extends StatefulWidget {
   State<JournalPage> createState() => _JournalPageState();
 }
 
+class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
+  NoTransitionPageRoute({required WidgetBuilder builder})
+      : super(builder: builder);
+
+  @override
+  Widget buildTransitions(BuildContext context,
+      Animation<double> animation,
+      Animation<double> secondaryAnimation,
+      Widget child) {
+    return child; // no animation
+  }
+}
+
 class _JournalPageState extends State<JournalPage>
     with SingleTickerProviderStateMixin {
   int _seg = 0;
@@ -782,7 +795,7 @@ class _JournalPageState extends State<JournalPage>
                       selectedIndex: 1,
                       onHome: () => Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
+                        NoTransitionPageRoute(
                           builder: (_) => home_page.HomePage(
                               userName: widget.userName),
                         ),
@@ -790,7 +803,7 @@ class _JournalPageState extends State<JournalPage>
                       onJournal: () {},
                       onSettings: () => Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
+                        NoTransitionPageRoute(
                           builder: (_) =>
                               SettingsPage(userName: widget.userName),
                         ),

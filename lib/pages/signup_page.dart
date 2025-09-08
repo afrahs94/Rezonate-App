@@ -420,7 +420,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   onTap:
                       () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const LoginPage()),
+                        NoTransitionPageRoute(builder: (_) => const LoginPage()),
                       ),
                   child: const Align(
                     alignment: Alignment.center,
@@ -592,7 +592,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 onTap:
                     () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      NoTransitionPageRoute(builder: (_) => const LoginPage()),
                     ),
                 child: const Text.rich(
                   TextSpan(

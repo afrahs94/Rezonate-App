@@ -1533,6 +1533,19 @@ class _SVSquare extends StatelessWidget {
   }
 }
 
+class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
+  NoTransitionPageRoute({required WidgetBuilder builder})
+      : super(builder: builder);
+
+  @override
+  Widget buildTransitions(BuildContext context,
+      Animation<double> animation,
+      Animation<double> secondaryAnimation,
+      Widget child) {
+    return child; // no animation
+  }
+}
+
 class _BottomNav extends StatelessWidget {
   final int index;
   final String userName;
@@ -1554,7 +1567,7 @@ class _BottomNav extends StatelessWidget {
             onPressed:
                 () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
+                  NoTransitionPageRoute(
                     builder: (_) => JournalPage(userName: userName),
                   ),
                 ),
@@ -1564,7 +1577,7 @@ class _BottomNav extends StatelessWidget {
             onPressed:
                 () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
+                  NoTransitionPageRoute(
                     builder: (_) => SettingsPage(userName: userName),
                   ),
                 ),

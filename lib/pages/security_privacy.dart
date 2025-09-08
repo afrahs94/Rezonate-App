@@ -22,6 +22,21 @@ class SecurityAndPrivacyPage extends StatefulWidget {
   State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
 }
 
+class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
+  NoTransitionPageRoute({required WidgetBuilder builder})
+    : super(builder: builder);
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child; // no animation
+  }
+}
+
 class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   bool _appLock = false;
 
@@ -315,7 +330,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                         "Forgot PIN?",
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF0D7C66), 
+                          color: Color(0xFF0D7C66),
                           decoration: TextDecoration.underline,
                         ),
                       ),
@@ -944,7 +959,7 @@ class _BottomNav extends StatelessWidget {
             onPressed:
                 () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => HomePage(userName: '')),
+                  NoTransitionPageRoute(builder: (_) => HomePage(userName: '')),
                 ),
           ),
           IconButton(
@@ -952,7 +967,7 @@ class _BottomNav extends StatelessWidget {
             onPressed:
                 () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => JournalPage(userName: '')),
+                  NoTransitionPageRoute(builder: (_) => JournalPage(userName: '')),
                 ),
           ),
           IconButton(
@@ -960,7 +975,7 @@ class _BottomNav extends StatelessWidget {
             onPressed:
                 () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => SettingsPage(userName: '')),
+                  NoTransitionPageRoute(builder: (_) => SettingsPage(userName: '')),
                 ),
           ),
         ],

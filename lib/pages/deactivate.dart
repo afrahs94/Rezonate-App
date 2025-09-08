@@ -11,10 +11,25 @@ import 'login_page.dart';
 class DeactivateAccountPage extends StatefulWidget {
   final String userName;
   const DeactivateAccountPage({Key? key, required this.userName})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<DeactivateAccountPage> createState() => _DeactivateAccountPageState();
+}
+
+class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
+  NoTransitionPageRoute({required WidgetBuilder builder})
+    : super(builder: builder);
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child; // no animation
+  }
 }
 
 class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
@@ -28,9 +43,10 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFF132C29), Color(0xFF1C6D60)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFF132C29), Color(0xFF1C6D60)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -38,25 +54,28 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
   Future<void> _confirmAndDelete() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete account?'),
-        content: const Text(
-          'This will permanently remove your account and all data. '
-          'This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      builder:
+          (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Delete account?'),
+            content: const Text(
+              'This will permanently remove your account and all data. '
+              'This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
     if (ok == true) {
       await _deleteAccount();
@@ -89,8 +108,7 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
     } on FirebaseAuthException catch (e) {
       String msg = e.message ?? 'Account deletion failed.';
       if (e.code == 'requires-recent-login') {
-        msg =
-            'For security, please log in again and then delete your account.';
+        msg = 'For security, please log in again and then delete your account.';
       }
       _snack(msg);
     } catch (e) {
@@ -122,22 +140,25 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(Icons.arrow_back,
-                          color: theme.colorScheme.onSurface),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       onPressed: () {
                         if (Navigator.canPop(context)) {
                           Navigator.pop(context);
                         } else {
                           Navigator.of(context).pushReplacement(
                             PageRouteBuilder(
-                              pageBuilder: (_, __, ___) => SettingsPage(userName: widget.userName),
+                              pageBuilder:
+                                  (_, __, ___) =>
+                                      SettingsPage(userName: widget.userName),
                               transitionDuration: Duration.zero,
                               reverseTransitionDuration: Duration.zero,
                             ),
                           );
                         }
                       },
-
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -182,14 +203,14 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                             ),
                             children: const [
                               TextSpan(
-                                  text:
-                                      'Deleting your account will permanently remove '),
+                                text:
+                                    'Deleting your account will permanently remove ',
+                              ),
                               TextSpan(
-                                  text: 'all',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w800)),
-                              TextSpan(
-                                  text: ' your journal entries and data.'),
+                                text: 'all',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              TextSpan(text: ' your journal entries and data.'),
                             ],
                           ),
                         ),
@@ -205,12 +226,13 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                             children: const [
                               TextSpan(text: 'This action cannot be '),
                               TextSpan(
-                                  text: 'undone',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w800)),
+                                text: 'undone',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
                               TextSpan(
-                                  text:
-                                      '. Please save any information you want to keep before proceeding.'),
+                                text:
+                                    '. Please save any information you want to keep before proceeding.',
+                              ),
                             ],
                           ),
                         ),
@@ -224,24 +246,28 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
 
               // Buttons row
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _working
-                            ? null
-                            : () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => SettingsPage(
-                                      userName: widget.userName,
+                        onPressed:
+                            _working
+                                ? null
+                                : () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    NoTransitionPageRoute(
+                                      builder:
+                                          (_) => SettingsPage(
+                                            userName: widget.userName,
+                                          ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _brand,
                           foregroundColor: Colors.white,
@@ -251,8 +277,10 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: const Text('Cancel',
-                            style: TextStyle(fontSize: 15)),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontSize: 15),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -268,13 +296,19 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: _working
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Delete',
-                                style: TextStyle(fontSize: 15)),
+                        child:
+                            _working
+                                ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Text(
+                                  'Delete',
+                                  style: TextStyle(fontSize: 15),
+                                ),
                       ),
                     ),
                   ],
@@ -312,30 +346,33 @@ class _BottomNav extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(Icons.home_filled, color: _c(0)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HomePage(userName: userName),
-                ),
-              ),
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    NoTransitionPageRoute(
+                      builder: (_) => HomePage(userName: userName),
+                    ),
+                  ),
             ),
             IconButton(
               icon: Icon(Icons.menu_book_rounded, color: _c(1)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => JournalPage(userName: userName),
-                ),
-              ),
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    NoTransitionPageRoute(
+                      builder: (_) => JournalPage(userName: userName),
+                    ),
+                  ),
             ),
             IconButton(
               icon: Icon(Icons.settings, color: _c(2)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SettingsPage(userName: userName),
-                ),
-              ),
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    NoTransitionPageRoute(
+                      builder: (_) => SettingsPage(userName: userName),
+                    ),
+                  ),
             ),
           ],
         ),

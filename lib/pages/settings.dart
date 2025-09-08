@@ -18,6 +18,21 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
+class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
+  NoTransitionPageRoute({required WidgetBuilder builder})
+    : super(builder: builder);
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child; // no animation
+  }
+}
+
 class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _searchCtrl = TextEditingController();
   late List<_Item> _all;
@@ -33,8 +48,18 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Edit Profile',
         icon: Icons.person_outline,
         keywords: const [
-          'edit profile', 'profile', 'name', 'username', 'email', 'bio', 'photo',
-          'picture', 'avatar', 'birthday', 'account info', 'details'
+          'edit profile',
+          'profile',
+          'name',
+          'username',
+          'email',
+          'bio',
+          'photo',
+          'picture',
+          'avatar',
+          'birthday',
+          'account info',
+          'details',
         ],
         builder: () => EditProfilePage(userName: widget.userName),
       ),
@@ -42,8 +67,15 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Change Password',
         icon: Icons.lock_outline,
         keywords: const [
-          'change password', 'password', 'update password', 'reset password',
-          'credentials', 'security', 'old password', 'new password', 'confirm password'
+          'change password',
+          'password',
+          'update password',
+          'reset password',
+          'credentials',
+          'security',
+          'old password',
+          'new password',
+          'confirm password',
         ],
         builder: () => const ChangePasswordPage(userName: ''),
       ),
@@ -51,9 +83,22 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Security & Privacy',
         icon: Icons.security,
         keywords: const [
-          'security & privacy', 'security', 'privacy', 'encryption', 'permissions',
-          'anonymous', 'sharing', 'app lock', 'pin', 'blocked users', 'journal lock',
-          'data', 'tracking', 'biometrics', 'face id', 'touch id'
+          'security & privacy',
+          'security',
+          'privacy',
+          'encryption',
+          'permissions',
+          'anonymous',
+          'sharing',
+          'app lock',
+          'pin',
+          'blocked users',
+          'journal lock',
+          'data',
+          'tracking',
+          'biometrics',
+          'face id',
+          'touch id',
         ],
         builder: () => SecurityAndPrivacyPage(userName: widget.userName),
       ),
@@ -61,8 +106,16 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Push Notifications',
         icon: Icons.notifications_active_outlined,
         keywords: const [
-          'push notifications', 'notifications', 'notify', 'reminders', 'alerts',
-          'daily reminder', 'journal reminder', 'mute', 'do not disturb', 'schedule'
+          'push notifications',
+          'notifications',
+          'notify',
+          'reminders',
+          'alerts',
+          'daily reminder',
+          'journal reminder',
+          'mute',
+          'do not disturb',
+          'schedule',
         ],
         builder: () => PushNotificationsPage(userName: widget.userName),
       ),
@@ -70,14 +123,20 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Deactivate Account',
         icon: Icons.person_off_outlined,
         keywords: const [
-          'deactivate account', 'deactivate', 'delete account', 'delete',
-          'close account', 'disable', 'remove account', 'account deletion',
-          'permanently delete'
+          'deactivate account',
+          'deactivate',
+          'delete account',
+          'delete',
+          'close account',
+          'disable',
+          'remove account',
+          'account deletion',
+          'permanently delete',
         ],
         builder: () => DeactivateAccountPage(userName: widget.userName),
       ),
       _Item.darkMode(), // inline toggle row
-      _Item.logout(),   // inline logout row
+      _Item.logout(), // inline logout row
     ];
     _shown = List.of(_all);
     _searchCtrl.addListener(_onSearch);
@@ -94,7 +153,8 @@ class _SettingsPageState extends State<SettingsPage> {
   String _norm(String s) => s.toLowerCase().trim();
 
   int _lev(String a, String b) {
-    a = _norm(a); b = _norm(b);
+    a = _norm(a);
+    b = _norm(b);
     if (a == b) return 0;
     if (a.isEmpty) return b.length;
     if (b.isEmpty) return a.length;
@@ -110,7 +170,8 @@ class _SettingsPageState extends State<SettingsPage> {
         final del = dp[i - 1][j] + 1;
         final ins = dp[i][j - 1] + 1;
         final sub = dp[i - 1][j - 1] + cost;
-        dp[i][j] = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
+        dp[i][j] =
+            del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
       }
     }
     return dp[m][n];
@@ -127,7 +188,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
       var best = 9999;
       for (final text in [it.label, ...it.keywords]) {
-        final parts = _norm(text).split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty);
+        final parts = _norm(
+          text,
+        ).split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty);
         for (final w in parts) {
           final d = _lev(q, w);
           if (d < best) best = d;
@@ -136,15 +199,20 @@ class _SettingsPageState extends State<SettingsPage> {
         if (best == 0) break;
       }
 
-      if (best <= 3) { // threshold; tune to 2 for stricter suggestions
-        scores[it.label] = scores.containsKey(it.label)
-            ? (best < scores[it.label]! ? best : scores[it.label]!)
-            : best;
+      if (best <= 3) {
+        // threshold; tune to 2 for stricter suggestions
+        scores[it.label] =
+            scores.containsKey(it.label)
+                ? (best < scores[it.label]! ? best : scores[it.label]!)
+                : best;
       }
     }
 
-    final sorted = scores.entries.toList()
-      ..sort((a, b) => a.value != b.value ? a.value - b.value : a.key.compareTo(b.key));
+    final sorted =
+        scores.entries.toList()..sort(
+          (a, b) =>
+              a.value != b.value ? a.value - b.value : a.key.compareTo(b.key),
+        );
     return sorted.take(maxReturn).map((e) => e.key).toList();
   }
 
@@ -164,7 +232,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
     bool matches(_Item it) {
       final isLogout = it.type == _RowType.logout;
-      final isSearchable = it.type == _RowType.link || isLogout; // exclude dark mode from search
+      final isSearchable =
+          it.type == _RowType.link || isLogout; // exclude dark mode from search
       if (!isSearchable) return false;
 
       final haystack = <String>[
@@ -175,8 +244,9 @@ class _SettingsPageState extends State<SettingsPage> {
       // Logout row: allow partials like "log", "sign" (min length 3)
       if (isLogout) {
         const minLen = 3;
-        return tokens.any((tok) =>
-            tok.length >= minLen && haystack.any((h) => h.contains(tok)));
+        return tokens.any(
+          (tok) => tok.length >= minLen && haystack.any((h) => h.contains(tok)),
+        );
       }
 
       // Normal items: every token must match somewhere (simple "contains")
@@ -197,13 +267,17 @@ class _SettingsPageState extends State<SettingsPage> {
     final results = _shown.where((it) => it.type == _RowType.link).toList();
     if (results.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No matching settings found')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No matching settings found')),
+      );
       return;
     }
     if (results.length == 1) {
       if (!mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => results.first.builder()));
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => results.first.builder()),
+      );
       return;
     }
     // Multiple matches -> quick picker sheet
@@ -235,21 +309,27 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 6),
-                  child: Text('Select a setting',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'Select a setting',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
-                ...results.map((it) => ListTile(
-                      leading: Icon(it.icon, color: const Color(0xFF0D7C66)),
-                      title: Text(it.label,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => it.builder()),
-                        );
-                      },
-                    )),
+                ...results.map(
+                  (it) => ListTile(
+                    leading: Icon(it.icon, color: const Color(0xFF0D7C66)),
+                    title: Text(
+                      it.label,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => it.builder()),
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -319,18 +399,21 @@ class _SettingsPageState extends State<SettingsPage> {
                       filled: true,
                       fillColor: searchFill,
                       prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchCtrl.text.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'Clear',
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                _onSearch();
-                              },
-                            ),
+                      suffixIcon:
+                          _searchCtrl.text.isEmpty
+                              ? null
+                              : IconButton(
+                                tooltip: 'Clear',
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  _onSearch();
+                                },
+                              ),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 14),
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(28),
                         borderSide: BorderSide.none,
@@ -358,27 +441,31 @@ class _SettingsPageState extends State<SettingsPage> {
 
               // Results list
               Expanded(
-                child: _shown.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No results',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black54,
+                child:
+                    _shown.isEmpty
+                        ? const Center(
+                          child: Text(
+                            'No results',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54,
+                            ),
                           ),
+                        )
+                        : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                          itemCount: _shown.length,
+                          separatorBuilder:
+                              (_, __) => const SizedBox(height: 14),
+                          itemBuilder: (context, i) {
+                            final it = _shown[i];
+                            if (it.type == _RowType.darkMode)
+                              return _darkModeRow(context);
+                            if (it.type == _RowType.logout)
+                              return _logoutRow(context);
+                            return _linkRow(context, it);
+                          },
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                        itemCount: _shown.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 14),
-                        itemBuilder: (context, i) {
-                          final it = _shown[i];
-                          if (it.type == _RowType.darkMode) return _darkModeRow(context);
-                          if (it.type == _RowType.logout) return _logoutRow(context);
-                          return _linkRow(context, it);
-                        },
-                      ),
               ),
 
               // Bottom navigation
@@ -391,23 +478,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       context,
                       icon: Icons.home_rounded,
                       selected: false,
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => HomePage(userName: widget.userName),
-                        ),
-                      ),
+                      onTap:
+                          () => Navigator.pushReplacement(
+                            context,
+                            NoTransitionPageRoute(
+                              builder:
+                                  (_) => HomePage(userName: widget.userName),
+                            ),
+                          ),
                     ),
                     _navIcon(
                       context,
                       icon: Icons.menu_book_rounded,
                       selected: false,
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => JournalPage(userName: widget.userName),
-                        ),
-                      ),
+                      onTap:
+                          () => Navigator.pushReplacement(
+                            context,
+                            NoTransitionPageRoute(
+                              builder:
+                                  (_) => JournalPage(userName: widget.userName),
+                            ),
+                          ),
                     ),
                     _navIcon(
                       context,
@@ -430,10 +521,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _linkRow(BuildContext context, _Item it) {
     final bg = const Color.fromARGB(131, 0, 150, 135);
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => it.builder()),
-      ),
+      onTap:
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => it.builder()),
+          ),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
@@ -453,15 +545,15 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(it.icon, color: Colors.white, size: 22),
             const SizedBox(width: 12),
             Expanded(
-            child: Text(
-              it.label,   
-              style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-            fontWeight: FontWeight.w600,
-                  ),
+              child: Text(
+                it.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+            ),
 
             const Icon(Icons.arrow_forward_rounded, color: Colors.white),
           ],
@@ -506,12 +598,14 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () => ctrl.toggleTheme(),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, anim) => RotationTransition(
-                turns: child.key == const ValueKey('sun')
-                    ? Tween<double>(begin: 0.75, end: 1).animate(anim)
-                    : Tween<double>(begin: 0.25, end: 1).animate(anim),
-                child: FadeTransition(opacity: anim, child: child),
-              ),
+              transitionBuilder:
+                  (child, anim) => RotationTransition(
+                    turns:
+                        child.key == const ValueKey('sun')
+                            ? Tween<double>(begin: 0.75, end: 1).animate(anim)
+                            : Tween<double>(begin: 0.25, end: 1).animate(anim),
+                    child: FadeTransition(opacity: anim, child: child),
+                  ),
               child: Icon(
                 on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
                 key: ValueKey(on ? 'moon' : 'sun'),
@@ -532,26 +626,43 @@ class _SettingsPageState extends State<SettingsPage> {
       final theme = Theme.of(context);
       final ok = await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Log out?',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          content: Text('Are you sure you want to log out?', style: theme.textTheme.bodyMedium),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel',
-                  style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+        builder:
+            (_) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'Log out?',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              content: Text(
+                'Are you sure you want to log out?',
+                style: theme.textTheme.bodyMedium,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    'Cancel',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    'Log out',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('Log out',
-                  style: theme.textTheme.labelLarge?.copyWith(color: Colors.red, fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
       );
       if (ok == true && context.mounted) {
         Navigator.pushAndRemoveUntil(
@@ -605,7 +716,8 @@ class _SettingsPageState extends State<SettingsPage> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    final color = selected ? const Color.fromARGB(255, 13, 124, 102) : Colors.white;
+    final color =
+        selected ? const Color.fromARGB(255, 13, 124, 102) : Colors.white;
     return IconButton(
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
@@ -631,24 +743,25 @@ class _Item {
     required this.icon,
     required this.keywords,
     required Widget Function() builder,
-  })  : _builder = builder,
-        type = _RowType.link;
+  }) : _builder = builder,
+       type = _RowType.link;
 
-  _Item._special(this.label, this.icon, this.keywords, this.type) : _builder = null;
+  _Item._special(this.label, this.icon, this.keywords, this.type)
+    : _builder = null;
 
   factory _Item.darkMode() => _Item._special(
-        'Dark Mode',
-        Icons.dark_mode_rounded,
-        const [],
-        _RowType.darkMode,
-      );
+    'Dark Mode',
+    Icons.dark_mode_rounded,
+    const [],
+    _RowType.darkMode,
+  );
 
   factory _Item.logout() => _Item._special(
-        'Log out',
-        Icons.logout_rounded,
-        const ['logout', 'log out', 'sign out', 'logoff', 'log off'],
-        _RowType.logout,
-      );
+    'Log out',
+    Icons.logout_rounded,
+    const ['logout', 'log out', 'sign out', 'logoff', 'log off'],
+    _RowType.logout,
+  );
 
   Widget builder() => _builder!.call();
 }
@@ -668,20 +781,28 @@ class _DidYouMean extends StatelessWidget {
       children: [
         Text(
           'Did you mean:',
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(width: 8),
         Flexible(
           child: Wrap(
             spacing: 8,
             runSpacing: -6,
-            children: suggestions
-                .map((s) => ActionChip(label: Text(s), onPressed: () => onTap(s), elevation: 0))
-                .toList(),
+            children:
+                suggestions
+                    .map(
+                      (s) => ActionChip(
+                        label: Text(s),
+                        onPressed: () => onTap(s),
+                        elevation: 0,
+                      ),
+                    )
+                    .toList(),
           ),
         ),
       ],
     );
   }
 }
-
