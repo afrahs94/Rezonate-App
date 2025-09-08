@@ -9,7 +9,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-
 import 'home.dart';
 import 'journal.dart';
 import 'settings.dart';
@@ -17,7 +16,7 @@ import 'settings.dart';
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
   const SecurityAndPrivacyPage({Key? key, required this.userName})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
@@ -34,37 +33,38 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
   @override
-void initState() {
-  super.initState();
-  _policyTap = TapGestureRecognizer()..onTap = _openPrivacyPolicy;
-  _loadSettings();
-}
-
-Future<void> _openPrivacyPolicy() async {
-  // Replace with your real URL
-  final uri = Uri.parse('https://www.notion.so/DRAFT-5-FINAL-THINGS-TO-FIX-2544f261ee2380918c1ac5f28387842c?source=copy_link');
-  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open Privacy Policy')),
-    );
+  void initState() {
+    super.initState();
+    _policyTap = TapGestureRecognizer()..onTap = _openPrivacyPolicy;
+    _loadSettings();
   }
-}
-@override
-void dispose() {
-  _policyTap.dispose();
-  super.dispose();
-}
 
+  Future<void> _openPrivacyPolicy() async {
+    // Replace with your real URL
+    final uri = Uri.parse(
+      'https://www.notion.so/DRAFT-5-FINAL-THINGS-TO-FIX-2544f261ee2380918c1ac5f28387842c?source=copy_link',
+    );
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Privacy Policy')),
+      );
+    }
+  }
 
-
+  @override
+  void dispose() {
+    _policyTap.dispose();
+    super.dispose();
+  }
 
   // --------- Anonymity helpers ---------
   bool _deriveAnon(Map<String, dynamic>? data) {
@@ -131,6 +131,117 @@ void dispose() {
   }
   // -------------------------------------
 
+  Future<void> _forgotPin() async {
+    final passCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? err;
+
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            Future<void> onReset() async {
+              final password = passCtrl.text.trim();
+              final newPin = newCtrl.text.trim();
+              final confirm = confirmCtrl.text.trim();
+
+              if (password.isEmpty || newPin.isEmpty || confirm.isEmpty) {
+                setLocal(() => err = "All fields required.");
+                return;
+              }
+              if (newPin != confirm) {
+                setLocal(() => err = "New PINs do not match.");
+                return;
+              }
+              if (newPin.length < 4 || newPin.length > 8) {
+                setLocal(() => err = "PIN must be 4–8 digits.");
+                return;
+              }
+
+              try {
+                // reauthenticate
+                final cred = EmailAuthProvider.credential(
+                  email: user.email!,
+                  password: password,
+                );
+                await user.reauthenticateWithCredential(cred);
+
+                // save new pin
+                await _db.collection("users").doc(user.uid).set({
+                  "journal_lock_pin": _hash(newPin),
+                }, SetOptions(merge: true));
+
+                if (mounted) Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("PIN reset successfully.")),
+                );
+              } on FirebaseAuthException catch (e) {
+                setLocal(() => err = e.message ?? "Re-authentication failed.");
+              }
+            }
+
+            return AlertDialog(
+              title: const Text("Reset Journal PIN"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: "Account Password",
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: newCtrl,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(labelText: "New PIN"),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: confirmCtrl,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: "Confirm New PIN",
+                    ),
+                  ),
+                  if (err != null) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        err!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(onPressed: onReset, child: const Text("Reset")),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _changePin() async {
     final currentCtrl = TextEditingController();
     final newCtrl = TextEditingController();
@@ -193,6 +304,24 @@ void dispose() {
                     decoration: const InputDecoration(labelText: 'Current PIN'),
                   ),
                   const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).pop(); // close current PIN dialog
+                        _forgotPin(); // open forgot PIN flow
+                      },
+                      child: const Text(
+                        "Forgot PIN?",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF0D7C66), 
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: newCtrl,
                     obscureText: true,
@@ -206,8 +335,9 @@ void dispose() {
                     obscureText: true,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration:
-                        const InputDecoration(labelText: 'Confirm New PIN'),
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New PIN',
+                    ),
                   ),
                   if (err != null) ...[
                     const SizedBox(height: 6),
@@ -378,8 +508,9 @@ void dispose() {
     }, SetOptions(merge: true));
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('User unblocked.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('User unblocked.')));
   }
 
   Future<void> _showBlockedSheet() async {
@@ -413,23 +544,28 @@ void dispose() {
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                     child: Text(
                       'Blocked Users',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   const Divider(height: 1),
                   Expanded(
-                    child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    child: StreamBuilder<
+                      DocumentSnapshot<Map<String, dynamic>>
+                    >(
                       stream: _db.collection('users').doc(uid).snapshots(),
                       builder: (context, snap) {
                         if (snap.connectionState == ConnectionState.waiting) {
                           return const Center(
-                              child: CircularProgressIndicator());
+                            child: CircularProgressIndicator(),
+                          );
                         }
                         final data = snap.data?.data() ?? {};
                         final blockedUids =
                             (data['blocked_uids'] as List?)?.cast<String>() ??
-                                [];
+                            [];
 
                         if (blockedUids.isEmpty) {
                           return const Center(
@@ -452,24 +588,31 @@ void dispose() {
                           builder: (context, namesSnap) {
                             if (!namesSnap.hasData) {
                               return const Center(
-                                  child: CircularProgressIndicator());
+                                child: CircularProgressIndicator(),
+                              );
                             }
                             final names = namesSnap.data!;
                             return ListView.separated(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
                               itemCount: blockedUids.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                              separatorBuilder:
+                                  (_, __) => const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final uidItem = blockedUids[i];
                                 final label = names[i];
                                 return ListTile(
-                                  leading: const Icon(Icons.block,
-                                      color: Colors.red),
-                                  title: Text(label,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600)),
+                                  leading: const Icon(
+                                    Icons.block,
+                                    color: Colors.red,
+                                  ),
+                                  title: Text(
+                                    label,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                   trailing: TextButton(
                                     onPressed: () => _unblockUser(uidItem),
                                     child: const Text('Unblock'),
@@ -543,7 +686,9 @@ void dispose() {
                           ],
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 12),
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
                             const Expanded(
@@ -577,8 +722,9 @@ void dispose() {
                                     await _saveAppLock(true);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content:
-                                            Text('My Journal Lock enabled.'),
+                                        content: Text(
+                                          'My Journal Lock enabled.',
+                                        ),
                                       ),
                                     );
                                   } else {
@@ -589,8 +735,9 @@ void dispose() {
                                   await _saveAppLock(false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content:
-                                          Text('My Journal Lock disabled.'),
+                                      content: Text(
+                                        'My Journal Lock disabled.',
+                                      ),
                                     ),
                                   );
                                 }
@@ -627,7 +774,6 @@ void dispose() {
                       const SizedBox(height: 18),
 
                       // (Default Entry Visibility section has been removed.)
-
                       const _Header('Public Sharing'),
                       Builder(
                         builder: (ctx) {
@@ -640,8 +786,10 @@ void dispose() {
                             );
                           }
                           return StreamBuilder<
-                              DocumentSnapshot<Map<String, dynamic>>>(
-                            stream: _db.collection('users').doc(u.uid).snapshots(),
+                            DocumentSnapshot<Map<String, dynamic>>
+                          >(
+                            stream:
+                                _db.collection('users').doc(u.uid).snapshots(),
                             builder: (context, snap) {
                               final data = snap.data?.data();
                               final on = _deriveAnon(data);
@@ -677,31 +825,31 @@ void dispose() {
                       ),
                       const SizedBox(height: 18),
                       const _Header('Privacy Policy'),
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
-                        ),
-                        children: [
-                          const TextSpan(
-                            text:
-                                'When entry is shared publicly, it will appear in the community feed. '
-                                'If "Share anonymously" is enabled, your identity is hidden on past and future posts & replies. '
-                                'For more details, tap ',
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
                           ),
-                          TextSpan(
-                            text: 'here.',
-                            style: const TextStyle(
-                              decoration: TextDecoration.underline,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                          children: [
+                            const TextSpan(
+                              text:
+                                  'When entry is shared publicly, it will appear in the community feed. '
+                                  'If "Share anonymously" is enabled, your identity is hidden on past and future posts & replies. '
+                                  'For more details, tap ',
                             ),
-                            recognizer: _policyTap,
-                          ),
-                        ],
+                            TextSpan(
+                              text: 'here.',
+                              style: const TextStyle(
+                                decoration: TextDecoration.underline,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              recognizer: _policyTap,
+                            ),
+                          ],
+                        ),
                       ),
-                                          ),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -717,7 +865,6 @@ void dispose() {
   }
 
   late final TapGestureRecognizer _policyTap;
-
 }
 
 class _AnonRow extends StatelessWidget {
@@ -794,24 +941,27 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => HomePage(userName: '')),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => HomePage(userName: '')),
+                ),
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => JournalPage(userName: '')),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => JournalPage(userName: '')),
+                ),
           ),
           IconButton(
             icon: Icon(Icons.settings, color: c(2)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => SettingsPage(userName: '')),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => SettingsPage(userName: '')),
+                ),
           ),
         ],
       ),
