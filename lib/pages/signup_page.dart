@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'home.dart';
 import 'login_page.dart';
@@ -54,6 +55,9 @@ class _SignUpPageState extends State<SignUpPage> {
 
   // Page 2 DOB error holder (inline under the field)
   String? _dobError;
+
+  // Terms & Conditions acceptance
+  bool _acceptedTerms = false;
 
   // ---------- Password validators ----------
   bool _isStrongPassword(String p) {
@@ -297,12 +301,12 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
 
                 Transform.translate(
-                    offset: const Offset(0, -14), 
+                    offset: const Offset(0, -14),
                     child: const Align(
-                    alignment: Alignment.center,
+                      alignment: Alignment.center,
                       child: Text(
                         'sign up',
-                         style: TextStyle(
+                        style: TextStyle(
                           fontSize: 45,
                           color: Color(0xFF0D7C66),
                           fontWeight: FontWeight.w500,
@@ -311,15 +315,15 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                   ),
 
-
                 _buildTextField(
                   'username *',
                   usernameController,
                   onChanged: _onUsernameChanged,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
-                    if (_usernameAvailable == false)
+                    if (_usernameAvailable == false) {
                       return 'Username already taken';
+                    }
                     return null;
                   },
                   errorText: _usernameError,
@@ -364,10 +368,9 @@ class _SignUpPageState extends State<SignUpPage> {
                           ? Icons.visibility_off
                           : Icons.visibility,
                     ),
-                    onPressed:
-                        () => setState(() {
-                          _passwordObscured = !_passwordObscured;
-                        }),
+                    onPressed: () => setState(() {
+                      _passwordObscured = !_passwordObscured;
+                    }),
                   ),
                 ),
 
@@ -382,10 +385,9 @@ class _SignUpPageState extends State<SignUpPage> {
                           ? Icons.visibility_off
                           : Icons.visibility,
                     ),
-                    onPressed:
-                        () => setState(() {
-                          _confirmPasswordObscured = !_confirmPasswordObscured;
-                        }),
+                    onPressed: () => setState(() {
+                      _confirmPasswordObscured = !_confirmPasswordObscured;
+                    }),
                   ),
                 ),
 
@@ -417,11 +419,10 @@ class _SignUpPageState extends State<SignUpPage> {
                 const Align(alignment: Alignment.center, child: Text('1 of 2')),
                 const SizedBox(height: 2),
                 GestureDetector(
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        NoTransitionPageRoute(builder: (_) => const LoginPage()),
-                      ),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                  ),
                   child: const Align(
                     alignment: Alignment.center,
                     child: Text.rich(
@@ -469,7 +470,6 @@ class _SignUpPageState extends State<SignUpPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Match page 1 logo size
               Center(
                 child: Image.asset(
                   'assets/images/Full_logo.png',
@@ -488,7 +488,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
               ),
 
-              // Constrain width a bit so it feels centered/clean on larger screens
               Align(
                 alignment: Alignment.center,
                 child: ConstrainedBox(
@@ -528,18 +527,16 @@ class _SignUpPageState extends State<SignUpPage> {
                         ],
                       ),
 
-                      // >>> Even more spacing before action buttons <<<
                       const SizedBox(height: 40),
 
                       Row(
                         children: [
                           Expanded(
                             child: ElevatedButton(
-                              onPressed:
-                                  () => _controller.previousPage(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                  ),
+                              onPressed: () => _controller.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0D7C66),
                                 shape: RoundedRectangleBorder(
@@ -551,9 +548,7 @@ class _SignUpPageState extends State<SignUpPage> {
                               child: const Text(
                                 'back',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
+                                    fontSize: 18, color: Colors.white),
                               ),
                             ),
                           ),
@@ -589,11 +584,10 @@ class _SignUpPageState extends State<SignUpPage> {
               const Text('2 of 2', textAlign: TextAlign.center),
               const SizedBox(height: 4),
               GestureDetector(
-                onTap:
-                    () => Navigator.push(
-                      context,
-                      NoTransitionPageRoute(builder: (_) => const LoginPage()),
-                    ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                ),
                 child: const Text.rich(
                   TextSpan(
                     text: 'already have an account? ',
@@ -618,21 +612,88 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
+  // -------------------- Terms & Conditions helper --------------------
+  static const String _termsUrl = 'https://example.com/terms'; // optional external fallback
+
+  Future<void> _openTerms() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const _TermsAndPrivacyPage()),
+    );
+  }
+
+  Future<bool> _ensureTermsAccepted() async {
+    if (_acceptedTerms) return true;
+
+    final agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Terms & Conditions'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'By creating an account, you agree to our Terms & Conditions and Privacy Policy. '
+                    'You confirm you are at least 18 years old and that the information you provide is accurate.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _openTerms,
+                    child: const Text('View full Terms & Conditions'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Decline'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('I Agree'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (agreed == true) {
+      setState(() => _acceptedTerms = true);
+      return true;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'You must accept the Terms & Conditions to create an account.'),
+        ),
+      );
+      return false;
+    }
+  }
+
   // -------------------- Actions --------------------
   Future<void> _handleSignUp() async {
     try {
+      // Require Terms & Conditions acceptance first
+      final ok = await _ensureTermsAccepted();
+      if (!ok) return;
+
       if (dobController.text.isEmpty) {
-        setState(
-          () => _dobError = 'Please select date of birth',
-        ); // inline error
+        setState(() => _dobError = 'Please select date of birth');
         return;
       }
 
-      // Enforce 18+ before allowing signup
+      // Enforce 18+
       final parsedDob = DateFormat('MM/dd/yyyy').parse(dobController.text);
       if (!_isAtLeast18(parsedDob)) {
         setState(() => _dobError = 'You must be at least 18 years old.');
-        return; // block sign up
+        return;
       } else {
         if (_dobError != null) setState(() => _dobError = null);
       }
@@ -642,7 +703,6 @@ class _SignUpPageState extends State<SignUpPage> {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
 
-      // Enforce password rules
       if (!_isStrongPassword(password)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -654,17 +714,14 @@ class _SignUpPageState extends State<SignUpPage> {
         return;
       }
 
-      // Pre-check against usernames/{username_lower}
       final pre =
           await _firestore.collection('usernames').doc(usernameLower).get();
       if (pre.exists) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Username already taken')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Username already taken')));
         return;
       }
 
-      // Create Auth user FIRST (so we have UID)
       final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -673,18 +730,14 @@ class _SignUpPageState extends State<SignUpPage> {
 
       final hashedPassword = sha256.convert(utf8.encode(password)).toString();
 
-      // Atomically claim username + create profile
       try {
         await _firestore.runTransaction((tx) async {
-          final unameRef = _firestore
-              .collection('usernames')
-              .doc(usernameLower);
+          final unameRef = _firestore.collection('usernames').doc(usernameLower);
           final unameSnap = await tx.get(unameRef);
           if (unameSnap.exists) {
             throw Exception('USERNAME_TAKEN');
           }
 
-          // /users/{uid}
           final userRef = _firestore.collection('users').doc(uid);
           tx.set(userRef, {
             'uid': uid,
@@ -697,9 +750,9 @@ class _SignUpPageState extends State<SignUpPage> {
             'gender': gender,
             'dob': dobController.text,
             'created_at': DateTime.now().toIso8601String(),
+            'accepted_terms': true,
           });
 
-          // /usernames/{username_lower}
           tx.set(unameRef, {
             'uid': uid,
             'username': username,
@@ -707,20 +760,17 @@ class _SignUpPageState extends State<SignUpPage> {
           });
         });
       } catch (e) {
-        // If taken between pre-check and transaction, roll back auth user
         if (e.toString().contains('USERNAME_TAKEN')) {
           try {
             await FirebaseAuth.instance.currentUser?.delete();
           } catch (_) {}
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Username already taken')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Username already taken')));
           return;
         }
         rethrow;
       }
 
-      // Cache profile locally for other pages & restarts
       await UserSession.instance.refreshFromFirestore(_firestore, uid);
 
       if (!mounted) return;
@@ -731,13 +781,11 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
       );
     } catch (e) {
-      // Best-effort cleanup for unexpected failures
       try {
         await FirebaseAuth.instance.currentUser?.delete();
       } catch (_) {}
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -757,7 +805,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  // Helper: true if user is at least 18 today
   bool _isAtLeast18(DateTime dob) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -765,35 +812,32 @@ class _SignUpPageState extends State<SignUpPage> {
     return !eighteenth.isAfter(today);
   }
 
-  // -------------------- Gender tile --------------------
   Widget _genderTile(String g) {
     final isSelected = gender == g;
-    final color =
-        g == 'male'
-            ? Colors.blue
-            : g == 'female'
+    final color = g == 'male'
+        ? Colors.blue
+        : g == 'female'
             ? Colors.pink
             : Colors.purple;
 
     return GestureDetector(
       onTap: () => setState(() => gender = g),
       child: Container(
-        width: 94, // 🔹 fixed width
-        height: 90, // 🔹 fixed height
+        width: 94,
+        height: 90,
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(18),
-          
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center, // 🔹 center everything
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               g == 'male'
                   ? Icons.male
                   : g == 'female'
-                  ? Icons.female
-                  : Icons.transgender,
+                      ? Icons.female
+                      : Icons.transgender,
               color: color,
               size: 34,
             ),
@@ -807,6 +851,147 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- In-app Terms & Privacy page (opened from the dialog link) ----------
+class _TermsAndPrivacyPage extends StatelessWidget {
+  const _TermsAndPrivacyPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white, // ensure visible in dark mode
+      appBar: AppBar(
+        title: const Text('Terms & Privacy'),
+        backgroundColor: const Color(0xFF0D7C66),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: DefaultTextStyle(
+            style: const TextStyle(color: Colors.black87, fontSize: 16, height: 1.35),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                // TERMS
+                Text('Terms & Conditions',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.black)),
+                SizedBox(height: 10),
+                Text(
+                  'These Terms & Conditions (“Terms”) govern your use of this application and related services. '
+                  'By creating an account or using the app, you agree to be bound by these Terms. If you do not agree, do not use the app.',
+                ),
+                SizedBox(height: 14),
+                Text('1. Eligibility', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text('You must be at least 18 years old to use the service.'),
+                SizedBox(height: 12),
+                Text('2. Account & Security', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'You are responsible for the information associated with your account and for maintaining the confidentiality of your credentials. '
+                  'You agree to notify us promptly of any suspected unauthorized use.',
+                ),
+                SizedBox(height: 12),
+                Text('3. Acceptable Use', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'You will not use the service to harass, threaten, defame, post illegal content, or interfere with the operation of the service. '
+                  'We may remove content or restrict access for violations.',
+                ),
+                SizedBox(height: 12),
+                Text('4. Content & License', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'You retain ownership of content you post. By posting, you grant us a limited, worldwide, non-exclusive license to host, display, '
+                  'and process your content solely to operate and improve the service.',
+                ),
+                SizedBox(height: 12),
+                Text('5. Service Changes', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text('We may modify, suspend, or discontinue features at any time, with or without notice.'),
+                SizedBox(height: 12),
+                Text('6. Disclaimers & Limitation of Liability', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'The service is provided “as is” and “as available.” To the fullest extent permitted by law, we disclaim all warranties and '
+                  'shall not be liable for indirect, incidental, or consequential damages.',
+                ),
+                SizedBox(height: 12),
+                Text('7. Termination', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text('We may suspend or terminate your access for violations of these Terms or for risk to the service or users.'),
+                SizedBox(height: 12),
+                Text('8. Governing Law', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text('These Terms are governed by applicable law in your jurisdiction unless superseded by mandatory law.'),
+                SizedBox(height: 20),
+
+                // PRIVACY
+                Text('Privacy Policy',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.black)),
+                SizedBox(height: 10),
+                Text(
+                  'This Privacy Policy describes how we collect, use, and protect your information when you use the service.',
+                ),
+                SizedBox(height: 14),
+                Text('1. Information We Collect', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  '• Account information such as name, email, username, and date of birth.\n'
+                  '• Usage data including actions taken in the app and diagnostic logs.\n'
+                  '• Device information such as device model and operating system version.',
+                ),
+                SizedBox(height: 12),
+                Text('2. How We Use Information', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'We use your information to provide, secure, personalize, and improve the service; to communicate important updates; '
+                  'and to comply with legal obligations.',
+                ),
+                SizedBox(height: 12),
+                Text('3. Sharing of Information', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'We do not sell your personal information. We may share data with service providers bound by confidentiality, or when required by law.',
+                ),
+                SizedBox(height: 12),
+                Text('4. Security', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'We implement reasonable safeguards appropriate to the sensitivity of the data. However, no method of transmission or storage is completely secure.',
+                ),
+                SizedBox(height: 12),
+                Text('5. Your Choices & Rights', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'You may access, correct, or delete certain information via your account settings, subject to legal and operational limitations.',
+                ),
+                SizedBox(height: 12),
+                Text('6. Data Retention', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text(
+                  'We retain information as long as necessary to provide the service and as required by law. We may anonymize data for analytics.',
+                ),
+                SizedBox(height: 12),
+                Text('7. Children', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text('The service is not directed to persons under 18. We do not knowingly collect data from children.'),
+                SizedBox(height: 12),
+                Text('8. Contact', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                SizedBox(height: 6),
+                Text('For privacy questions, contact support using the email listed in the app settings.'),
+                SizedBox(height: 24),
+                Text('Last updated: 2025-01-01', style: TextStyle(color: Colors.black54)),
+              ],
+            ),
+          ),
         ),
       ),
     );
