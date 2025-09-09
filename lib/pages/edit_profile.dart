@@ -36,8 +36,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _userDocId;
   String? _photoUrl; // existing remote photo URL (if any)
 
-  // --- NEW: staged photo state (no auto-save) ---
-  File? _pendingPhotoFile;      // cropped local file user picked
+  // --- staged photo state (no auto-save) ---
+  File? _pendingPhotoFile;           // cropped local file user picked
   bool _photoRemovedPending = false; // user chose "remove", awaiting Save
 
   final _fs = FirebaseFirestore.instance;
@@ -221,29 +221,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _showPhotoOptions() async {
     if (_saving) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF123A36) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
+        final textStyle = TextStyle(color: isDark ? Colors.white : Colors.black87);
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: const Text('Take photo'),
+                leading: Icon(Icons.photo_camera,
+                    color: isDark ? Colors.white70 : Colors.black54),
+                title: Text('Take photo', style: textStyle),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndUploadPhoto(ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from gallery'),
+                leading: Icon(Icons.photo_library,
+                    color: isDark ? Colors.white70 : Colors.black54),
+                title: Text('Choose from gallery', style: textStyle),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndUploadPhoto(ImageSource.gallery);
@@ -252,8 +256,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               if (_photoUrl != null || _pendingPhotoFile != null)
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title:
-                      const Text('Remove photo', style: TextStyle(color: Colors.red)),
+                  title: const Text('Remove photo',
+                      style: TextStyle(color: Colors.red)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _removePhoto();
@@ -355,11 +359,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  InputDecoration _dec(IconData icon, String hint) => InputDecoration(
+  // Input decoration that adapts to theme
+  InputDecoration _dec(bool isDark, IconData icon, String hint) => InputDecoration(
         prefixIcon: Icon(icon, size: 18),
+        prefixIconColor: isDark ? Colors.white70 : Colors.black54,
         hintText: hint,
+        hintStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black45),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: isDark ? const Color(0x1AF5F5F5) : Colors.white, // subtle translucency on dark
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -369,10 +376,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // gradient
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // gradients
     const gradientTop = Color(0xFFFFFFFF);
     const gradientMiddle = Color(0xFFD7C3F1);
     const gradientBottom = Color(0xFF41B3A2);
+    final gradientDarkTop = const Color(0xFFBDA9DB);
+    final gradientDarkBottom = const Color(0xFF3E8F84);
 
     // Decide which image to preview
     ImageProvider? _previewImage() {
@@ -385,9 +396,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       extendBody: true,
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [gradientTop, gradientMiddle, gradientBottom],
+            colors: isDark
+                ? [gradientDarkTop, gradientDarkBottom]
+                : const [gradientTop, gradientMiddle, gradientBottom],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -403,13 +416,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_back),
+                            icon: Icon(Icons.arrow_back,
+                                color: isDark ? Colors.white : Colors.black),
                             onPressed: () => Navigator.pop(context),
                           ),
                           const SizedBox(width: 6),
-                          const Text(
+                          Text(
                             'Edit Profile',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
                           ),
                         ],
                       ),
@@ -420,7 +438,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           children: [
                             CircleAvatar(
                               radius: 46,
-                              backgroundColor: Colors.white.withOpacity(.6),
+                              backgroundColor: isDark
+                                  ? Colors.white.withOpacity(.18)
+                                  : Colors.white.withOpacity(.6),
                               backgroundImage: _previewImage(),
                               child: _previewImage() == null
                                   ? const Icon(Icons.person, size: 44, color: Color(0xFF0D7C66))
@@ -428,11 +448,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             ),
                             IconButton(
                               style: IconButton.styleFrom(
-                                backgroundColor: Colors.white,
+                                backgroundColor: isDark ? Colors.white24 : Colors.white,
                                 padding: const EdgeInsets.all(8),
                               ),
                               onPressed: _saving ? null : _showPhotoOptions,
-                              icon: const Icon(Icons.edit, size: 18),
+                              icon: Icon(Icons.edit,
+                                  size: 18, color: isDark ? Colors.white : Colors.black87),
                               tooltip: 'Change photo',
                             ),
                           ],
@@ -442,12 +463,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
                       TextFormField(
                         controller: _nameCtl,
-                        decoration: _dec(Icons.person_outline, 'name'),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                        decoration: _dec(isDark, Icons.person_outline, 'name'),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _birthdayCtl,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                         readOnly: true,
                         onTap: () async {
                           final now = DateTime.now();
@@ -463,28 +486,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 '${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}/${picked.year}';
                           }
                         },
-                        decoration: _dec(Icons.cake_outlined, 'birthday'),
+                        decoration: _dec(isDark, Icons.cake_outlined, 'birthday'),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _phoneCtl,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                         keyboardType: TextInputType.phone,
-                        decoration: _dec(Icons.phone_outlined, 'phone number'),
+                        decoration: _dec(isDark, Icons.phone_outlined, 'phone number'),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _usernameCtl,
-                        decoration: _dec(Icons.alternate_email, 'username'),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                        decoration: _dec(isDark, Icons.alternate_email, 'username'),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailCtl,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                         keyboardType: TextInputType.emailAddress,
-                        decoration: _dec(Icons.email_outlined, 'email'),
-                        validator: (v) => (v == null || !v.contains('@'))
-                            ? 'Enter a valid email'
-                            : null,
+                        decoration: _dec(isDark, Icons.email_outlined, 'email'),
+                        validator: (v) =>
+                            (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
                       ),
                       const SizedBox(height: 14),
                       SizedBox(

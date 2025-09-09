@@ -17,7 +17,7 @@ class PushNotificationsPage extends StatefulWidget {
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder})
-    : super(builder: builder);
+      : super(builder: builder);
 
   @override
   Widget buildTransitions(
@@ -42,6 +42,17 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  LinearGradient _bg(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: isDark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)] // dark mode gradient
+          : const [Color(0xFFD7C3F1), Color(0xFFBDE8CA)], // original light
+    );
   }
 
   Future<void> _loadSettings() async {
@@ -88,9 +99,11 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     if (granted) {
       await _registerFcmToken();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Notification permission denied.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notification permission denied.')),
+        );
+      }
     }
 
     return granted;
@@ -162,19 +175,13 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface.withOpacity(0.9);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onText = isDark ? Colors.white : Colors.black;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFD7C3F1), Color(0xFFBDE8CA)],
-          ),
-        ),
+        decoration: BoxDecoration(gradient: _bg(context)),
         child: SafeArea(
           child: Column(
             children: [
@@ -184,23 +191,19 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(
-                        Icons.arrow_back,
-                        color: theme.colorScheme.onSurface,
-                      ),
+                      icon: Icon(Icons.arrow_back, color: onText),
                       onPressed: () {
                         Navigator.pop(context);
                       },
                     ),
-
                     const SizedBox(width: 4),
                     Text(
                       'Push Notifications',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: onSurface,
-                        fontSize: 20,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: onText.withOpacity(0.9),
+                            fontSize: 20,
+                          ),
                     ),
                   ],
                 ),
@@ -244,26 +247,24 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                         subtitle:
                             "Send a friendly reminder if you haven’t tracked today.",
                         value: daily,
-                        onChanged:
-                            enableAll
-                                ? (v) async {
-                                  setState(() => daily = v);
-                                  await _saveSettings(dailyReminder: v);
-                                }
-                                : null,
+                        onChanged: enableAll
+                            ? (v) async {
+                                setState(() => daily = v);
+                                await _saveSettings(dailyReminder: v);
+                              }
+                            : null,
                       ),
                       _pill(
                         title: 'Replies to your Posts',
                         subtitle:
                             "Receive notifications about replies on the community feed.",
                         value: replies,
-                        onChanged:
-                            enableAll
-                                ? (v) async {
-                                  setState(() => replies = v);
-                                  await _saveSettings(replyNotifications: v);
-                                }
-                                : null,
+                        onChanged: enableAll
+                            ? (v) async {
+                                setState(() => replies = v);
+                                await _saveSettings(replyNotifications: v);
+                              }
+                            : null,
                       ),
                     ],
                   ),
@@ -286,10 +287,14 @@ class _BottomNav extends StatelessWidget {
   const _BottomNav({required this.index, required this.userName});
 
   Color get _teal => const Color(0xFF0D7C66);
-  Color _c(int i) => i == index ? _teal : Colors.white;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Color _c(int i) => i == index
+        ? (isDark ? const Color(0xFF9B5DE5) : _teal) // purple when dark
+        : Colors.white;
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -299,33 +304,30 @@ class _BottomNav extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(Icons.home_filled, color: _c(0)),
-              onPressed:
-                  () => Navigator.pushReplacement(
-                    context,
-                    NoTransitionPageRoute(
-                      builder: (_) => HomePage(userName: userName),
-                    ),
-                  ),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                NoTransitionPageRoute(
+                  builder: (_) => HomePage(userName: userName),
+                ),
+              ),
             ),
             IconButton(
               icon: Icon(Icons.menu_book_rounded, color: _c(1)),
-              onPressed:
-                  () => Navigator.pushReplacement(
-                    context,
-                    NoTransitionPageRoute(
-                      builder: (_) => JournalPage(userName: userName),
-                    ),
-                  ),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                NoTransitionPageRoute(
+                  builder: (_) => JournalPage(userName: userName),
+                ),
+              ),
             ),
             IconButton(
               icon: Icon(Icons.settings, color: _c(2)),
-              onPressed:
-                  () => Navigator.pushReplacement(
-                    context,
-                    NoTransitionPageRoute(
-                      builder: (_) => SettingsPage(userName: userName),
-                    ),
-                  ),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                NoTransitionPageRoute(
+                  builder: (_) => SettingsPage(userName: userName),
+                ),
+              ),
             ),
           ],
         ),

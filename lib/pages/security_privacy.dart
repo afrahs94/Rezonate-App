@@ -16,7 +16,7 @@ import 'settings.dart';
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
   const SecurityAndPrivacyPage({Key? key, required this.userName})
-    : super(key: key);
+      : super(key: key);
 
   @override
   State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
@@ -24,7 +24,7 @@ class SecurityAndPrivacyPage extends StatefulWidget {
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder})
-    : super(builder: builder);
+      : super(builder: builder);
 
   @override
   Widget buildTransitions(
@@ -48,10 +48,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors:
-          dark
-              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors: dark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -63,7 +62,6 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   }
 
   Future<void> _openPrivacyPolicy() async {
-    // Replace with your real URL
     final uri = Uri.parse(
       'https://www.notion.so/DRAFT-5-FINAL-THINGS-TO-FIX-2544f261ee2380918c1ac5f28387842c?source=copy_link',
     );
@@ -180,14 +178,12 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
               }
 
               try {
-                // reauthenticate
                 final cred = EmailAuthProvider.credential(
                   email: user.email!,
                   password: password,
                 );
                 await user.reauthenticateWithCredential(cred);
 
-                // save new pin
                 await _db.collection("users").doc(user.uid).set({
                   "journal_lock_pin": _hash(newPin),
                 }, SetOptions(merge: true));
@@ -323,8 +319,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.of(context).pop(); // close current PIN dialog
-                        _forgotPin(); // open forgot PIN flow
+                        Navigator.of(context).pop();
+                        _forgotPin();
                       },
                       child: const Text(
                         "Forgot PIN?",
@@ -537,11 +533,14 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
       return;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onText = isDark ? Colors.white : Colors.black;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF123A36) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -555,21 +554,21 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
               height: MediaQuery.of(ctx).size.height * 0.6,
               child: Column(
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                     child: Text(
                       'Blocked Users',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
+                        color: onText,
                       ),
                     ),
                   ),
                   const Divider(height: 1),
                   Expanded(
                     child: StreamBuilder<
-                      DocumentSnapshot<Map<String, dynamic>>
-                    >(
+                        DocumentSnapshot<Map<String, dynamic>>>(
                       stream: _db.collection('users').doc(uid).snapshots(),
                       builder: (context, snap) {
                         if (snap.connectionState == ConnectionState.waiting) {
@@ -580,13 +579,16 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                         final data = snap.data?.data() ?? {};
                         final blockedUids =
                             (data['blocked_uids'] as List?)?.cast<String>() ??
-                            [];
+                                [];
 
                         if (blockedUids.isEmpty) {
-                          return const Center(
+                          return Center(
                             child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('No blocked users.'),
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                'No blocked users.',
+                                style: TextStyle(color: onText),
+                              ),
                             ),
                           );
                         }
@@ -608,12 +610,11 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             }
                             final names = namesSnap.data!;
                             return ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8.0),
                               itemCount: blockedUids.length,
-                              separatorBuilder:
-                                  (_, __) => const Divider(height: 1),
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final uidItem = blockedUids[i];
                                 final label = names[i];
@@ -624,8 +625,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                   ),
                                   title: Text(
                                     label,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w600,
+                                      color: onText,
                                     ),
                                   ),
                                   trailing: TextButton(
@@ -652,6 +654,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   @override
   Widget build(BuildContext context) {
     final green = const Color(0xFF0D7C66);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onText = isDark ? Colors.white : Colors.black;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -666,17 +670,18 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: Icon(Icons.arrow_back, color: onText),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Security & Privacy',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
+                          color: onText,
                         ),
                       ),
                     ),
@@ -737,9 +742,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                     await _saveAppLock(true);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text(
-                                          'My Journal Lock enabled.',
-                                        ),
+                                        content:
+                                            Text('My Journal Lock enabled.'),
                                       ),
                                     );
                                   } else {
@@ -750,9 +754,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                   await _saveAppLock(false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text(
-                                        'My Journal Lock disabled.',
-                                      ),
+                                      content:
+                                          Text('My Journal Lock disabled.'),
                                     ),
                                   );
                                 }
@@ -782,13 +785,12 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       ],
                       const SizedBox(height: 9),
                       const _Header('Encryption'),
-                      const Text(
+                      Text(
                         'All journal entries are encrypted',
-                        style: TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: onText),
                       ),
                       const SizedBox(height: 18),
 
-                      // (Default Entry Visibility section has been removed.)
                       const _Header('Public Sharing'),
                       Builder(
                         builder: (ctx) {
@@ -801,8 +803,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             );
                           }
                           return StreamBuilder<
-                            DocumentSnapshot<Map<String, dynamic>>
-                          >(
+                              DocumentSnapshot<Map<String, dynamic>>>(
                             stream:
                                 _db.collection('users').doc(u.uid).snapshots(),
                             builder: (context, snap) {
@@ -822,7 +823,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       const _Header('Blocked Users'),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: isDark
+                              ? const Color(0x1AFFFFFF)
+                              : Colors.white.withOpacity(0.9),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: const [
                             BoxShadow(color: Colors.black26, blurRadius: 6),
@@ -833,8 +836,11 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             Icons.block,
                             color: Colors.redAccent,
                           ),
-                          title: const Text('View blocked users'),
-                          trailing: const Icon(Icons.chevron_right),
+                          title: Text(
+                            'View blocked users',
+                            style: TextStyle(color: onText),
+                          ),
+                          trailing: Icon(Icons.chevron_right, color: onText),
                           onTap: _showBlockedSheet,
                         ),
                       ),
@@ -842,9 +848,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       const _Header('Privacy Policy'),
                       RichText(
                         text: TextSpan(
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white,
+                            color: onText,
                           ),
                           children: [
                             const TextSpan(
@@ -855,9 +861,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             ),
                             TextSpan(
                               text: 'here.',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 decoration: TextDecoration.underline,
-                                color: Colors.white,
+                                color: onText,
                                 fontWeight: FontWeight.w600,
                               ),
                               recognizer: _policyTap,
@@ -930,11 +936,17 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onText =
+        Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: onText,
+        ),
       ),
     );
   }
@@ -947,7 +959,10 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final green = const Color(0xFF0D7C66);
-    Color c(int i) => i == index ? green : Colors.white;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Color c(int i) => i == index
+        ? (isDark ? const Color(0xFF9B5DE5) : green) // purple when dark
+        : Colors.white;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 6),
@@ -956,27 +971,24 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  NoTransitionPageRoute(builder: (_) => HomePage(userName: '')),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(builder: (_) => HomePage(userName: '')),
+            ),
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  NoTransitionPageRoute(builder: (_) => JournalPage(userName: '')),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(builder: (_) => JournalPage(userName: '')),
+            ),
           ),
           IconButton(
             icon: Icon(Icons.settings, color: c(2)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  NoTransitionPageRoute(builder: (_) => SettingsPage(userName: '')),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(builder: (_) => SettingsPage(userName: '')),
+            ),
           ),
         ],
       ),

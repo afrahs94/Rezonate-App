@@ -1,6 +1,6 @@
 // lib/pages/home.dart
 import 'dart:math';
-import 'dart:ui' show FontFeature;
+import 'dart:ui' show FontFeature, ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -26,13 +26,13 @@ class Tracker {
   int sort;
 
   Map<String, dynamic> toMap() => {
-    'label': label,
-    'color': color.value,
-    'latest_value': value,
-    'sort': sort,
-    'updatedAt': FieldValue.serverTimestamp(),
-    'createdAt': FieldValue.serverTimestamp(),
-  };
+        'label': label,
+        'color': color.value,
+        'latest_value': value,
+        'sort': sort,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      };
 
   static Tracker fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? {};
@@ -98,19 +98,19 @@ class _HomePageState extends State<HomePage> {
         .orderBy('sort')
         .snapshots()
         .listen((snap) async {
-          final list = snap.docs.map(Tracker.fromDoc).toList();
-          if (list.isEmpty) {
-            // seed a default tracker
-            await _createTracker(label: 'add tracker');
-            return;
-          }
-          setState(() {
-            _trackers = list;
-            _selectedForChart
-              ..clear()
-              ..addAll(_trackers.map((t) => t.id));
-          });
-        });
+      final list = snap.docs.map(Tracker.fromDoc).toList();
+      if (list.isEmpty) {
+        // seed a default tracker
+        await _createTracker(label: 'add tracker');
+        return;
+      }
+      setState(() {
+        _trackers = list;
+        _selectedForChart
+          ..clear()
+          ..addAll(_trackers.map((t) => t.id));
+      });
+    });
 
     // Pull last 120 days of logs and keep in memory
     _db
@@ -121,71 +121,63 @@ class _HomePageState extends State<HomePage> {
         .limit(120)
         .snapshots()
         .listen((snap) {
-          final map = <String, Map<String, double>>{};
-          final daysWithLogs = <String>{};
+      final map = <String, Map<String, double>>{};
+      final daysWithLogs = <String>{};
 
-          DateTime? newest; // most recent updatedAt across docs
-          DateTime? firstToday; // earliest log today
-          DateTime? prevBeforeToday; // last log before today
+      DateTime? newest; // most recent updatedAt across docs
+      DateTime? firstToday; // earliest log today
+      DateTime? prevBeforeToday; // last log before today
 
-          final todayKey = _dayKey(DateTime.now());
+      final todayKey = _dayKey(DateTime.now());
 
-          for (final d in snap.docs) {
-            final m = d.data();
-            final vals =
-                (m['values'] as Map?)?.map(
-                  (k, v) => MapEntry('$k', (v as num).toDouble()),
-                ) ??
+      for (final d in snap.docs) {
+        final m = d.data();
+        final vals =
+            (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
                 <String, double>{};
-            map[d.id] = vals.cast<String, double>();
-            if (vals.isNotEmpty) daysWithLogs.add(d.id);
+        map[d.id] = vals.cast<String, double>();
+        if (vals.isNotEmpty) daysWithLogs.add(d.id);
 
-            final ts =
-                (m['updatedAt'] is Timestamp)
-                    ? (m['updatedAt'] as Timestamp).toDate()
-                    : null;
-            if (ts != null) {
-              if (newest == null || ts.isAfter(newest)) newest = ts;
-            } else if (vals.isNotEmpty) {
-              // Fallback only when updatedAt missing
-              final dayInt = (m['day'] as num?)?.toInt();
-              if (dayInt != null) {
-                final y = dayInt ~/ 10000;
-                final mo = (dayInt % 10000) ~/ 100;
-                final da = dayInt % 100;
-                final fallback = DateTime(y, mo, da, 23, 59, 59);
-                if (newest == null || fallback.isAfter(newest))
-                  newest = fallback;
-              }
-            }
+        final ts = (m['updatedAt'] is Timestamp)
+            ? (m['updatedAt'] as Timestamp).toDate()
+            : null;
+        if (ts != null) {
+          if (newest == null || ts.isAfter(newest)) newest = ts;
+        } else if (vals.isNotEmpty) {
+          final dayInt = (m['day'] as num?)?.toInt();
+          if (dayInt != null) {
+            final y = dayInt ~/ 10000;
+            final mo = (dayInt % 10000) ~/ 100;
+            final da = dayInt % 100;
+            final fallback = DateTime(y, mo, da, 23, 59, 59);
+            if (newest == null || fallback.isAfter(newest)) newest = fallback;
+          }
+        }
 
-            // Pick up first log today and last log before today
-            if (d.id == todayKey) {
-              final f =
-                  (m['firstAt'] is Timestamp)
-                      ? (m['firstAt'] as Timestamp).toDate()
-                      : null;
-              if (f != null) firstToday = f;
-            } else {
-              if (ts != null) {
-                if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
-                  prevBeforeToday = ts;
-                }
-              }
+        if (d.id == todayKey) {
+          final f =
+              (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
+          if (f != null) firstToday = f;
+        } else {
+          if (ts != null) {
+            if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
+              prevBeforeToday = ts;
             }
           }
-          setState(() {
-            _daily
-              ..clear()
-              ..addAll(map);
-            _daysWithAnyLog
-              ..clear()
-              ..addAll(daysWithLogs);
-            _lastLogAt = newest;
-            _firstLogTodayAt = firstToday;
-            _lastLogBeforeTodayAt = prevBeforeToday;
-          });
-        });
+        }
+      }
+      setState(() {
+        _daily
+          ..clear()
+          ..addAll(map);
+        _daysWithAnyLog
+          ..clear()
+          ..addAll(daysWithLogs);
+        _lastLogAt = newest;
+        _firstLogTodayAt = firstToday;
+        _lastLogBeforeTodayAt = prevBeforeToday;
+      });
+    });
   }
 
   // ---- Helpers
@@ -231,15 +223,12 @@ class _HomePageState extends State<HomePage> {
     final todayKey = _dayKey(now);
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
-    // If no log today and it's been >24h since last log -> streak lost.
     final within24h =
         _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
     if (!hasToday && !within24h) {
       return 0;
     }
 
-    // If there IS a log today, but the first log today occurred >24h after the previous log,
-    // the chain is broken between yesterday and today.
     bool brokeBetweenYesterdayAndToday = false;
     if (hasToday && _firstLogTodayAt != null && _lastLogBeforeTodayAt != null) {
       final gap = _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
@@ -249,19 +238,16 @@ class _HomePageState extends State<HomePage> {
     int s = 0;
     var d = todayMidnight;
 
-    // Count today via grace if last log <24h ago but no doc yet
     bool graceForToday = !hasToday && within24h;
 
     while (true) {
       final key = _dayKey(d);
-      final isYesterday = d.isAtSameMomentAs(
-        todayMidnight.subtract(const Duration(days: 1)),
-      );
+      final isYesterday =
+          d.isAtSameMomentAs(todayMidnight.subtract(const Duration(days: 1)));
       final filled =
           _daysWithAnyLog.contains(key) ||
           (graceForToday && d.isAtSameMomentAs(todayMidnight));
 
-      // Apply the strict break when stepping from today to yesterday
       if (isYesterday && brokeBetweenYesterdayAndToday) break;
       if (!filled) break;
 
@@ -277,10 +263,9 @@ class _HomePageState extends State<HomePage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors:
-          dark
-              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors: dark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -350,16 +335,13 @@ class _HomePageState extends State<HomePage> {
     _daily[key]![t.id] = v;
     _daysWithAnyLog.add(key);
     _lastLogAt = now;
-    _firstLogTodayAt ??= now; // capture earliest local write for today
+    _firstLogTodayAt ??= now;
     setState(() => t.value = v);
 
-    // remote (ensure we write 'firstAt' only once per day)
+    // remote
     final dayInt = int.parse(DateFormat('yyyyMMdd').format(now));
-    final docRef = _db
-        .collection('users')
-        .doc(u.uid)
-        .collection('daily_logs')
-        .doc(key);
+    final docRef =
+        _db.collection('users').doc(u.uid).collection('daily_logs').doc(key);
     final snap = await docRef.get();
 
     final data = <String, dynamic>{
@@ -428,7 +410,7 @@ class _HomePageState extends State<HomePage> {
 
     if (_view == ChartView.weekly) {
       final days = _currentWeekMonToSun();
-      xPoints = List.generate(days.length, (i) => i.toDouble()); // 0..6
+      xPoints = List.generate(days.length, (i) => i.toDouble());
       for (final t in sel) {
         seriesValues.add(_valuesForDates(t, days));
       }
@@ -473,7 +455,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // EXTRA INNER PADDING so curves & dots never touch/cut the rounded edges.
     const double yPad = 2.0;
     const double xPad = 0.8;
     final double minX = (xPoints.isEmpty ? 0 : xPoints.first) - xPad;
@@ -509,10 +490,7 @@ class _HomePageState extends State<HomePage> {
 
     return LineChartData(
       minX: -0.3,
-      maxX:
-          _view == ChartView.weekly
-              ? 7 // 7 days (0–6)
-              : 4, // 4 weeks/chunks (0–3)
+      maxX: _view == ChartView.weekly ? 7 : 4,
       minY: minY,
       maxY: maxY,
       gridData: FlGridData(
@@ -526,8 +504,8 @@ class _HomePageState extends State<HomePage> {
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 30, // space for emojis
-            interval: 2, // show every 2 units (0,2,4,6,8,10)
+            reservedSize: 30,
+            interval: 2,
             getTitlesWidget: (value, meta) {
               switch (value.toInt()) {
                 case 0:
@@ -569,15 +547,7 @@ class _HomePageState extends State<HomePage> {
                     style: const TextStyle(fontSize: 12),
                   );
                 }
-              } /*else if (_view == ChartView.overall) {
-                final labels = ["W1–3", "W4–6", "W7–9", "W10–12"];
-                if (value >= 0 && value < labels.length) {
-                  return Text(
-                    labels[value.toInt()],
-                    style: const TextStyle(fontSize: 12),
-                  );
-                }
-              }*/
+              }
               return const SizedBox.shrink();
             },
           ),
@@ -600,6 +570,7 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     final dateLine = DateFormat('EEEE • MMM d, yyyy').format(now);
     final streakNow = _streak;
+    final bool _isDark = app.ThemeControllerScope.of(context).isDark;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -615,19 +586,65 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Logo
+                      // ===== Logo with green glow + green-tinted logo in dark mode =====
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Image.asset(
-                          'assets/images/Logo.png',
+                        child: SizedBox(
                           height: 72,
-                          fit: BoxFit.contain,
-                          errorBuilder:
-                              (_, __, ___) => Icon(
-                                Icons.flash_on,
-                                size: 72,
-                                color: green.withOpacity(.85),
-                              ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              if (_isDark)
+                                Transform.scale(
+                                  scale: 1.08,
+                                  child: ImageFiltered(
+                                    imageFilter: ImageFilter.blur(
+                                      sigmaX: 10,
+                                      sigmaY: 10,
+                                    ),
+                                    child: ColorFiltered(
+                                      colorFilter: ColorFilter.mode(
+                                        const Color(0xFF0D7C66)
+                                            .withOpacity(0.85),
+                                        BlendMode.srcATop,
+                                      ),
+                                      child: Image.asset(
+                                        'assets/images/Logo.png',
+                                        height: 72,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              _isDark
+                                  ? ColorFiltered(
+                                      colorFilter: const ColorFilter.mode(
+                                        Color(0xFF0D7C66), // dark green logo tint
+                                        BlendMode.srcATop,
+                                      ),
+                                      child: Image.asset(
+                                        'assets/images/Logo.png',
+                                        height: 72,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.flash_on,
+                                          size: 72,
+                                          color: green.withOpacity(.85),
+                                        ),
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      'assets/images/Logo.png',
+                                      height: 72,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => Icon(
+                                        Icons.flash_on,
+                                        size: 72,
+                                        color: green.withOpacity(.85),
+                                      ),
+                                    ),
+                            ],
+                          ),
                         ),
                       ),
 
@@ -652,18 +669,36 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 18),
 
-                      // Streak pill (hidden when 0; show helper text instead)
+                      // ===== Streak pill (dark mode -> dark green surface) =====
                       if (streakNow > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 14,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(.9),
+                            color: _isDark
+                                ? const Color(0xFF123A36).withOpacity(0.95)
+                                : Colors.white.withOpacity(.9),
                             borderRadius: BorderRadius.circular(24),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black12, blurRadius: 4),
+                            border: _isDark
+                                ? Border.all(
+                                    color:
+                                        const Color(0xFF0D7C66).withOpacity(.35),
+                                  )
+                                : null,
+                            boxShadow: [
+                              if (_isDark)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(.5),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                )
+                              else
+                                const BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 4,
+                                ),
                             ],
                           ),
                           child: Row(
@@ -674,11 +709,12 @@ class _HomePageState extends State<HomePage> {
                                 color: Colors.deepOrange,
                                 size: 18,
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               Text(
                                 '$streakNow-day streak',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: _isDark ? Colors.white : Colors.black,
                                 ),
                               ),
                             ],
@@ -692,7 +728,9 @@ class _HomePageState extends State<HomePage> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black.withOpacity(.7),
+                              color: _isDark
+                                  ? Colors.white.withOpacity(.85)
+                                  : Colors.black.withOpacity(.7),
                             ),
                           ),
                         ),
@@ -740,20 +778,17 @@ class _HomePageState extends State<HomePage> {
                                   Expanded(
                                     child: Row(
                                       children: [
-                                        const Text(
-                                          "😄",
-                                          style: TextStyle(fontSize: 20),
-                                        ), // left emoji
+                                        const Text("😄",
+                                            style: TextStyle(fontSize: 20)),
                                         Expanded(
                                           child: SliderTheme(
-                                            data: SliderTheme.of(
-                                              context,
-                                            ).copyWith(
+                                            data: SliderTheme.of(context)
+                                                .copyWith(
                                               trackHeight: 8,
                                               thumbShape:
                                                   const RoundSliderThumbShape(
-                                                    enabledThumbRadius: 8,
-                                                  ),
+                                                enabledThumbRadius: 8,
+                                              ),
                                             ),
                                             child: Slider(
                                               value: t.value,
@@ -761,16 +796,13 @@ class _HomePageState extends State<HomePage> {
                                               max: 10,
                                               divisions: 20,
                                               activeColor: t.color,
-                                              onChanged:
-                                                  (v) =>
-                                                      _recordTrackerValue(t, v),
+                                              onChanged: (v) =>
+                                                  _recordTrackerValue(t, v),
                                             ),
                                           ),
                                         ),
-                                        const Text(
-                                          "😢",
-                                          style: TextStyle(fontSize: 20),
-                                        ), // right emoji
+                                        const Text("😢",
+                                            style: TextStyle(fontSize: 20)),
                                       ],
                                     ),
                                   ),
@@ -788,60 +820,48 @@ class _HomePageState extends State<HomePage> {
                                         );
                                         await showDialog(
                                           context: context,
-                                          builder:
-                                              (_) => AlertDialog(
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                                title: const Text(
-                                                  'Rename tracker',
-                                                ),
-                                                content: TextField(
-                                                  controller: ctl,
-                                                  decoration:
-                                                      const InputDecoration(
-                                                        hintText: 'Name',
-                                                      ),
-                                                  autofocus: true,
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          context,
-                                                        ),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      final v2 =
-                                                          ctl.text.trim();
-                                                      if (v2.isNotEmpty) {
-                                                        setState(
-                                                          () => t.label = v2,
-                                                        );
-                                                        await _updateTracker(
-                                                          t,
-                                                          label: v2,
-                                                        );
-                                                      }
-                                                      if (context.mounted)
-                                                        Navigator.pop(context);
-                                                    },
-                                                    style:
-                                                        ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              const Color(
-                                                                0xFF0D7C66,
-                                                              ),
-                                                          foregroundColor:
-                                                              Colors.white,
-                                                        ),
-                                                    child: const Text('Save'),
-                                                  ),
-                                                ],
+                                          builder: (_) => AlertDialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            title:
+                                                const Text('Rename tracker'),
+                                            content: TextField(
+                                              controller: ctl,
+                                              decoration:
+                                                  const InputDecoration(
+                                                hintText: 'Name',
                                               ),
+                                              autofocus: true,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(context),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  final v2 = ctl.text.trim();
+                                                  if (v2.isNotEmpty) {
+                                                    setState(
+                                                        () => t.label = v2);
+                                                    await _updateTracker(t,
+                                                        label: v2);
+                                                  }
+                                                  if (context.mounted)
+                                                    Navigator.pop(context);
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFF0D7C66),
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                child: const Text('Save'),
+                                              ),
+                                            ],
+                                          ),
                                         );
                                       } else if (v == 'color') {
                                         await _openColorPicker(t);
@@ -849,67 +869,57 @@ class _HomePageState extends State<HomePage> {
                                       } else if (v == 'delete') {
                                         final ok = await showDialog<bool>(
                                           context: context,
-                                          builder:
-                                              (_) => AlertDialog(
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                                title: const Text(
-                                                  'Delete tracker?',
-                                                ),
-                                                content: Text(
-                                                  'This will remove "${t.label}" from your trackers.',
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          context,
-                                                          false,
-                                                        ),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          context,
-                                                          true,
-                                                        ),
-                                                    style: TextButton.styleFrom(
-                                                      foregroundColor:
-                                                          Colors.red,
-                                                    ),
-                                                    child: const Text('Delete'),
-                                                  ),
-                                                ],
+                                          builder: (_) => AlertDialog(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            title:
+                                                const Text('Delete tracker?'),
+                                            content: Text(
+                                              'This will remove "${t.label}" from your trackers.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, false),
+                                                child: const Text('Cancel'),
                                               ),
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, true),
+                                                style: TextButton.styleFrom(
+                                                  foregroundColor: Colors.red,
+                                                ),
+                                                child: const Text('Delete'),
+                                              ),
+                                            ],
+                                          ),
                                         );
                                         if (ok == true) {
                                           await _deleteTracker(t);
                                         }
                                       }
                                     },
-                                    itemBuilder:
-                                        (c) => [
-                                          const PopupMenuItem(
-                                            value: 'rename',
-                                            child: Text('Rename'),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'color',
-                                            child: Text('Color'),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'delete',
-                                            child: Text(
-                                              'Delete',
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                    itemBuilder: (c) => const [
+                                      PopupMenuItem(
+                                        value: 'rename',
+                                        child: Text('Rename'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'color',
+                                        child: Text('Color'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text(
+                                          'Delete',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   const Icon(Icons.drag_indicator, size: 18),
                                 ],
@@ -934,35 +944,31 @@ class _HomePageState extends State<HomePage> {
                       // View selector
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children:
-                            ChartView.values.map((v) {
-                              final sel = v == _view;
-                              String lbl = switch (v) {
-                                ChartView.weekly => 'Weekly',
-                                ChartView.monthly => 'Monthly',
-                                ChartView.overall => 'Overall',
-                              };
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
+                        children: ChartView.values.map((v) {
+                          final sel = v == _view;
+                          String lbl = switch (v) {
+                            ChartView.weekly => 'Weekly',
+                            ChartView.monthly => 'Monthly',
+                            ChartView.overall => 'Overall',
+                          };
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: ChoiceChip(
+                              label: Text(
+                                lbl,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                child: ChoiceChip(
-                                  label: Text(
-                                    lbl,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  selected: sel,
-                                  showCheckmark: false,
-                                  selectedColor: const Color(
-                                    0xFF0D7C66,
-                                  ).withOpacity(.15),
-                                  onSelected: (_) => setState(() => _view = v),
-                                ),
-                              );
-                            }).toList(),
+                              ),
+                              selected: sel,
+                              showCheckmark: false,
+                              selectedColor:
+                                  const Color(0xFF0D7C66).withOpacity(.15),
+                              onSelected: (_) => setState(() => _view = v),
+                            ),
+                          );
+                        }).toList(),
                       ),
 
                       const SizedBox(height: 8),
@@ -972,9 +978,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
                               child: Text(
                                 _dateRangeHeading(),
                                 style: TextStyle(
@@ -1007,22 +1011,20 @@ class _HomePageState extends State<HomePage> {
                         ),
                         height: 320,
                         decoration: BoxDecoration(
-                          // 45% transparent background (55% opacity)
                           color: Colors.white.withOpacity(.55),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: const [
                             BoxShadow(color: Colors.black12, blurRadius: 6),
                           ],
                         ),
-                        child:
-                            _selectedForChart.isEmpty
-                                ? const Center(
-                                  child: Text(
-                                    'Select trackers to view',
-                                    style: TextStyle(fontSize: 13),
-                                  ),
-                                )
-                                : LineChart(_chartData()),
+                        child: _selectedForChart.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Select trackers to view',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              )
+                            : LineChart(_chartData()),
                       ),
                     ],
                   ),
@@ -1090,7 +1092,6 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header row (no icon as requested)
                     Row(
                       children: [
                         const Text(
@@ -1123,7 +1124,6 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
 
-                    // Search
                     Container(
                       decoration: BoxDecoration(
                         color: surface,
@@ -1145,7 +1145,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
 
-                    // Tracker list instead of chips
                     Flexible(
                       child:
                           filtered.isEmpty
@@ -1184,12 +1183,10 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     controlAffinity:
                                         ListTileControlAffinity.leading,
-                                    contentPadding:
-                                        EdgeInsets
-                                            .zero, // removes left/right padding
+                                    contentPadding: EdgeInsets.zero,
                                     visualDensity: const VisualDensity(
                                       vertical: -4,
-                                    ), // tighter spacing
+                                    ),
                                   );
                                 },
                               ),
@@ -1199,7 +1196,6 @@ class _HomePageState extends State<HomePage> {
                     const Divider(height: 1),
                     const SizedBox(height: 8),
 
-                    // Footer actions
                     Row(
                       children: [
                         TextButton(
@@ -1267,7 +1263,7 @@ class _HomePageState extends State<HomePage> {
             void setHueFromOffset(Offset localPos, Size size) {
               final center = Offset(size.width / 2, size.height / 2);
               final vec = localPos - center;
-              var ang = atan2(vec.dy, vec.dx); // -pi..pi
+              var ang = atan2(vec.dy, vec.dx);
               ang = (ang < 0) ? (ang + 2 * pi) : ang;
               final deg = ang * 180 / pi;
               setSheet(() => hsv = hsv.withHue(deg));
@@ -1337,12 +1333,9 @@ class _HomePageState extends State<HomePage> {
                                   hue: hsv.hue,
                                   s: hsv.saturation,
                                   v: hsv.value,
-                                  onChanged:
-                                      (s, v) => setSheet(() {
-                                        hsv = hsv
-                                            .withSaturation(s)
-                                            .withValue(v);
-                                      }),
+                                  onChanged: (s, v) => setSheet(() {
+                                    hsv = hsv.withSaturation(s).withValue(v);
+                                  }),
                                 ),
                               ),
                               IgnorePointer(
@@ -1554,7 +1547,14 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const green = Color(0xFF0D7C66);
-    Color c(int i) => i == index ? green : Colors.white;
+    const darkSelected = Color(0xFFBDA9DB);
+    Color c(int i) {
+      final dark = app.ThemeControllerScope.of(context).isDark;
+      if (i == index) {
+        return dark ? darkSelected : green;
+      }
+      return Colors.white;
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 6),
@@ -1564,23 +1564,21 @@ class _BottomNav extends StatelessWidget {
           IconButton(icon: Icon(Icons.home, color: c(0)), onPressed: () {}),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  NoTransitionPageRoute(
-                    builder: (_) => JournalPage(userName: userName),
-                  ),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(
+                builder: (_) => JournalPage(userName: userName),
+              ),
+            ),
           ),
           IconButton(
             icon: Icon(Icons.settings, color: c(2)),
-            onPressed:
-                () => Navigator.pushReplacement(
-                  context,
-                  NoTransitionPageRoute(
-                    builder: (_) => SettingsPage(userName: userName),
-                  ),
-                ),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(
+                builder: (_) => SettingsPage(userName: userName),
+              ),
+            ),
           ),
         ],
       ),

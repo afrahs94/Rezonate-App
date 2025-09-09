@@ -49,13 +49,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
   String _hash(String v) => sha256.convert(utf8.encode(v)).toString();
 
-  InputDecoration _dec(String hint, {Widget? suffix, String? errorText}) {
+  // Input decoration that adapts to theme
+  InputDecoration _dec(BuildContext context, String hint,
+      {Widget? suffix, String? errorText}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       hintText: hint,
+      hintStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black45),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: isDark ? const Color(0x1AF5F5F5) : Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       suffixIcon: suffix,
+      suffixIconColor: isDark ? Colors.white70 : Colors.grey[700],
       errorText: errorText,
       errorStyle: const TextStyle(color: Colors.red, fontSize: 13),
       border: OutlineInputBorder(
@@ -124,7 +129,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         await user.reauthenticateWithCredential(cred);
       } on FirebaseAuthException catch (e) {
         // Wrong current password → inline red error under current field
-        if (e.code == 'wrong-password' || e.code == 'invalid-credential' || e.code == 'user-mismatch') {
+        if (e.code == 'wrong-password' ||
+            e.code == 'invalid-credential' ||
+            e.code == 'user-mismatch') {
           setState(() => _currentError = 'Current password is incorrect.');
           return;
         } else {
@@ -139,11 +146,12 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       final data = snap.data() ?? {};
 
       final oldHash = (data['password'] as String?) ?? '';
-      final List<dynamic> hist = (data['password_history'] as List<dynamic>?) ?? const [];
+      final List<dynamic> hist =
+          (data['password_history'] as List<dynamic>?) ?? const [];
       final newHash = _hash(newPw);
 
-      final hasUsedBefore = (newHash == oldHash) ||
-          hist.map((e) => e?.toString() ?? '').contains(newHash);
+      final hasUsedBefore =
+          (newHash == oldHash) || hist.map((e) => e?.toString() ?? '').contains(newHash);
 
       if (hasUsedBefore) {
         setState(() => _newError = 'You’ve used this password before. Choose a new one.');
@@ -159,14 +167,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         final before = doc.data() ?? {};
 
         final prevHash = (before['password'] as String?) ?? '';
-        final List<dynamic> prevHist = (before['password_history'] as List<dynamic>?) ?? [];
+        final List<dynamic> prevHist =
+            (before['password_history'] as List<dynamic>?) ?? [];
 
-        final List<String> updatedHist = prevHist.map((e) => e.toString()).toList();
+        final List<String> updatedHist =
+            prevHist.map((e) => e.toString()).toList();
         if (prevHash.isNotEmpty && !updatedHist.contains(prevHash)) {
           updatedHist.add(prevHash);
         }
-        // (Optional) keep only last N entries; not required:
-        // while (updatedHist.length > 10) updatedHist.removeAt(0);
 
         tx.update(userRef, {
           'password': newHash,
@@ -203,14 +211,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onText = isDark ? Colors.white : Colors.black;
+    final subText = isDark ? Colors.white70 : Colors.black54;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+            colors: isDark
+                ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+                : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -218,13 +230,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // Top bar: back + title (kept simple; sizes untouched otherwise)
+              // Top bar: back + title
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(Icons.arrow_back, color: onSurface),
+                      icon: Icon(Icons.arrow_back, color: onText),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 4),
@@ -232,7 +244,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       'Change Password',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: onSurface.withOpacity(0.9),
+                            color: onText,
                           ),
                     ),
                   ],
@@ -253,16 +265,19 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           // Current password
                           TextField(
                             controller: _currentCtrl,
+                            style: TextStyle(color: onText),
                             obscureText: !_showCurrent,
                             decoration: _dec(
+                              context,
                               'current password',
                               errorText: _currentError,
                               suffix: IconButton(
                                 icon: Icon(
                                   _showCurrent ? Icons.visibility_off : Icons.visibility,
-                                  color: Colors.grey[700],
+                                  color: isDark ? Colors.white70 : Colors.grey[700],
                                 ),
-                                onPressed: () => setState(() => _showCurrent = !_showCurrent),
+                                onPressed: () =>
+                                    setState(() => _showCurrent = !_showCurrent),
                               ),
                             ),
                             onChanged: (_) {
@@ -276,20 +291,21 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           // New password
                           TextField(
                             controller: _newCtrl,
+                            style: TextStyle(color: onText),
                             obscureText: !_showNew,
                             decoration: _dec(
+                              context,
                               'new password',
                               errorText: _newError,
                               suffix: IconButton(
                                 icon: Icon(
                                   _showNew ? Icons.visibility_off : Icons.visibility,
-                                  color: Colors.grey[700],
+                                  color: isDark ? Colors.white70 : Colors.grey[700],
                                 ),
                                 onPressed: () => setState(() => _showNew = !_showNew),
                               ),
                             ),
                             onChanged: (v) {
-                              // live hinting (optional): only set inline error if clearly failing
                               if (_newError != null) setState(() => _newError = null);
                             },
                           ),
@@ -298,16 +314,19 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           // Confirm password
                           TextField(
                             controller: _confirmCtrl,
+                            style: TextStyle(color: onText),
                             obscureText: !_showConfirm,
                             decoration: _dec(
+                              context,
                               'confirm new password',
                               errorText: _confirmError,
                               suffix: IconButton(
                                 icon: Icon(
                                   _showConfirm ? Icons.visibility_off : Icons.visibility,
-                                  color: Colors.grey[700],
+                                  color: isDark ? Colors.white70 : Colors.grey[700],
                                 ),
-                                onPressed: () => setState(() => _showConfirm = !_showConfirm),
+                                onPressed: () =>
+                                    setState(() => _showConfirm = !_showConfirm),
                               ),
                             ),
                             onChanged: (_) {
@@ -338,17 +357,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                       height: 22,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2.4,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(Colors.white),
                                       ),
                                     )
                                   : const Text('save', style: TextStyle(fontSize: 18)),
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'Password must be at least 6 characters and include a number and a special character.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                            style: TextStyle(fontSize: 12, color: subText),
                           ),
                         ],
                       ),

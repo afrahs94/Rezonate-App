@@ -22,7 +22,7 @@ class SettingsPage extends StatefulWidget {
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder})
-    : super(builder: builder);
+      : super(builder: builder);
 
   @override
   Widget buildTransitions(
@@ -190,9 +190,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
       var best = 9999;
       for (final text in [it.label, ...it.keywords]) {
-        final parts = _norm(
-          text,
-        ).split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty);
+        final parts = _norm(text)
+            .split(RegExp(r'[^a-z0-9]+'))
+            .where((w) => w.isNotEmpty);
         for (final w in parts) {
           final d = _lev(q, w);
           if (d < best) best = d;
@@ -202,7 +202,6 @@ class _SettingsPageState extends State<SettingsPage> {
       }
 
       if (best <= 3) {
-        // threshold; tune to 2 for stricter suggestions
         scores[it.label] =
             scores.containsKey(it.label)
                 ? (best < scores[it.label]! ? best : scores[it.label]!)
@@ -210,11 +209,11 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     }
 
-    final sorted =
-        scores.entries.toList()..sort(
-          (a, b) =>
-              a.value != b.value ? a.value - b.value : a.key.compareTo(b.key),
-        );
+    final sorted = scores.entries.toList()
+      ..sort(
+        (a, b) =>
+            a.value != b.value ? a.value - b.value : a.key.compareTo(b.key),
+      );
     return sorted.take(maxReturn).map((e) => e.key).toList();
   }
 
@@ -244,8 +243,8 @@ class _SettingsPageState extends State<SettingsPage> {
       ];
 
       // Logout row: allow partials like "log", "sign" (min length 3)
+      const minLen = 3;
       if (isLogout) {
-        const minLen = 3;
         return tokens.any(
           (tok) => tok.length >= minLen && haystack.any((h) => h.contains(tok)),
         );
@@ -259,7 +258,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
     setState(() {
       _shown = results;
-      // Hybrid: fuzzy suggestions only when there are zero matches
       _suggestions = results.isEmpty ? _suggestFor(_searchCtrl.text) : [];
     });
   }
@@ -368,10 +366,10 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             children: [
               // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(40, 29, 40, 8),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(40, 29, 40, 8),
                 child: Row(
-                  children: const [
+                  children: [
                     Expanded(
                       child: Text(
                         'Settings',
@@ -401,17 +399,16 @@ class _SettingsPageState extends State<SettingsPage> {
                       filled: true,
                       fillColor: searchFill,
                       prefixIcon: const Icon(Icons.search),
-                      suffixIcon:
-                          _searchCtrl.text.isEmpty
-                              ? null
-                              : IconButton(
-                                tooltip: 'Clear',
-                                icon: const Icon(Icons.close),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  _onSearch();
-                                },
-                              ),
+                      suffixIcon: _searchCtrl.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear',
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                _onSearch();
+                              },
+                            ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 18,
                         vertical: 14,
@@ -443,31 +440,29 @@ class _SettingsPageState extends State<SettingsPage> {
 
               // Results list
               Expanded(
-                child:
-                    _shown.isEmpty
-                        ? const Center(
-                          child: Text(
-                            'No results',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black54,
-                            ),
+                child: _shown.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No results',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black54,
                           ),
-                        )
-                        : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                          itemCount: _shown.length,
-                          separatorBuilder:
-                              (_, __) => const SizedBox(height: 14),
-                          itemBuilder: (context, i) {
-                            final it = _shown[i];
-                            if (it.type == _RowType.darkMode)
-                              return _darkModeRow(context);
-                            if (it.type == _RowType.logout)
-                              return _logoutRow(context);
-                            return _linkRow(context, it);
-                          },
                         ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        itemCount: _shown.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        itemBuilder: (context, i) {
+                          final it = _shown[i];
+                          if (it.type == _RowType.darkMode)
+                            return _darkModeRow(context);
+                          if (it.type == _RowType.logout)
+                            return _logoutRow(context);
+                          return _linkRow(context, it);
+                        },
+                      ),
               ),
 
               // Bottom navigation
@@ -480,27 +475,24 @@ class _SettingsPageState extends State<SettingsPage> {
                       context,
                       icon: Icons.home_rounded,
                       selected: false,
-                      onTap:
-                          () => Navigator.pushReplacement(
-                            context,
-                            NoTransitionPageRoute(
-                              builder:
-                                  (_) => HomePage(userName: widget.userName),
-                            ),
-                          ),
+                      onTap: () => Navigator.pushReplacement(
+                        context,
+                        NoTransitionPageRoute(
+                          builder: (_) => HomePage(userName: widget.userName),
+                        ),
+                      ),
                     ),
                     _navIcon(
                       context,
                       icon: Icons.menu_book_rounded,
                       selected: false,
-                      onTap:
-                          () => Navigator.pushReplacement(
-                            context,
-                            NoTransitionPageRoute(
-                              builder:
-                                  (_) => JournalPage(userName: widget.userName),
-                            ),
-                          ),
+                      onTap: () => Navigator.pushReplacement(
+                        context,
+                        NoTransitionPageRoute(
+                          builder: (_) =>
+                              JournalPage(userName: widget.userName),
+                        ),
+                      ),
                     ),
                     _navIcon(
                       context,
@@ -523,11 +515,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _linkRow(BuildContext context, _Item it) {
     final bg = const Color.fromARGB(131, 0, 150, 135);
     return InkWell(
-      onTap:
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => it.builder()),
-          ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => it.builder()),
+      ),
       borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
@@ -548,7 +539,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                it.label,
+                it.label, // <-- show each row's real label
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -556,7 +547,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
-
             const Icon(Icons.arrow_forward_rounded, color: Colors.white),
           ],
         ),
@@ -600,14 +590,12 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () => ctrl.toggleTheme(),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder:
-                  (child, anim) => RotationTransition(
-                    turns:
-                        child.key == const ValueKey('sun')
-                            ? Tween<double>(begin: 0.75, end: 1).animate(anim)
-                            : Tween<double>(begin: 0.25, end: 1).animate(anim),
-                    child: FadeTransition(opacity: anim, child: child),
-                  ),
+              transitionBuilder: (child, anim) => RotationTransition(
+                turns: child.key == const ValueKey('sun')
+                    ? Tween<double>(begin: 0.75, end: 1).animate(anim)
+                    : Tween<double>(begin: 0.25, end: 1).animate(anim),
+                child: FadeTransition(opacity: anim, child: child),
+              ),
               child: Icon(
                 on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
                 key: ValueKey(on ? 'moon' : 'sun'),
@@ -628,52 +616,49 @@ class _SettingsPageState extends State<SettingsPage> {
       final theme = Theme.of(context);
       final ok = await showDialog<bool>(
         context: context,
-        builder:
-            (_) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Text(
-                'Log out?',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              content: Text(
-                'Are you sure you want to log out?',
-                style: theme.textTheme.bodyMedium,
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(
-                    'Cancel',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(
-                    'Log out',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Log out?',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
+          ),
+          content: Text(
+            'Are you sure you want to log out?',
+            style: theme.textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'Log out',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       );
       if (ok == true && context.mounted) {
-        // 🔑 Clear prefs and sign out
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('remember_me', false);
         await prefs.remove('user_name');
         await FirebaseAuth.instance.signOut();
 
-        // 🔑 Go back to login, and clear navigation stack
         if (!context.mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
@@ -726,8 +711,12 @@ class _SettingsPageState extends State<SettingsPage> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    final color =
-        selected ? const Color.fromARGB(255, 13, 124, 102) : Colors.white;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = selected
+        ? (isDark
+            ? const Color(0xFFBDA9DB) // match Home/Journal purple in dark mode
+            : const Color.fromARGB(255, 13, 124, 102)) // existing green (light)
+        : Colors.white;
     return IconButton(
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
@@ -753,25 +742,20 @@ class _Item {
     required this.icon,
     required this.keywords,
     required Widget Function() builder,
-  }) : _builder = builder,
-       type = _RowType.link;
+  })  : _builder = builder,
+        type = _RowType.link;
 
-  _Item._special(this.label, this.icon, this.keywords, this.type)
-    : _builder = null;
+  _Item._special(this.label, this.icon, this.keywords, this.type) : _builder = null;
 
-  factory _Item.darkMode() => _Item._special(
-    'Dark Mode',
-    Icons.dark_mode_rounded,
-    const [],
-    _RowType.darkMode,
-  );
+  factory _Item.darkMode() =>
+      _Item._special('Dark Mode', Icons.dark_mode_rounded, const [], _RowType.darkMode);
 
   factory _Item.logout() => _Item._special(
-    'Log out',
-    Icons.logout_rounded,
-    const ['logout', 'log out', 'sign out', 'logoff', 'log off'],
-    _RowType.logout,
-  );
+        'Log out',
+        Icons.logout_rounded,
+        const ['logout', 'log out', 'sign out', 'logoff', 'log off'],
+        _RowType.logout,
+      );
 
   Widget builder() => _builder!.call();
 }
@@ -800,16 +784,15 @@ class _DidYouMean extends StatelessWidget {
           child: Wrap(
             spacing: 8,
             runSpacing: -6,
-            children:
-                suggestions
-                    .map(
-                      (s) => ActionChip(
-                        label: Text(s),
-                        onPressed: () => onTap(s),
-                        elevation: 0,
-                      ),
-                    )
-                    .toList(),
+            children: suggestions
+                .map(
+                  (s) => ActionChip(
+                    label: Text(s),
+                    onPressed: () => onTap(s),
+                    elevation: 0,
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],

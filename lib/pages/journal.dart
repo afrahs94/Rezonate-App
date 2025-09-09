@@ -14,6 +14,20 @@ import 'package:new_rezonate/pages/settings.dart';
 import 'package:new_rezonate/pages/services/user_settings.dart' as app_settings;
 
 const _teal = Color(0xFF0D7C66);
+// same purple as the top of the header gradient
+const _headerPurple = Color(0xFFBDA9DB);
+
+// Helpers for dark mode look (same layout, just darker)
+bool _isDark(BuildContext context) =>
+    app.ThemeControllerScope.of(context).isDark;
+Color _cardBg(BuildContext context) =>
+    _isDark(context) ? const Color(0xFF1E1F24) : Colors.white;
+Color _replyBg(BuildContext context) =>
+    _isDark(context) ? Colors.white.withOpacity(.06) : Colors.grey.shade50;
+Color _textPrimary(BuildContext context) =>
+    _isDark(context) ? Colors.white : Colors.black87;
+Color _textSecondary(BuildContext context) =>
+    _isDark(context) ? Colors.white70 : Colors.grey.shade600;
 
 // Single translucent background used for ALL write areas
 Color _entryBg(BuildContext context) => _teal.withOpacity(.16);
@@ -564,6 +578,10 @@ class _JournalPageState extends State<JournalPage>
 
   // Open a friendly chooser for sort options
   Future<void> _openSortSheet() async {
+    // Make labels high-contrast on the white bottom sheet so they’re clearly visible in dark mode too.
+    const labelStyle =
+        TextStyle(fontWeight: FontWeight.w700, color: Colors.black87);
+
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -579,8 +597,7 @@ class _JournalPageState extends State<JournalPage>
         ) =>
             ListTile(
               leading: Icon(icon, color: _teal),
-              title: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Text(title, style: labelStyle),
               trailing: _orderBy == value
                   ? const Icon(Icons.check, color: _teal)
                   : null,
@@ -610,7 +627,7 @@ class _JournalPageState extends State<JournalPage>
   }
 
   LinearGradient _bg(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
+    final dark = _isDark(context);
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -675,6 +692,7 @@ class _JournalPageState extends State<JournalPage>
                             tooltip: 'Sort',
                             onPressed: _openSortSheet,
                             icon: const Icon(Icons.sort_rounded),
+                            color: _textPrimary(context),
                           ),
                         ),
                       ),
@@ -725,8 +743,12 @@ class _JournalPageState extends State<JournalPage>
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Text(
-                                            'My Journal is locked.'),
+                                        Text(
+                                          'My Journal is locked.',
+                                          style: TextStyle(
+                                            color: _textPrimary(context),
+                                          ),
+                                        ),
                                         const SizedBox(height: 16),
                                         ElevatedButton(
                                           onPressed: () async {
@@ -1000,9 +1022,10 @@ class _CommunityFeed extends StatelessWidget {
                                   uid: postUid,
                                   provided: providedName,
                                   isAnonymous: displayAnon,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 16,
+                                    color: _textPrimary(context),
                                   ),
                                 ),
                               ),
@@ -1014,7 +1037,7 @@ class _CommunityFeed extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontStyle: FontStyle.italic,
-                                      color: Colors.grey.shade600,
+                                      color: _textSecondary(context),
                                     ),
                                   ),
                                 ),
@@ -1024,7 +1047,7 @@ class _CommunityFeed extends StatelessWidget {
                         Text(
                           fmtFull(ts),
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: _textSecondary(context),
                             fontSize: 12,
                           ),
                         ),
@@ -1043,8 +1066,7 @@ class _CommunityFeed extends StatelessWidget {
 
                     const SizedBox(height: 10),
 
-                    _ExpandableText(
-                        text: (m['content'] as String?) ?? ''),
+                    _ExpandableText(text: (m['content'] as String?) ?? ''),
 
                     const SizedBox(height: 12),
 
@@ -1221,8 +1243,12 @@ class _PrivateJournal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (uid == null || col == null) {
-      return const Center(
-          child: Text('Sign in to view your private entries.'));
+      return Center(
+        child: Text(
+          'Sign in to view your private entries.',
+          style: TextStyle(color: _textPrimary(context)),
+        ),
+      );
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -1231,8 +1257,12 @@ class _PrivateJournal extends StatelessWidget {
       builder: (context, snap) {
         final list = snap.data?.docs ?? [];
         if (list.isEmpty) {
-          return const Center(
-              child: Text('No entries yet. Tap + to add one.'));
+          return Center(
+            child: Text(
+              'No entries yet. Tap + to add one.',
+              style: TextStyle(color: _textPrimary(context)),
+            ),
+          );
         }
 
         Future<void> _viewEntry(
@@ -1271,7 +1301,8 @@ class _PrivateJournal extends StatelessWidget {
           children: [
             ...list.map((d) {
               final m = d.data();
-              final created = (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final created =
+                  (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
               final updated = (m['updatedAt'] as Timestamp?)?.toDate();
               final edited = (m['edited'] as bool?) == true;
               final iconKey = (m['iconKey'] as String?) ?? 'book';
@@ -1282,8 +1313,10 @@ class _PrivateJournal extends StatelessWidget {
                   leading: Icon(_iconForKey(iconKey), color: _teal),
                   title: Text(
                     (m['title'] as String?) ?? 'Untitled',
-                    style:
-                        const TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary(context),
+                    ),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1293,12 +1326,13 @@ class _PrivateJournal extends StatelessWidget {
                         (m['content'] as String?) ?? '',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _textPrimary(context)),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Created • ${fmtFull(created)}',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: _textSecondary(context),
                           fontSize: 12,
                         ),
                       ),
@@ -1307,7 +1341,7 @@ class _PrivateJournal extends StatelessWidget {
                         Text(
                           'Edited • ${fmtFull(updated)}',
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: _textSecondary(context),
                             fontSize: 12,
                             fontStyle: FontStyle.italic,
                           ),
@@ -1595,7 +1629,7 @@ class _EmojiSelectable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? _teal : Colors.black87;
+    final color = selected ? _teal : _textPrimary(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -1905,7 +1939,7 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
         link: _link,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _cardBg(context),
             borderRadius: BorderRadius.circular(16),
             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
             border: Border.all(color: Colors.black12),
@@ -1933,7 +1967,7 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
                         text: TextSpan(
                           children: _highlightSpans(
                             widget.controller.text,
-                            DefaultTextStyle.of(context).style,
+                            TextStyle(color: _textPrimary(context)),
                           ),
                         ),
                       ),
@@ -2004,7 +2038,7 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
                         text: TextSpan(
                           children: _highlightSpans(
                             widget.controller.text,
-                            DefaultTextStyle.of(context).style,
+                            TextStyle(color: _textPrimary(context)),
                           ),
                         ),
                       ),
@@ -2166,7 +2200,7 @@ class _ReplyThreadState extends State<_ReplyThread> {
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: _replyBg(context),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -2179,8 +2213,10 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                 uid: replyUid,
                                 provided: provided,
                                 isAnonymous: displayAnon,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: _textPrimary(context),
+                                ),
                               ),
                             ),
                             if ((m['edited'] as bool?) == true)
@@ -2191,14 +2227,14 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                   style: TextStyle(
                                     fontSize: 10.5,
                                     fontStyle: FontStyle.italic,
-                                    color: Colors.grey.shade600,
+                                    color: _textSecondary(context),
                                   ),
                                 ),
                               ),
                             Text(
                               DateFormat('MMM d, yyyy • hh:mm a').format(ts),
                               style: TextStyle(
-                                  color: Colors.grey.shade600,
+                                  color: _textSecondary(context),
                                   fontSize: 11),
                             ),
                             if (canEditReply || canBlock) ...[
@@ -2305,9 +2341,7 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                 }
                               }),
                               icon: const Icon(Icons.reply_outlined, size: 18),
-                              label: Text(_openUnder.contains(r.id)
-                                  ? 'Cancel'
-                                  : 'Reply'),
+                              label: const Text('Reply'),
                             ),
                           ],
                         ),
@@ -2397,7 +2431,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
     final long = widget.text.length > widget.trimAt;
     final textToShow =
         long && !_expanded ? (widget.text.substring(0, widget.trimAt) + '…') : widget.text;
-    final base = DefaultTextStyle.of(context).style;
+    final base = TextStyle(color: _textPrimary(context));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2406,7 +2440,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
         if (long)
           TextButton(
             onPressed: () => setState(() => _expanded = !_expanded),
-            child: Text(_expanded ? 'Show less' : 'Show more…'),
+            child: const Text('Show more…'),
           ),
       ],
     );
@@ -2419,7 +2453,7 @@ class _MentionRichText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = DefaultTextStyle.of(context).style;
+    final base = TextStyle(color: _textPrimary(context));
     final exp = RegExp(r'@([A-Za-z0-9_.-]{2,30})');
 
     final spans = <TextSpan>[];
@@ -2459,7 +2493,7 @@ class _Card extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardBg(context),
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
@@ -2494,9 +2528,9 @@ class _EmptyHint extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: Colors.white70),
             const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
+            const Text(
+              'No posts yet',
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
@@ -2557,7 +2591,11 @@ class _BottomNavTransparent extends StatelessWidget {
     required this.onSettings,
   });
 
-  Color _c(int idx) => selectedIndex == idx ? _teal : Colors.white;
+  Color _c(BuildContext context, int idx) {
+    final sel = selectedIndex == idx;
+    if (sel && _isDark(context)) return _headerPurple; // match home page purple
+    return sel ? _teal : Colors.white;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2566,12 +2604,12 @@ class _BottomNavTransparent extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          IconButton(icon: Icon(Icons.home, color: _c(0)), onPressed: onHome),
+          IconButton(icon: Icon(Icons.home, color: _c(context, 0)), onPressed: onHome),
           IconButton(
-              icon: Icon(Icons.menu_book_rounded, color: _c(1)),
+              icon: Icon(Icons.menu_book_rounded, color: _c(context, 1)),
               onPressed: onJournal),
           IconButton(
-              icon: Icon(Icons.settings, color: _c(2)),
+              icon: Icon(Icons.settings, color: _c(context, 2)),
               onPressed: onSettings),
         ],
       ),
