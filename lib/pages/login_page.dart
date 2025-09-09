@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home.dart';
 import 'signup_page.dart';
@@ -18,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final _pwCtrl = TextEditingController();
   bool _showPw = false;
   bool _loading = false;
+  bool _rememberMe = false;
 
   // Inline error shown under password when credentials are wrong
   String? _authInlineError;
@@ -28,7 +30,11 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    // Clear inline error as the user edits either field
+
+    // check auto-login
+    _checkAutoLogin();
+
+    // Clear inline error listeners
     _idCtrl.addListener(() {
       if (_authInlineError != null) {
         setState(() => _authInlineError = null);
@@ -39,6 +45,22 @@ class _LoginPageState extends State<LoginPage> {
         setState(() => _authInlineError = null);
       }
     });
+  }
+
+  Future<void> _checkAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? false;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (remember && user != null) {
+      final helloName = prefs.getString('user_name') ?? user.email ?? "User";
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        NoTransitionPageRoute(builder: (_) => HomePage(userName: helloName)),
+      );
+    }
   }
 
   @override
@@ -130,6 +152,11 @@ class _LoginPageState extends State<LoginPage> {
               : helloName;
 
       if (!mounted) return;
+      // save preference
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', _rememberMe);
+      await prefs.setString('user_name', helloName);
+
       Navigator.pushReplacement(
         context,
         NoTransitionPageRoute(builder: (_) => HomePage(userName: helloName)),
@@ -260,6 +287,18 @@ class _LoginPageState extends State<LoginPage> {
                         ],
 
                         const SizedBox(height: 8),
+
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _rememberMe,
+                              onChanged:
+                                  (v) =>
+                                      setState(() => _rememberMe = v ?? false),
+                            ),
+                            const Text("Remember me"),
+                          ],
+                        ),
 
                         // Forgot password
                         Align(

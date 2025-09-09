@@ -1,4 +1,6 @@
 // lib/pages/settings.dart
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:new_rezonate/main.dart' as app; // ThemeControllerScope
 import 'package:new_rezonate/pages/home.dart';
@@ -665,6 +667,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
       );
       if (ok == true && context.mounted) {
+        // 🔑 Clear prefs and sign out
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('remember_me', false);
+        await prefs.remove('user_name');
+        await FirebaseAuth.instance.signOut();
+
+        // 🔑 Go back to login, and clear navigation stack
+        if (!context.mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const LoginPage()),
