@@ -1,3 +1,4 @@
+// lib/pages/sign_up_page.dart
 import 'dart:async'; // for debounce
 import 'dart:convert';
 
@@ -59,12 +60,14 @@ class _SignUpPageState extends State<SignUpPage> {
   // Terms & Conditions acceptance
   bool _acceptedTerms = false;
 
+  // Data & permissions consent
+  bool _acceptedDataPermissions = false;
+
   // ---------- Password validators ----------
   bool _isStrongPassword(String p) {
     if (p.length < 6) return false;
     if (!RegExp(r'\d').hasMatch(p)) return false; // at least one number
-    if (!RegExp(r'[^\w\s]').hasMatch(p))
-      return false; // at least one special char
+    if (!RegExp(r'[^\w\s]').hasMatch(p)) return false; // at least one special char
     return true;
   }
 
@@ -73,8 +76,9 @@ class _SignUpPageState extends State<SignUpPage> {
     if (v.isEmpty) return 'Required';
     if (v.length < 6) return 'At least 6 characters';
     if (!RegExp(r'\d').hasMatch(v)) return 'Include at least one number';
-    if (!RegExp(r'[^\w\s]').hasMatch(v))
+    if (!RegExp(r'[^\w\s]').hasMatch(v)) {
       return 'Include at least one special character';
+    }
     return null;
   }
 
@@ -113,12 +117,11 @@ class _SignUpPageState extends State<SignUpPage> {
 
       // Legacy fallback: some old user docs may not have a reservation doc
       if (!taken) {
-        final q =
-            await _firestore
-                .collection('users')
-                .where('username_lower', isEqualTo: lower)
-                .limit(1)
-                .get();
+        final q = await _firestore
+            .collection('users')
+            .where('username_lower', isEqualTo: lower)
+            .limit(1)
+            .get();
         taken = q.docs.isNotEmpty;
       }
 
@@ -154,12 +157,11 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _checkEmailAvailability(String email) async {
     try {
-      final q =
-          await _firestore
-              .collection('users')
-              .where('email', isEqualTo: email.trim())
-              .limit(1)
-              .get();
+      final q = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email.trim())
+          .limit(1)
+          .get();
 
       if (!mounted) return;
       setState(() {
@@ -272,8 +274,7 @@ class _SignUpPageState extends State<SignUpPage> {
           suffixIcon: suffix,
         ),
         validator:
-            validator ??
-            (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+            validator ?? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
       ),
     );
   }
@@ -301,19 +302,19 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
 
                 Transform.translate(
-                    offset: const Offset(0, -14),
-                    child: const Align(
-                      alignment: Alignment.center,
-                      child: Text(
-                        'sign up',
-                        style: TextStyle(
-                          fontSize: 45,
-                          color: Color(0xFF0D7C66),
-                          fontWeight: FontWeight.w500,
-                        ),
+                  offset: const Offset(0, -14),
+                  child: const Align(
+                    alignment: Alignment.center,
+                    child: Text(
+                      'sign up',
+                      style: TextStyle(
+                        fontSize: 45,
+                        color: Color(0xFF0D7C66),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
+                ),
 
                 _buildTextField(
                   'username *',
@@ -327,10 +328,9 @@ class _SignUpPageState extends State<SignUpPage> {
                     return null;
                   },
                   errorText: _usernameError,
-                  helperText:
-                      (_usernameError == null && _usernameAvailable == true)
-                          ? 'Username available'
-                          : null,
+                  helperText: (_usernameError == null && _usernameAvailable == true)
+                      ? 'Username available'
+                      : null,
                   suffix: _availabilitySuffix(_usernameAvailable),
                 ),
 
@@ -340,18 +340,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   onChanged: _onEmailChanged,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
-                    final ok = RegExp(
-                      r'^[^@]+@[^@]+\.[^@]+',
-                    ).hasMatch(v.trim());
+                    final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim());
                     if (!ok) return 'Enter a valid email';
                     if (_emailAvailable == false) return 'Email already in use';
                     return null;
                   },
                   errorText: _emailError,
-                  helperText:
-                      (_emailError == null && _emailAvailable == true)
-                          ? 'Email available'
-                          : null,
+                  helperText: (_emailError == null && _emailAvailable == true)
+                      ? 'Email available'
+                      : null,
                   suffix: _availabilitySuffix(_emailAvailable),
                 ),
 
@@ -364,9 +361,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   errorText: _passwordLiveError,
                   suffix: IconButton(
                     icon: Icon(
-                      _passwordObscured
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+                      _passwordObscured ? Icons.visibility_off : Icons.visibility,
                     ),
                     onPressed: () => setState(() {
                       _passwordObscured = !_passwordObscured;
@@ -418,6 +413,8 @@ class _SignUpPageState extends State<SignUpPage> {
                 const SizedBox(height: 10),
                 const Align(alignment: Alignment.center, child: Text('1 of 2')),
                 const SizedBox(height: 2),
+
+                // FIX: GestureDetector uses onTap, not onPressed
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
@@ -617,7 +614,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _openTerms() async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const _TermsAndPrivacyPage()),
+      MaterialPageRoute(builder: (_) => const TermsAndPrivacyPage()),
     );
   }
 
@@ -669,8 +666,72 @@ class _SignUpPageState extends State<SignUpPage> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'You must accept the Terms & Conditions to create an account.'),
+          content:
+              Text('You must accept the Terms & Conditions to create an account.'),
+        ),
+      );
+      return false;
+    }
+  }
+
+  // -------------------- Data & Permissions helper --------------------
+  Future<bool> _ensureDataPermissions() async {
+    if (_acceptedDataPermissions) return true;
+
+    final consent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Data & Permissions Consent'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'To provide and improve the service, we request your permission to collect and process certain data. '
+                  'By selecting “I Consent”, you acknowledge and agree that the app may:',
+                ),
+                SizedBox(height: 10),
+                Text(
+                  '• collect app activity and usage analytics (e.g., screens visited, feature interactions) to improve performance;\n'
+                  '• process crash reports and diagnostic logs to maintain security and stability;\n'
+                  '• store device information such as model, OS version, and push notification token to deliver features and notifications;\n'
+                  '• use country/region inferred from your device/network settings for localization and compliance;\n'
+                  '• associate the above with your account to personalize content and communications within the app;\n'
+                  '• share such data with contracted service providers solely to operate the service (we do not sell your personal data).',
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'You can withdraw consent at any time in Settings → Security & Privacy. '
+                  'For details on how we protect your information, please review the Privacy Policy in our Terms & Privacy.',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Decline'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('I Consent'),
+          ),
+        ],
+      ),
+    );
+
+    if (consent == true) {
+      setState(() => _acceptedDataPermissions = true);
+      return true;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must consent to data processing to create an account.'),
         ),
       );
       return false;
@@ -683,6 +744,10 @@ class _SignUpPageState extends State<SignUpPage> {
       // Require Terms & Conditions acceptance first
       final ok = await _ensureTermsAccepted();
       if (!ok) return;
+
+      // Require data & permissions consent
+      final permsOk = await _ensureDataPermissions();
+      if (!permsOk) return;
 
       if (dobController.text.isEmpty) {
         setState(() => _dobError = 'Please select date of birth');
@@ -717,8 +782,8 @@ class _SignUpPageState extends State<SignUpPage> {
       final pre =
           await _firestore.collection('usernames').doc(usernameLower).get();
       if (pre.exists) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Username already taken')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Username already taken')));
         return;
       }
 
@@ -732,7 +797,8 @@ class _SignUpPageState extends State<SignUpPage> {
 
       try {
         await _firestore.runTransaction((tx) async {
-          final unameRef = _firestore.collection('usernames').doc(usernameLower);
+          final unameRef =
+              _firestore.collection('usernames').doc(usernameLower);
           final unameSnap = await tx.get(unameRef);
           if (unameSnap.exists) {
             throw Exception('USERNAME_TAKEN');
@@ -751,6 +817,7 @@ class _SignUpPageState extends State<SignUpPage> {
             'dob': dobController.text,
             'created_at': DateTime.now().toIso8601String(),
             'accepted_terms': true,
+            'consented_data_processing': true, // reflects popup consent
           });
 
           tx.set(unameRef, {
@@ -764,8 +831,8 @@ class _SignUpPageState extends State<SignUpPage> {
           try {
             await FirebaseAuth.instance.currentUser?.delete();
           } catch (_) {}
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('Username already taken')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Username already taken')));
           return;
         }
         rethrow;
@@ -858,8 +925,35 @@ class _SignUpPageState extends State<SignUpPage> {
 }
 
 // ---------- In-app Terms & Privacy page (opened from the dialog link) ----------
-class _TermsAndPrivacyPage extends StatelessWidget {
-  const _TermsAndPrivacyPage();
+class TermsAndPrivacyPage extends StatefulWidget {
+  final bool scrollToPrivacy;
+  const TermsAndPrivacyPage({Key? key, this.scrollToPrivacy = false})
+      : super(key: key);
+
+  @override
+  State<TermsAndPrivacyPage> createState() => _TermsAndPrivacyPageState();
+}
+
+class _TermsAndPrivacyPageState extends State<TermsAndPrivacyPage> {
+  final _privacyKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // After first frame, optionally scroll to the Privacy Policy section.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.scrollToPrivacy) {
+        final ctx = _privacyKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 300),
+            alignment: 0.0,
+          );
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -875,120 +969,166 @@ class _TermsAndPrivacyPage extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: DefaultTextStyle(
-            style: const TextStyle(color: Colors.black87, fontSize: 16, height: 1.35),
+            style: const TextStyle(
+                color: Colors.black87, fontSize: 16, height: 1.35),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 // TERMS
-                Text('Terms & Conditions',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.black)),
-                SizedBox(height: 10),
-                Text(
+                const Text('Terms & Conditions',
+                    style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black)),
+                const SizedBox(height: 10),
+                const Text(
                   'These Terms & Conditions (“Terms”) govern your use of this application and related services. '
                   'By creating an account or using the app, you agree to be bound by these Terms. If you do not agree, do not use the app.',
                 ),
-                SizedBox(height: 14),
-                Text('1. Eligibility', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text('You must be at least 18 years old to use the service.'),
-                SizedBox(height: 12),
-                Text('2. Account & Security', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 14),
+                const Text('1. Eligibility',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text('You must be at least 18 years old to use the service.'),
+                const SizedBox(height: 12),
+                const Text('2. Account & Security',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'You are responsible for the information associated with your account and for maintaining the confidentiality of your credentials. '
                   'You agree to notify us promptly of any suspected unauthorized use.',
                 ),
-                SizedBox(height: 12),
-                Text('3. Acceptable Use', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('3. Acceptable Use',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'You will not use the service to harass, threaten, defame, post illegal content, or interfere with the operation of the service. '
                   'We may remove content or restrict access for violations.',
                 ),
-                SizedBox(height: 12),
-                Text('4. Content & License', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('4. Content & License',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'You retain ownership of content you post. By posting, you grant us a limited, worldwide, non-exclusive license to host, display, '
                   'and process your content solely to operate and improve the service.',
                 ),
-                SizedBox(height: 12),
-                Text('5. Service Changes', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text('We may modify, suspend, or discontinue features at any time, with or without notice.'),
-                SizedBox(height: 12),
-                Text('6. Disclaimers & Limitation of Liability', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('5. Service Changes',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
+                    'We may modify, suspend, or discontinue features at any time, with or without notice.'),
+                const SizedBox(height: 12),
+                const Text('6. Disclaimers & Limitation of Liability',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'The service is provided “as is” and “as available.” To the fullest extent permitted by law, we disclaim all warranties and '
                   'shall not be liable for indirect, incidental, or consequential damages.',
                 ),
-                SizedBox(height: 12),
-                Text('7. Termination', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text('We may suspend or terminate your access for violations of these Terms or for risk to the service or users.'),
-                SizedBox(height: 12),
-                Text('8. Governing Law', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text('These Terms are governed by applicable law in your jurisdiction unless superseded by mandatory law.'),
-                SizedBox(height: 20),
+                const SizedBox(height: 12),
+                const Text('7. Termination',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
+                    'We may suspend or terminate your access for violations of these Terms or for risk to the service or users.'),
+                const SizedBox(height: 12),
+                const Text('8. Governing Law',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
+                    'These Terms are governed by applicable law in your jurisdiction unless superseded by mandatory law.'),
+                const SizedBox(height: 20),
 
                 // PRIVACY
                 Text('Privacy Policy',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.black)),
-                SizedBox(height: 10),
-                Text(
+                    key: _privacyKey,
+                    style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black)),
+                const SizedBox(height: 10),
+                const Text(
                   'This Privacy Policy describes how we collect, use, and protect your information when you use the service.',
                 ),
-                SizedBox(height: 14),
-                Text('1. Information We Collect', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 14),
+                const Text('1. Information We Collect',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   '• Account information such as name, email, username, and date of birth.\n'
                   '• Usage data including actions taken in the app and diagnostic logs.\n'
                   '• Device information such as device model and operating system version.',
                 ),
-                SizedBox(height: 12),
-                Text('2. How We Use Information', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('2. How We Use Information',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'We use your information to provide, secure, personalize, and improve the service; to communicate important updates; '
                   'and to comply with legal obligations.',
                 ),
-                SizedBox(height: 12),
-                Text('3. Sharing of Information', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('3. Sharing of Information',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'We do not sell your personal information. We may share data with service providers bound by confidentiality, or when required by law.',
                 ),
-                SizedBox(height: 12),
-                Text('4. Security', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('4. Security',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'We implement reasonable safeguards appropriate to the sensitivity of the data. However, no method of transmission or storage is completely secure.',
                 ),
-                SizedBox(height: 12),
-                Text('5. Your Choices & Rights', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('5. Your Choices & Rights',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'You may access, correct, or delete certain information via your account settings, subject to legal and operational limitations.',
                 ),
-                SizedBox(height: 12),
-                Text('6. Data Retention', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 12),
+                const Text('6. Data Retention',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
                   'We retain information as long as necessary to provide the service and as required by law. We may anonymize data for analytics.',
                 ),
-                SizedBox(height: 12),
-                Text('7. Children', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text('The service is not directed to persons under 18. We do not knowingly collect data from children.'),
-                SizedBox(height: 12),
-                Text('8. Contact', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                SizedBox(height: 6),
-                Text('For privacy questions, contact support using the email listed in the app settings.'),
-                SizedBox(height: 24),
-                Text('Last updated: 2025-01-01', style: TextStyle(color: Colors.black54)),
+                const SizedBox(height: 12),
+                const Text('7. Children',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
+                    'The service is not directed to persons under 18. We do not knowingly collect data from children.'),
+                const SizedBox(height: 12),
+                const Text('8. Contact',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
+                const SizedBox(height: 6),
+                const Text(
+                    'For privacy questions, contact support using the email listed in the app settings.'),
+                const SizedBox(height: 24),
+                const Text('Last updated: 2025-01-01',
+                    style: TextStyle(color: Colors.black54)),
               ],
             ),
           ),

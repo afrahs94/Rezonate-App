@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'home.dart';
 import 'journal.dart';
 import 'settings.dart';
+import 'signup_page.dart'; // <-- added to reuse Terms & Privacy page
 
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
@@ -62,15 +63,12 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   }
 
   Future<void> _openPrivacyPolicy() async {
-    final uri = Uri.parse(
-      'https://www.notion.so/DRAFT-5-FINAL-THINGS-TO-FIX-2544f261ee2380918c1ac5f28387842c?source=copy_link',
+    // Open the in-app Terms & Privacy page and scroll to the Privacy section.
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const TermsAndPrivacyPage(scrollToPrivacy: true),
+      ),
     );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Privacy Policy')),
-      );
-    }
   }
 
   @override
