@@ -274,8 +274,7 @@ class _HomePageState extends State<HomePage> {
     final u = _user;
     if (u == null) return;
     final id = 't${DateTime.now().microsecondsSinceEpoch}';
-    final color =
-        Colors.primaries[_rnd.nextInt(Colors.primaries.length)].shade700;
+    final color = const Color(0xFF0D7C66);
     final sort = _trackers.length;
     final t = Tracker(id: id, label: label, color: color, value: 5, sort: sort);
     await _db
