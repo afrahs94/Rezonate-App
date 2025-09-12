@@ -146,9 +146,9 @@ class _HomePageState extends State<HomePage> {
         } else if (vals.isNotEmpty) {
           final dayInt = (m['day'] as num?)?.toInt();
           if (dayInt != null) {
-            final y = dayInt ~/ 10000;
-            final mo = (dayInt % 10000) ~/ 100;
-            final da = dayInt % 100;
+            final int y = dayInt ~/ 10000;
+            final int mo = (dayInt % 10000) ~/ 100;
+            final int da = dayInt % 100;
             final fallback = DateTime(y, mo, da, 23, 59, 59);
             if (newest == null || fallback.isAfter(newest)) newest = fallback;
           }
@@ -214,7 +214,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Strict 24h break enforcement
+  // Strict 24h break enforcement + "starts after a day" rule
   int get _streak {
     if (_daysWithAnyLog.isEmpty) return 0;
 
@@ -226,6 +226,7 @@ class _HomePageState extends State<HomePage> {
     final within24h =
         _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
     if (!hasToday && !within24h) {
+      // >24h since any log → streak broken
       return 0;
     }
 
@@ -235,9 +236,8 @@ class _HomePageState extends State<HomePage> {
       if (gap > 24) brokeBetweenYesterdayAndToday = true;
     }
 
-    int s = 0;
+    int consecutive = 0;
     var d = todayMidnight;
-
     bool graceForToday = !hasToday && within24h;
 
     while (true) {
@@ -251,11 +251,14 @@ class _HomePageState extends State<HomePage> {
       if (isYesterday && brokeBetweenYesterdayAndToday) break;
       if (!filled) break;
 
-      s++;
+      consecutive++;
       graceForToday = false;
       d = d.subtract(const Duration(days: 1));
     }
-    return s;
+
+    // Require at least 2 filled days; display consecutive-1
+    if (consecutive <= 1) return 0;
+    return consecutive - 1;
   }
 
   LinearGradient _bg(BuildContext context) {
@@ -1251,6 +1254,21 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openColorPicker(Tracker t) async {
     HSVColor hsv = HSVColor.fromColor(t.color);
 
+    String _hex6(Color c) =>
+        c.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
+    bool _validHex(String s) =>
+        RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(s) ||
+        RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(s);
+    Color _fromHex(String s) {
+      var h = s.trim().replaceAll('#', '');
+      if (h.length == 6) h = 'FF$h';
+      final v = int.parse(h, radix: 16);
+      return Color(v);
+    }
+
+    // Start with empty hex as requested
+    final hexCtl = TextEditingController(text: '');
+
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1267,6 +1285,32 @@ class _HomePageState extends State<HomePage> {
               final deg = ang * 180 / pi;
               setSheet(() => hsv = hsv.withHue(deg));
             }
+
+            void applyHex([String? raw]) {
+              final text = (raw ?? hexCtl.text).trim();
+              if (!_validHex(text)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a valid hex like 34C3A3')),
+                );
+                return;
+              }
+              final c = _fromHex(text);
+              setSheet(() => hsv = HSVColor.fromColor(c));
+            }
+
+            final presets = <Color>[
+              const Color(0xFF0D7C66),
+              Colors.teal,
+              Colors.blue,
+              Colors.indigo,
+              Colors.purple,
+              Colors.pinkAccent,
+              Colors.orange,
+              Colors.amber,
+              Colors.redAccent,
+              Colors.brown,
+              Colors.grey,
+            ];
 
             return Container(
               padding: EdgeInsets.only(
@@ -1299,6 +1343,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Ring + (smaller) SV square inside
                   SizedBox(
                     height: 220,
                     width: 220,
@@ -1313,6 +1358,9 @@ class _HomePageState extends State<HomePage> {
                           size.height / 2 + sin(rad) * radius,
                         );
 
+                        final innerDiameter = size.width - ringWidth * 2;
+                        final squareSize = innerDiameter * 0.76; // smaller than circle
+
                         return GestureDetector(
                           onPanDown:
                               (d) => setHueFromOffset(d.localPosition, size),
@@ -1326,8 +1374,8 @@ class _HomePageState extends State<HomePage> {
                                 painter: _HueRingPainter(ringWidth: ringWidth),
                               ),
                               SizedBox(
-                                width: size.width - ringWidth * 2.4,
-                                height: size.height - ringWidth * 2.4,
+                                width: squareSize,
+                                height: squareSize,
                                 child: _SVSquare(
                                   hue: hsv.hue,
                                   s: hsv.saturation,
@@ -1339,7 +1387,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                               IgnorePointer(
                                 child: CustomPaint(
-                                  painter: _KnobPainter(position: knob),
+                                  painter: _KnobPainter(position: knob, r: 6),
                                   size: size,
                                 ),
                               ),
@@ -1350,13 +1398,15 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
+                  // HEX input row: leading '#', live preview
                   Row(
                     children: [
+                      // Live preview circle
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           color: hsv.toColor(),
                           shape: BoxShape.circle,
@@ -1364,9 +1414,91 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      const Text(
+                        '#',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: TextField(
+                          controller: hexCtl,
+                          onChanged: (v) {
+                            final txt = v.trim();
+                            if (_validHex(txt)) {
+                              setSheet(() => hsv = HSVColor.fromColor(_fromHex(txt)));
+                            }
+                          },
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (v) {
+                            if (_validHex(v.trim())) applyHex(v.trim());
+                          },
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'RRGGBB',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => applyHex(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D7C66),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(90, 36),
+                        ),
+                        child: const Text('Apply HEX'),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Quick swatches
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final c in presets)
+                          GestureDetector(
+                            onTap: () =>
+                                setSheet(() => hsv = HSVColor.fromColor(c)),
+                            child: Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(
+                                color: c,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.black26, width: 1),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
                       Expanded(
                         child: Text(
-                          '#${hsv.toColor().value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                          '#${_hex6(hsv.toColor())}',
                           style: const TextStyle(
                             fontFeatures: [FontFeature.tabularFigures()],
                           ),
@@ -1427,8 +1559,9 @@ class _HueRingPainter extends CustomPainter {
 }
 
 class _KnobPainter extends CustomPainter {
-  _KnobPainter({required this.position});
+  _KnobPainter({required this.position, this.r = 8});
   final Offset position;
+  final double r;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1441,13 +1574,13 @@ class _KnobPainter extends CustomPainter {
           ..color = Colors.black.withOpacity(.35)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1;
-    canvas.drawCircle(position, 8, p);
-    canvas.drawCircle(position, 8, b);
+    canvas.drawCircle(position, r, p);
+    canvas.drawCircle(position, r, b);
   }
 
   @override
   bool shouldRepaint(covariant _KnobPainter oldDelegate) =>
-      oldDelegate.position != position;
+      oldDelegate.position != position || oldDelegate.r != r;
 }
 
 class _SVSquare extends StatelessWidget {
@@ -1489,7 +1622,9 @@ class _SVSquare extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  gradient: const LinearGradient(
+                ),
+                foregroundDecoration: const BoxDecoration(
+                  gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [Colors.transparent, Colors.black],
