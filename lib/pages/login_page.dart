@@ -286,44 +286,60 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ],
 
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 1),
 
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Checkbox(
-                              value: _rememberMe,
-                              onChanged:
-                                  (v) =>
-                                      setState(() => _rememberMe = v ?? false),
-                            ),
-                            const Text("Remember me"),
-                          ],
-                        ),
-
-                        // Forgot password
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder: (_) => const ResetPasswordPage(),
+                            // Left: Remember me
+                            Row(
+                              children: [
+                                Transform.scale(
+                                  scale: 0.8, // make checkbox smaller
+                                  child: Checkbox(
+                                    value: _rememberMe,
+                                    onChanged:
+                                        (v) => setState(
+                                          () => _rememberMe = v ?? false,
+                                        ),
+                                    activeColor: const Color(0xFF0D7C66),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                 ),
-                              );
-                            },
-                            child: Text(
-                              'forgot password?',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                                decoration: TextDecoration.underline,
+                                const SizedBox(width: 0),
+                                const Text(
+                                  "Remember me",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Color.fromARGB(255, 0, 0, 0),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            // Right: Forgot password
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  NoTransitionPageRoute(
+                                    builder: (_) => const ResetPasswordPage(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                'forgot password?',
+                                style: TextStyle(
+                                  color: const Color.fromARGB(255, 0, 0, 0),
+                                  fontSize: 12.5,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
-
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 17),
 
                         // Log in (smaller & centered)
                         SizedBox(

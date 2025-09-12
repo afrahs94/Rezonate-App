@@ -1,13 +1,14 @@
-
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'pages/signup_page.dart';
-
-// FIX: correct import (singular). Make sure the file exists at lib/user_session.dart
+import 'pages/login_page.dart';
+import 'pages/home.dart';
 import 'pages/user_sessions.dart';
 import 'pages/services/user_settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Simple theme controller + scope ------------------------------------------------
 
@@ -29,8 +30,6 @@ class ThemeController extends ChangeNotifier {
   }
 }
 
-/// Inherited notifier so any widget can read/toggle:
-/// `final ctrl = ThemeControllerScope.of(context); ctrl.toggleTheme();`
 class ThemeControllerScope extends InheritedNotifier<ThemeController> {
   const ThemeControllerScope({
     super.key,
@@ -60,28 +59,41 @@ Future<void> main() async {
     print('❌ Firebase Init Error: $e');
   }
 
-  // ✅ FIX: initialize UserSettings so SharedPreferences works
   await UserSettings.init();
-
-  // ✅ This stays here
   await UserSession.instance.init();
 
   final controller = ThemeController(isDark: false);
 
-  runApp(ThemeControllerScope(
-    controller: controller,
-    child: RezonateApp(controller: controller),
-  ));
+  runApp(
+    ThemeControllerScope(
+      controller: controller,
+      child: RezonateApp(controller: controller),
+    ),
+  );
 }
-
 
 class RezonateApp extends StatelessWidget {
   final ThemeController controller;
   const RezonateApp({super.key, required this.controller});
 
+  Future<Widget> _getStartPage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? false;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (remember && user != null) {
+      // ✅ Go straight to Home if remembered + logged in
+      return HomePage(
+        userName: user.displayName ?? user.email!.split('@').first,
+      );
+    } else {
+      // ✅ Otherwise show Login
+      return const LoginPage();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Rebuild MaterialApp whenever the controller changes.
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
@@ -91,8 +103,17 @@ class RezonateApp extends StatelessWidget {
           themeMode: controller.isDark ? ThemeMode.dark : ThemeMode.light,
           theme: _lightTheme,
           darkTheme: _darkTheme,
-          // NOTE: Login/Signup can force light by wrapping their Scaffold with Theme(data: _lightTheme, child: ...)
-          home: const SignUpPage(),
+          home: FutureBuilder<Widget>(
+            future: _getStartPage(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return snapshot.data ?? const SignUpPage();
+            },
+          ),
         );
       },
     );
@@ -104,14 +125,13 @@ class RezonateApp extends StatelessWidget {
 final ThemeData _lightTheme = ThemeData(
   brightness: Brightness.light,
   primaryColor: const Color(0xFF0D7C66),
-  scaffoldBackgroundColor: Colors.transparent, // most pages draw their own gradient
+  scaffoldBackgroundColor:
+      Colors.transparent, // most pages draw their own gradient
   colorScheme: ColorScheme.fromSeed(
     seedColor: const Color(0xFF0D7C66),
     brightness: Brightness.light,
   ),
-  textTheme: const TextTheme(
-    bodyMedium: TextStyle(color: Colors.black87),
-  ),
+  textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.black87)),
   appBarTheme: const AppBarTheme(
     elevation: 0,
     backgroundColor: Colors.transparent,
@@ -146,9 +166,7 @@ final ThemeData _darkTheme = ThemeData(
     seedColor: const Color(0xFF0D7C66),
     brightness: Brightness.dark,
   ),
-  textTheme: const TextTheme(
-    bodyMedium: TextStyle(color: Colors.white),
-  ),
+  textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
   appBarTheme: const AppBarTheme(
     elevation: 0,
     backgroundColor: Colors.transparent,
