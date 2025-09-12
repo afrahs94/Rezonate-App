@@ -17,7 +17,7 @@ import 'signup_page.dart'; // <-- added to reuse Terms & Privacy page
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;
   const SecurityAndPrivacyPage({Key? key, required this.userName})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<SecurityAndPrivacyPage> createState() => _SecurityAndPrivacyPageState();
@@ -25,7 +25,7 @@ class SecurityAndPrivacyPage extends StatefulWidget {
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder})
-      : super(builder: builder);
+    : super(builder: builder);
 
   @override
   Widget buildTransitions(
@@ -49,9 +49,10 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -191,7 +192,14 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                   const SnackBar(content: Text("PIN reset successfully.")),
                 );
               } on FirebaseAuthException catch (e) {
-                setLocal(() => err = e.message ?? "Re-authentication failed.");
+                setLocal(() {
+                  if (e.code == 'wrong-password' ||
+                      e.code == 'invalid-credential') {
+                    err = "Incorrect password";
+                  } else {
+                    err = "Re-authentication failed. Please try again.";
+                  }
+                });
               }
             }
 
@@ -566,7 +574,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                   const Divider(height: 1),
                   Expanded(
                     child: StreamBuilder<
-                        DocumentSnapshot<Map<String, dynamic>>>(
+                      DocumentSnapshot<Map<String, dynamic>>
+                    >(
                       stream: _db.collection('users').doc(uid).snapshots(),
                       builder: (context, snap) {
                         if (snap.connectionState == ConnectionState.waiting) {
@@ -577,7 +586,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                         final data = snap.data?.data() ?? {};
                         final blockedUids =
                             (data['blocked_uids'] as List?)?.cast<String>() ??
-                                [];
+                            [];
 
                         if (blockedUids.isEmpty) {
                           return Center(
@@ -608,11 +617,12 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             }
                             final names = namesSnap.data!;
                             return ListView.separated(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
                               itemCount: blockedUids.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                              separatorBuilder:
+                                  (_, __) => const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final uidItem = blockedUids[i];
                                 final label = names[i];
@@ -740,8 +750,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                     await _saveAppLock(true);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content:
-                                            Text('My Journal Lock enabled.'),
+                                        content: Text(
+                                          'My Journal Lock enabled.',
+                                        ),
                                       ),
                                     );
                                   } else {
@@ -752,8 +763,9 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                   await _saveAppLock(false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content:
-                                          Text('My Journal Lock disabled.'),
+                                      content: Text(
+                                        'My Journal Lock disabled.',
+                                      ),
                                     ),
                                   );
                                 }
@@ -801,7 +813,8 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                             );
                           }
                           return StreamBuilder<
-                              DocumentSnapshot<Map<String, dynamic>>>(
+                            DocumentSnapshot<Map<String, dynamic>>
+                          >(
                             stream:
                                 _db.collection('users').doc(u.uid).snapshots(),
                             builder: (context, snap) {
@@ -821,9 +834,10 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       const _Header('Blocked Users'),
                       Container(
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0x1AFFFFFF)
-                              : Colors.white.withOpacity(0.9),
+                          color:
+                              isDark
+                                  ? const Color(0x1AFFFFFF)
+                                  : Colors.white.withOpacity(0.9),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: const [
                             BoxShadow(color: Colors.black26, blurRadius: 6),
@@ -846,10 +860,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                       const _Header('Privacy Policy'),
                       RichText(
                         text: TextSpan(
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: onText,
-                          ),
+                          style: TextStyle(fontSize: 14, color: onText),
                           children: [
                             const TextSpan(
                               text:
@@ -935,7 +946,9 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onText =
-        Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black;
+        Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : Colors.black;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
@@ -958,9 +971,10 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final green = const Color(0xFF0D7C66);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    Color c(int i) => i == index
-        ? (isDark ? const Color(0xFF9B5DE5) : green) // purple when dark
-        : Colors.white;
+    Color c(int i) =>
+        i == index
+            ? (isDark ? const Color(0xFF9B5DE5) : green) // purple when dark
+            : Colors.white;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 6),
@@ -969,24 +983,31 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(builder: (_) => HomePage(userName: '')),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  NoTransitionPageRoute(builder: (_) => HomePage(userName: '')),
+                ),
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(builder: (_) => JournalPage(userName: '')),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  NoTransitionPageRoute(
+                    builder: (_) => JournalPage(userName: ''),
+                  ),
+                ),
           ),
           IconButton(
             icon: Icon(Icons.settings, color: c(2)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(builder: (_) => SettingsPage(userName: '')),
-            ),
+            onPressed:
+                () => Navigator.pushReplacement(
+                  context,
+                  NoTransitionPageRoute(
+                    builder: (_) => SettingsPage(userName: ''),
+                  ),
+                ),
           ),
         ],
       ),
