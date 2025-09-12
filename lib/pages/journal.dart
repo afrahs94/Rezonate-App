@@ -673,6 +673,9 @@ class _JournalPageState extends State<JournalPage>
                           onTap: () => setState(() => _seg = 0),
                         ),
                         const SizedBox(width: 16),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 0, 0, 70),
+                        ),
                         _SegPill(
                           label: 'My Journal',
                           active: _seg == 1,
@@ -685,7 +688,7 @@ class _JournalPageState extends State<JournalPage>
                     // Only sort button (time filters removed)
                     if (_seg == 0)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                        padding: const EdgeInsets.fromLTRB(16, 3, 16, 1),
                         child: Align(
                           alignment: Alignment.centerRight,
                           child: IconButton(
