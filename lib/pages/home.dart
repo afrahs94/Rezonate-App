@@ -761,7 +761,7 @@ class _HomePageState extends State<HomePage> {
                               Row(
                                 children: [
                                   SizedBox(
-                                    width: 140,
+                                    width: 105,
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 4,
@@ -926,7 +926,7 @@ class _HomePageState extends State<HomePage> {
                                   const Icon(Icons.drag_indicator, size: 18),
                                 ],
                               ),
-                              const Divider(height: 0, indent: 4, endIndent: 4),
+                              //const Divider(height: 0, indent: 4, endIndent: 4),
                             ],
                           );
                         },
