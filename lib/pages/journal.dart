@@ -392,6 +392,50 @@ class _JournalPageState extends State<JournalPage>
     });
   }
 
+  Future<void> _reactOnceReply(
+    String replyId,
+    String emoji,
+    String postId,
+  ) async {
+    final u = _user;
+    if (u == null) return;
+
+    final replyRef = _public.doc(postId).collection('replies').doc(replyId);
+    final myReactRef = replyRef.collection('reactions').doc(u.uid);
+
+    await FirebaseFirestore.instance.runTransaction((tx) async {
+      final mySnap = await tx.get(myReactRef);
+      final replySnap = await tx.get(replyRef);
+      if (!replySnap.exists) return;
+
+      if (!mySnap.exists) {
+        tx.set(myReactRef, {
+          'emoji': emoji,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(replyRef, {'reactions.$emoji': FieldValue.increment(1)});
+        return;
+      }
+
+      final prev = (mySnap.data()?['emoji'] as String?) ?? '';
+      if (prev == emoji) {
+        tx.update(replyRef, {'reactions.$emoji': FieldValue.increment(-1)});
+        tx.delete(myReactRef);
+        return;
+      }
+
+      if (prev.isNotEmpty) {
+        tx.update(replyRef, {'reactions.$prev': FieldValue.increment(-1)});
+      }
+
+      tx.update(replyRef, {'reactions.$emoji': FieldValue.increment(1)});
+      tx.update(myReactRef, {
+        'emoji': emoji,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
   Future<void> _reply(String postId, String text, {String? parentId}) async {
     final t = text.trim();
     final u = _user;
@@ -1203,6 +1247,8 @@ class _PrivateJournal extends StatelessWidget {
             content: SizedBox(
               width: 420,
               child: Wrap(
+                alignment:
+                    WrapAlignment.spaceEvenly, // or .center, .spaceAround
                 spacing: 12,
                 runSpacing: 12,
                 children:
