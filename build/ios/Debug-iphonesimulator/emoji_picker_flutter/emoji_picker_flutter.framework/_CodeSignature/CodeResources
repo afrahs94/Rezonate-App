@@ -14,15 +14,15 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		teaH89Tg0B2vh1bTEAu5DAujfks=
+		MgBw4g7NTatVPS9Zuxxl9Xbxuq0=
 		</data>
 		<key>Modules/emoji_picker_flutter.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		0upk7HOhXCJM6f3xIWX7cEpr/74=
+		LFVu/1SeZcpzpzyetAy8j/2ZV+o=
 		</data>
 		<key>Modules/emoji_picker_flutter.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		nLNRzh+eWBK41MOwKAhGT1H8f0I=
+		0cBoHyTuGk2zKirByD1HMJswapY=
 		</data>
 		<key>Modules/emoji_picker_flutter.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -34,7 +34,7 @@
 		</data>
 		<key>Modules/emoji_picker_flutter.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		WHhVOQy8tXV3uqWetpSU1hIu8OQ=
+		LsCbXSzwT/TtJizlzdL2o36QtnE=
 		</data>
 		<key>Modules/emoji_picker_flutter.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -46,7 +46,7 @@
 		</data>
 		<key>Modules/emoji_picker_flutter.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		FDdFgsB7FDzcDKwJv2sXW2+LCvU=
+		F1ELPQZpzzyBGxi8PWCmq7hTaMc=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -73,14 +73,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			k2CMX069etf6eTRW7azNBKe49Tsa/9qHRVrHVYq3uKU=
+			eFb+KR1olbBixd5aCe8urTsYOrwtCmARKI6yh6GMSqY=
 			</data>
 		</dict>
 		<key>Modules/emoji_picker_flutter.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			TLkWuw3pPUgDKrLsGRRgCSixe1JKqdZgq5mCh+hIUps=
+			L+ufzRWN0z11Pk98IOskWZ9pUBTykvAmYQcjzyM0Bgs=
 			</data>
 		</dict>
 		<key>Modules/emoji_picker_flutter.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -101,7 +101,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			yDlQC0bNYE1PQ7LYvuEyhhmqY24TaQf5m8jS0A8UVlc=
+			DuCfICRVV8NE3NH3F6V5iGYkGY76aXkmtOeE7qFYwp8=
 			</data>
 		</dict>
 		<key>Modules/emoji_picker_flutter.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -122,7 +122,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			P4G+/fdsly6KFKDPoBMRlD4QU7IUQuP7RDPML8+eEZY=
+			/OwNSji7iLgIJ0wr7RTIGRJiidKcZK/l/c5woO8bM2Y=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

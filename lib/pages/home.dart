@@ -11,7 +11,6 @@ import 'onboarding.dart';
 import 'onboarding_keys';
 import 'package:showcaseview/showcaseview.dart';
 
-
 import 'package:new_rezonate/main.dart' as app;
 import 'journal.dart';
 import 'settings.dart';
@@ -84,176 +83,304 @@ class _HomePageState extends State<HomePage> {
   DateTime? _firstLogTodayAt; // earliest log time for "today"
   DateTime? _lastLogBeforeTodayAt; // most recent log time BEFORE "today"
 
+  // ---- Custom emoji scale (applies to sliders & chart Y-axis)
+  final List<int> _emojiTicks = const [0, 2, 4, 6, 8, 10];
+  final Map<int, String> _defaultEmojis = const {
+    0: "😄",
+    2: "🙂",
+    4: "😐",
+    6: "😕",
+    8: "☹️",
+    10: "😢",
+  };
+  late Map<int, String> _emojiForTick = Map<int, String>.from(_defaultEmojis);
+
   // ---- Lifecycle
   @override
   void initState() {
     super.initState();
     _bootstrap().then((_) => _maybeStartHomeShowcase());
+    _loadEmojis(); // load user custom emojis
   }
 
+  Future<void> _loadEmojis() async {
+    final prefs = await SharedPreferences.getInstance();
+    final Map<int, String> loaded = {};
+    for (final t in _emojiTicks) {
+      loaded[t] = prefs.getString('emoji_tick_$t') ?? _defaultEmojis[t]!;
+    }
+    setState(() => _emojiForTick = loaded);
+  }
+
+  Future<void> _saveEmojis(Map<int, String> next) async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final t in _emojiTicks) {
+      await prefs.setString('emoji_tick_$t', next[t] ?? _defaultEmojis[t]!);
+    }
+    setState(() => _emojiForTick = Map<int, String>.from(next));
+  }
+
+  Future<void> _openEmojiPicker() async {
+    final Map<int, String> draft = Map<int, String>.from(_emojiForTick);
+    final controllers = {
+      for (final t in _emojiTicks) t: TextEditingController(text: draft[t])
+    };
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        final dark = app.ThemeControllerScope.of(context).isDark;
+        return AlertDialog(
+          backgroundColor: dark ? const Color(0xFF123A36) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Customize emoji scale'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'These emojis label the mood/value range at 0–10.\nUsed on sliders (ends) and Y-axis of the chart.',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final t in _emojiTicks)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 54,
+                          child: Text(
+                            t == 0 || t == 10 ? '$t (end)' : '$t',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: controllers[t],
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              hintText: 'Enter emoji (e.g., 🙂)',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                            ),
+                            onChanged: (v) => draft[t] = v.trim().isEmpty
+                                ? _defaultEmojis[t]!
+                                : v.trim(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        // reset to defaults
+                        for (final t in _emojiTicks) {
+                          controllers[t]!.text = _defaultEmojis[t]!;
+                          draft[t] = _defaultEmojis[t]!;
+                        }
+                        setState(() {});
+                      },
+                      child: const Text('Reset to default'),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 6),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await _saveEmojis(draft);
+                        if (mounted) Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D7C66),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Save'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _maybeStartHomeShowcase() async {
-  final stage = await Onboarding.getStage();
-
-  // If first run, start at home intro
-  if (stage == OnboardingStage.notStarted) {
-    await Onboarding.setStage(OnboardingStage.homeIntro);
-  }
-
-  if (!mounted) return;
-
-  if (stage == OnboardingStage.notStarted ||
-      stage == OnboardingStage.homeIntro) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ShowCaseWidget.of(context).startShowCase([
-        OBKeys.addHabit,
-        OBKeys.chartSelector,
-        OBKeys.journalTab,
-        OBKeys.settingsTab,
-      ]);
-    });
-  }
-  
-}
-
-  Future<void> _bootstrap() async {
-  final u = _user;
-  if (u == null) return;
-
-  // --- Trackers live snapshot
-  _db
-      .collection('users')
-      .doc(u.uid)
-      .collection('trackers')
-      .orderBy('sort')
-      .snapshots()
-      .listen((snap) async {
-    final list = snap.docs.map(Tracker.fromDoc).toList();
-
-    // Update local state first
-    setState(() {
-      _trackers = list;
-      _selectedForChart
-        ..clear()
-        ..addAll(_trackers.map((t) => t.id));
-    });
-
-    // Onboarding decisions
     final stage = await Onboarding.getStage();
 
-    if (list.isEmpty) {
-      // Do NOT auto-create a tracker; guide user to create the first one.
-      if (stage == OnboardingStage.notStarted) {
-        await Onboarding.setStage(OnboardingStage.homeIntro);
-      } else if (stage.index < OnboardingStage.needFirstHabit.index) {
-        await Onboarding.setStage(OnboardingStage.needFirstHabit);
-      }
-
-      // Start the intro on home; first cue is "Add Habit"
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // If user has 0 trackers, emphasize the add button first.
-          ShowCaseWidget.of(context).startShowCase([
-            OBKeys.addHabit,
-            OBKeys.chartSelector,
-            OBKeys.journalTab,
-            OBKeys.settingsTab,
-          ]);
-        });
-      }
-    } else {
-      // User already has at least one tracker; advance onboarding if needed.
-      if (stage == OnboardingStage.homeIntro ||
-          stage == OnboardingStage.needFirstHabit) {
-        await Onboarding.markHabitCreated();
-      }
-
-      // If we’re still in the intro stage, start (or continue) the home tour.
-      final nextStage = await Onboarding.getStage();
-      if (mounted &&
-          (stage == OnboardingStage.notStarted ||
-           stage == OnboardingStage.homeIntro)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ShowCaseWidget.of(context).startShowCase([
-            // Skip addHabit since they already have one, but harmless if left in.
-            OBKeys.chartSelector,
-            OBKeys.journalTab,
-            OBKeys.settingsTab,
-          ]);
-        });
-      }
+    // If first run, start at home intro
+    if (stage == OnboardingStage.notStarted) {
+      await Onboarding.setStage(OnboardingStage.homeIntro);
     }
-  });
 
-  // --- Pull last 120 days of logs and keep in memory
-  _db
-      .collection('users')
-      .doc(u.uid)
-      .collection('daily_logs')
-      .orderBy('day', descending: false)
-      .limit(120)
-      .snapshots()
-      .listen((snap) {
-    final map = <String, Map<String, double>>{};
-    final daysWithLogs = <String>{};
+    if (!mounted) return;
 
-    DateTime? newest; // most recent updatedAt across docs
-    DateTime? firstToday; // earliest log today
-    DateTime? prevBeforeToday; // last log before today
+    if (stage == OnboardingStage.notStarted ||
+        stage == OnboardingStage.homeIntro) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ShowCaseWidget.of(context).startShowCase([
+          OBKeys.addHabit,
+          OBKeys.chartSelector,
+          OBKeys.journalTab,
+          OBKeys.settingsTab,
+        ]);
+      });
+    }
+  }
 
-    final todayKey = _dayKey(DateTime.now());
+  Future<void> _bootstrap() async {
+    final u = _user;
+    if (u == null) return;
 
-    for (final d in snap.docs) {
-      final m = d.data();
-      final vals =
-          (m['values'] as Map?)
-                  ?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
-              <String, double>{};
-      map[d.id] = vals.cast<String, double>();
-      if (vals.isNotEmpty) daysWithLogs.add(d.id);
+    // --- Trackers live snapshot
+    _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('trackers')
+        .orderBy('sort')
+        .snapshots()
+        .listen((snap) async {
+      final list = snap.docs.map(Tracker.fromDoc).toList();
 
-      final ts =
-          (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
-      if (ts != null) {
-        if (newest == null || ts.isAfter(newest)) newest = ts;
-      } else if (vals.isNotEmpty) {
-        final dayInt = (m['day'] as num?)?.toInt();
-        if (dayInt != null) {
-          final int y = dayInt ~/ 10000;
-          final int mo = (dayInt % 10000) ~/ 100;
-          final int da = dayInt % 100;
-          final fallback = DateTime(y, mo, da, 23, 59, 59);
-          if (newest == null || fallback.isAfter(newest)) newest = fallback;
+      // Update local state first
+      setState(() {
+        _trackers = list;
+        _selectedForChart
+          ..clear()
+          ..addAll(_trackers.map((t) => t.id));
+      });
+
+      // Onboarding decisions
+      final stage = await Onboarding.getStage();
+
+      if (list.isEmpty) {
+        // Do NOT auto-create a tracker; guide user to create the first one.
+        if (stage == OnboardingStage.notStarted) {
+          await Onboarding.setStage(OnboardingStage.homeIntro);
+        } else if (stage.index < OnboardingStage.needFirstHabit.index) {
+          await Onboarding.setStage(OnboardingStage.needFirstHabit);
+        }
+
+        // Start the intro on home; first cue is "Add Habit"
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // If user has 0 trackers, emphasize the add button first.
+            ShowCaseWidget.of(context).startShowCase([
+              OBKeys.addHabit,
+              OBKeys.chartSelector,
+              OBKeys.journalTab,
+              OBKeys.settingsTab,
+            ]);
+          });
+        }
+      } else {
+        // User already has at least one tracker; advance onboarding if needed.
+        if (stage == OnboardingStage.homeIntro ||
+            stage == OnboardingStage.needFirstHabit) {
+          await Onboarding.markHabitCreated();
+        }
+
+        // If we’re still in the intro stage, start (or continue) the home tour.
+        final nextStage = await Onboarding.getStage();
+        if (mounted &&
+            (stage == OnboardingStage.notStarted ||
+                stage == OnboardingStage.homeIntro)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ShowCaseWidget.of(context).startShowCase([
+              // Skip addHabit since they already have one, but harmless if left in.
+              OBKeys.chartSelector,
+              OBKeys.journalTab,
+              OBKeys.settingsTab,
+            ]);
+          });
         }
       }
+    });
 
-      if (d.id == todayKey) {
-        final f =
-            (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
-        if (f != null) firstToday = f;
-      } else {
+    // --- Pull last 120 days of logs and keep in memory
+    _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('daily_logs')
+        .orderBy('day', descending: false)
+        .limit(120)
+        .snapshots()
+        .listen((snap) {
+      final map = <String, Map<String, double>>{};
+      final daysWithLogs = <String>{};
+
+      DateTime? newest; // most recent updatedAt across docs
+      DateTime? firstToday; // earliest log today
+      DateTime? prevBeforeToday; // last log before today
+
+      final todayKey = _dayKey(DateTime.now());
+
+      for (final d in snap.docs) {
+        final m = d.data();
+        final vals =
+            (m['values'] as Map?)
+                    ?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
+                <String, double>{};
+        map[d.id] = vals.cast<String, double>();
+        if (vals.isNotEmpty) daysWithLogs.add(d.id);
+
+        final ts =
+            (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
         if (ts != null) {
-          if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
-            prevBeforeToday = ts;
+          if (newest == null || ts.isAfter(newest)) newest = ts;
+        } else if (vals.isNotEmpty) {
+          final dayInt = (m['day'] as num?)?.toInt();
+          if (dayInt != null) {
+            final int y = dayInt ~/ 10000;
+            final int mo = (dayInt % 10000) ~/ 100;
+            final int da = dayInt % 100;
+            final fallback = DateTime(y, mo, da, 23, 59, 59);
+            if (newest == null || fallback.isAfter(newest)) newest = fallback;
+          }
+        }
+
+        if (d.id == todayKey) {
+          final f =
+              (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
+          if (f != null) firstToday = f;
+        } else {
+          if (ts != null) {
+            if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
+              prevBeforeToday = ts;
+            }
           }
         }
       }
-    }
 
-    setState(() {
-      _daily
-        ..clear()
-        ..addAll(map);
-      _daysWithAnyLog
-        ..clear()
-        ..addAll(daysWithLogs);
-      _lastLogAt = newest;
-      _firstLogTodayAt = firstToday;
-      _lastLogBeforeTodayAt = prevBeforeToday;
+      setState(() {
+        _daily
+          ..clear()
+          ..addAll(map);
+        _daysWithAnyLog
+          ..clear()
+          ..addAll(daysWithLogs);
+        _lastLogAt = newest;
+        _firstLogTodayAt = firstToday;
+        _lastLogBeforeTodayAt = prevBeforeToday;
+      });
     });
-  });
-}
-
+  }
 
   // ---- Helpers
   String _dayKey(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -584,22 +711,14 @@ class _HomePageState extends State<HomePage> {
             reservedSize: 30,
             interval: 2,
             getTitlesWidget: (value, meta) {
-              switch (value.toInt()) {
-                case 0:
-                  return const Text("😄", style: TextStyle(fontSize: 20));
-                case 2:
-                  return const Text("🙂", style: TextStyle(fontSize: 20));
-                case 4:
-                  return const Text("😐", style: TextStyle(fontSize: 20));
-                case 6:
-                  return const Text("😕", style: TextStyle(fontSize: 20));
-                case 8:
-                  return const Text("☹️", style: TextStyle(fontSize: 20));
-                case 10:
-                  return const Text("😢", style: TextStyle(fontSize: 20));
-                default:
-                  return const SizedBox.shrink();
+              final v = value.toInt();
+              if (_emojiForTick.containsKey(v)) {
+                return Text(
+                  _emojiForTick[v]!,
+                  style: const TextStyle(fontSize: 20),
+                );
               }
+              return const SizedBox.shrink();
             },
           ),
         ),
@@ -855,8 +974,10 @@ class _HomePageState extends State<HomePage> {
                                   Expanded(
                                     child: Row(
                                       children: [
-                                        const Text("😄",
-                                            style: TextStyle(fontSize: 20)),
+                                        Text(
+                                          _emojiForTick[0] ?? "😄",
+                                          style: const TextStyle(fontSize: 20),
+                                        ),
                                         Expanded(
                                           child: SliderTheme(
                                             data: SliderTheme.of(context)
@@ -878,8 +999,10 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                           ),
                                         ),
-                                        const Text("😢",
-                                            style: TextStyle(fontSize: 20)),
+                                        Text(
+                                          _emojiForTick[10] ?? "😢",
+                                          style: const TextStyle(fontSize: 20),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1050,7 +1173,7 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 8),
 
-                      // Date range + dropdown icon (selection dialog)
+                      // Date range + dropdown icon (selection dialog) + emoji scale editor
                       Row(
                         children: [
                           Expanded(
@@ -1065,6 +1188,13 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
+                          ),
+                          // Open emoji scale editor (small, unobtrusive)
+                          IconButton(
+                            icon: const Icon(Icons.emoji_emotions_outlined),
+                            color: const Color(0xFF0D7C66),
+                            tooltip: 'Customize emojis',
+                            onPressed: _openEmojiPicker,
                           ),
                           IconButton(
                             icon: const Icon(
@@ -1223,50 +1353,46 @@ class _HomePageState extends State<HomePage> {
                     ),
 
                     Flexible(
-                      child:
-                          filtered.isEmpty
-                              ? Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 24,
+                      child: filtered.isEmpty
+                          ? Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                'No trackers found',
+                                style: TextStyle(
+                                  color: textColor.withOpacity(.7),
                                 ),
-                                child: Text(
-                                  'No trackers found',
-                                  style: TextStyle(
-                                    color: textColor.withOpacity(.7),
-                                  ),
-                                ),
-                              )
-                              : ListView.builder(
-                                shrinkWrap: true,
-                                itemCount: filtered.length,
-                                itemBuilder: (context, i) {
-                                  final t = filtered[i];
-                                  final checked = chosen.contains(t.id);
-
-                                  return CheckboxListTile(
-                                    value: checked,
-                                    onChanged: (v) => toggle(t.id, v ?? false),
-                                    activeColor: t.color,
-                                    title: Text(
-                                      t.label,
-                                      style: TextStyle(
-                                        fontWeight:
-                                            checked
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                        fontSize: 14,
-                                        color: textColor,
-                                      ),
-                                    ),
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    contentPadding: EdgeInsets.zero,
-                                    visualDensity: const VisualDensity(
-                                      vertical: -4,
-                                    ),
-                                  );
-                                },
                               ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              itemBuilder: (context, i) {
+                                final t = filtered[i];
+                                final checked = chosen.contains(t.id);
+
+                                return CheckboxListTile(
+                                  value: checked,
+                                  onChanged: (v) => toggle(t.id, v ?? false),
+                                  activeColor: t.color,
+                                  title: Text(
+                                    t.label,
+                                    style: TextStyle(
+                                      fontWeight: checked
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      fontSize: 14,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  contentPadding: EdgeInsets.zero,
+                                  visualDensity:
+                                      const VisualDensity(vertical: -4),
+                                );
+                              },
+                            ),
                     ),
 
                     const SizedBox(height: 10),
