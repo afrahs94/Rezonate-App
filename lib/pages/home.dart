@@ -6,6 +6,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'onboarding.dart';
+import 'onboarding_keys';
+import 'package:showcaseview/showcaseview.dart';
+
 
 import 'package:new_rezonate/main.dart' as app;
 import 'journal.dart';
@@ -83,102 +88,172 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    _bootstrap().then((_) => _maybeStartHomeShowcase());
   }
+
+
+  Future<void> _maybeStartHomeShowcase() async {
+  final stage = await Onboarding.getStage();
+
+  // If first run, start at home intro
+  if (stage == OnboardingStage.notStarted) {
+    await Onboarding.setStage(OnboardingStage.homeIntro);
+  }
+
+  if (!mounted) return;
+
+  if (stage == OnboardingStage.notStarted ||
+      stage == OnboardingStage.homeIntro) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ShowCaseWidget.of(context).startShowCase([
+        OBKeys.addHabit,
+        OBKeys.chartSelector,
+        OBKeys.journalTab,
+        OBKeys.settingsTab,
+      ]);
+    });
+  }
+  
+}
 
   Future<void> _bootstrap() async {
-    final u = _user;
-    if (u == null) return;
+  final u = _user;
+  if (u == null) return;
 
-    // Trackers live snapshot
-    _db
-        .collection('users')
-        .doc(u.uid)
-        .collection('trackers')
-        .orderBy('sort')
-        .snapshots()
-        .listen((snap) async {
-      final list = snap.docs.map(Tracker.fromDoc).toList();
-      if (list.isEmpty) {
-        // seed a default tracker
-        await _createTracker(label: 'add tracker');
-        return;
-      }
-      setState(() {
-        _trackers = list;
-        _selectedForChart
-          ..clear()
-          ..addAll(_trackers.map((t) => t.id));
-      });
+  // --- Trackers live snapshot
+  _db
+      .collection('users')
+      .doc(u.uid)
+      .collection('trackers')
+      .orderBy('sort')
+      .snapshots()
+      .listen((snap) async {
+    final list = snap.docs.map(Tracker.fromDoc).toList();
+
+    // Update local state first
+    setState(() {
+      _trackers = list;
+      _selectedForChart
+        ..clear()
+        ..addAll(_trackers.map((t) => t.id));
     });
 
-    // Pull last 120 days of logs and keep in memory
-    _db
-        .collection('users')
-        .doc(u.uid)
-        .collection('daily_logs')
-        .orderBy('day', descending: false)
-        .limit(120)
-        .snapshots()
-        .listen((snap) {
-      final map = <String, Map<String, double>>{};
-      final daysWithLogs = <String>{};
+    // Onboarding decisions
+    final stage = await Onboarding.getStage();
 
-      DateTime? newest; // most recent updatedAt across docs
-      DateTime? firstToday; // earliest log today
-      DateTime? prevBeforeToday; // last log before today
+    if (list.isEmpty) {
+      // Do NOT auto-create a tracker; guide user to create the first one.
+      if (stage == OnboardingStage.notStarted) {
+        await Onboarding.setStage(OnboardingStage.homeIntro);
+      } else if (stage.index < OnboardingStage.needFirstHabit.index) {
+        await Onboarding.setStage(OnboardingStage.needFirstHabit);
+      }
 
-      final todayKey = _dayKey(DateTime.now());
+      // Start the intro on home; first cue is "Add Habit"
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // If user has 0 trackers, emphasize the add button first.
+          ShowCaseWidget.of(context).startShowCase([
+            OBKeys.addHabit,
+            OBKeys.chartSelector,
+            OBKeys.journalTab,
+            OBKeys.settingsTab,
+          ]);
+        });
+      }
+    } else {
+      // User already has at least one tracker; advance onboarding if needed.
+      if (stage == OnboardingStage.homeIntro ||
+          stage == OnboardingStage.needFirstHabit) {
+        await Onboarding.markHabitCreated();
+      }
 
-      for (final d in snap.docs) {
-        final m = d.data();
-        final vals =
-            (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
-                <String, double>{};
-        map[d.id] = vals.cast<String, double>();
-        if (vals.isNotEmpty) daysWithLogs.add(d.id);
+      // If we’re still in the intro stage, start (or continue) the home tour.
+      final nextStage = await Onboarding.getStage();
+      if (mounted &&
+          (stage == OnboardingStage.notStarted ||
+           stage == OnboardingStage.homeIntro)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ShowCaseWidget.of(context).startShowCase([
+            // Skip addHabit since they already have one, but harmless if left in.
+            OBKeys.chartSelector,
+            OBKeys.journalTab,
+            OBKeys.settingsTab,
+          ]);
+        });
+      }
+    }
+  });
 
-        final ts = (m['updatedAt'] is Timestamp)
-            ? (m['updatedAt'] as Timestamp).toDate()
-            : null;
+  // --- Pull last 120 days of logs and keep in memory
+  _db
+      .collection('users')
+      .doc(u.uid)
+      .collection('daily_logs')
+      .orderBy('day', descending: false)
+      .limit(120)
+      .snapshots()
+      .listen((snap) {
+    final map = <String, Map<String, double>>{};
+    final daysWithLogs = <String>{};
+
+    DateTime? newest; // most recent updatedAt across docs
+    DateTime? firstToday; // earliest log today
+    DateTime? prevBeforeToday; // last log before today
+
+    final todayKey = _dayKey(DateTime.now());
+
+    for (final d in snap.docs) {
+      final m = d.data();
+      final vals =
+          (m['values'] as Map?)
+                  ?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
+              <String, double>{};
+      map[d.id] = vals.cast<String, double>();
+      if (vals.isNotEmpty) daysWithLogs.add(d.id);
+
+      final ts =
+          (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
+      if (ts != null) {
+        if (newest == null || ts.isAfter(newest)) newest = ts;
+      } else if (vals.isNotEmpty) {
+        final dayInt = (m['day'] as num?)?.toInt();
+        if (dayInt != null) {
+          final int y = dayInt ~/ 10000;
+          final int mo = (dayInt % 10000) ~/ 100;
+          final int da = dayInt % 100;
+          final fallback = DateTime(y, mo, da, 23, 59, 59);
+          if (newest == null || fallback.isAfter(newest)) newest = fallback;
+        }
+      }
+
+      if (d.id == todayKey) {
+        final f =
+            (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
+        if (f != null) firstToday = f;
+      } else {
         if (ts != null) {
-          if (newest == null || ts.isAfter(newest)) newest = ts;
-        } else if (vals.isNotEmpty) {
-          final dayInt = (m['day'] as num?)?.toInt();
-          if (dayInt != null) {
-            final int y = dayInt ~/ 10000;
-            final int mo = (dayInt % 10000) ~/ 100;
-            final int da = dayInt % 100;
-            final fallback = DateTime(y, mo, da, 23, 59, 59);
-            if (newest == null || fallback.isAfter(newest)) newest = fallback;
-          }
-        }
-
-        if (d.id == todayKey) {
-          final f =
-              (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
-          if (f != null) firstToday = f;
-        } else {
-          if (ts != null) {
-            if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
-              prevBeforeToday = ts;
-            }
+          if (prevBeforeToday == null || ts.isAfter(prevBeforeToday)) {
+            prevBeforeToday = ts;
           }
         }
       }
-      setState(() {
-        _daily
-          ..clear()
-          ..addAll(map);
-        _daysWithAnyLog
-          ..clear()
-          ..addAll(daysWithLogs);
-        _lastLogAt = newest;
-        _firstLogTodayAt = firstToday;
-        _lastLogBeforeTodayAt = prevBeforeToday;
-      });
+    }
+
+    setState(() {
+      _daily
+        ..clear()
+        ..addAll(map);
+      _daysWithAnyLog
+        ..clear()
+        ..addAll(daysWithLogs);
+      _lastLogAt = newest;
+      _firstLogTodayAt = firstToday;
+      _lastLogBeforeTodayAt = prevBeforeToday;
     });
-  }
+  });
+}
+
 
   // ---- Helpers
   String _dayKey(DateTime d) => DateFormat('yyyy-MM-dd').format(d);

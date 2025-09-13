@@ -26,11 +26,11 @@
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		sxeCv4Y0VsD0sRs+CtM4rmsu4K8=
+		pMAtmUj6pyvbW1acQOPVc/QmSbQ=
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		ibmoqHB2phnkqS9wlz5V621lpis=
+		7JG+irEp3wJoXQ4LYmDewEeSIAU=
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -42,7 +42,7 @@
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		PFYqUlddAUsBO3HSYrONmNzPA54=
+		Zm+3QdC2rmGPSVkPxB1cikqDg+4=
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -54,7 +54,7 @@
 		</data>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		TjQirju5sE009NUzhr67dJ+AGt4=
+		QwQk7tTZfX2B/eNW4IFtBz3nwDM=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -95,14 +95,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			vLBLsWy9aUZeWaPDr1Zwgz6dLcdHCO8pgfLVOfpRNEQ=
+			Y7YfdtrbPaHUggP9pB9aqYzfDjZeHqxeOgOl5HetRA8=
 			</data>
 		</dict>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			7DUi0kY7mt9rT9f8gWub7F026DA7tHTc46bvvgAtpeE=
+			n5b1/VKCyJBHWe88VNJq/8/MsxO+BZS18SjRxKp1P8A=
 			</data>
 		</dict>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -123,7 +123,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			94KeX4uAjYHENg8q7TtE2bPDzenlzV1tOBtJPNijenk=
+			JqzPP07x5mIKex0wOxvXZMnj9zdVBcYGYylf1hHcias=
 			</data>
 		</dict>
 		<key>Modules/FirebaseCoreInternal.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -144,7 +144,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			zbF05IY9MCj+i5ImU2de7WpIXksetEbhlYgHnwZDR8w=
+			J0vkVpLzlUt9VbUINcK+mfycUYdZBK9mofeoRtYzPs8=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
