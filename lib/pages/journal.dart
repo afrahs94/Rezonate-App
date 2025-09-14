@@ -610,25 +610,31 @@ class _JournalPageState extends State<JournalPage>
 
   // Open a friendly chooser for sort options
   Future<void> _openSortSheet() async {
-    // Make labels high-contrast on the white bottom sheet so they’re clearly visible in dark mode too.
-    const labelStyle = TextStyle(
+    final dark = _isDark(context);
+
+    // High-contrast labels for both modes
+    final labelStyle = TextStyle(
       fontWeight: FontWeight.w700,
-      color: Colors.black87,
+      color: dark ? Colors.white : Colors.black87,
     );
+
+    final bg = dark ? const Color(0xFF123A36) : Colors.white;
+    final iconColor = dark ? Colors.white : _teal;
+    final checkColor = dark ? Colors.white : _teal;
 
     await showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: bg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) {
         Widget tile(String title, IconData icon, _OrderBy value) => ListTile(
-          leading: Icon(icon, color: _teal),
+          leading: Icon(icon, color: iconColor),
           title: Text(title, style: labelStyle),
           trailing:
-              _orderBy == value ? const Icon(Icons.check, color: _teal) : null,
+              _orderBy == value ? Icon(Icons.check, color: checkColor) : null,
           onTap: () {
             setState(() => _orderBy = value);
             Navigator.pop(context);
@@ -1550,14 +1556,16 @@ class _SegPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg =
-        active
-            ? (alt ? const Color(0xFFFFFFFF) : Colors.white)
-            : Colors.white70;
-    final fg =
-        active
-            ? (alt ? const Color(0xFF000000) : Colors.black)
-            : Colors.black87;
+    final dark = _isDark(context);
+
+    // Adjust to dark mode for better contrast
+    final Color bg = dark
+        ? (active ? const Color(0xFF123A36) : Colors.white.withOpacity(.12))
+        : (active ? (alt ? const Color(0xFFFFFFFF) : Colors.white) : Colors.white70);
+
+    final Color fg = dark
+        ? (active ? Colors.white : Colors.white70)
+        : (active ? (alt ? const Color(0xFF000000) : Colors.black) : Colors.black87);
 
     return InkWell(
       borderRadius: BorderRadius.circular(28),

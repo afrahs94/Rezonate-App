@@ -1,4 +1,5 @@
 // lib/pages/deactivate_account_page.dart
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -170,13 +171,40 @@ class _DeactivateAccountPageState extends State<DeactivateAccountPage> {
                 ),
               ),
 
-              // Full logo at the top
+              // Full logo at the top — add glow/drop shadow in dark mode (no gray box)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Image.asset(
-                  'assets/images/Full_logo.png',
+                child: SizedBox(
                   height: 230,
-                  fit: BoxFit.contain,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isDark)
+                        Transform.scale(
+                          scale: 1.06,
+                          child: ImageFiltered(
+                            imageFilter:
+                                ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                            child: ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                const Color(0xFF0D7C66).withOpacity(0.85),
+                                BlendMode.srcATop,
+                              ),
+                              child: Image.asset(
+                                'assets/images/Full_logo.png',
+                                height: 230,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ),
+                      Image.asset(
+                        'assets/images/Full_logo.png',
+                        height: 230,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
                 ),
               ),
 

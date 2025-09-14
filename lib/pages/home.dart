@@ -865,7 +865,7 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 18),
 
-                      // ===== Streak pill (dark mode -> dark green surface) =====
+                      // ===== Streak pill (dark mode toned down) =====
                       if (streakNow > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -874,22 +874,17 @@ class _HomePageState extends State<HomePage> {
                           ),
                           decoration: BoxDecoration(
                             color: _isDark
-                                ? const Color(0xFF123A36).withOpacity(0.95)
+                                ? const Color(0xFF0D7C66).withOpacity(.14) // less pop
                                 : Colors.white.withOpacity(.9),
                             borderRadius: BorderRadius.circular(24),
                             border: _isDark
                                 ? Border.all(
-                                    color:
-                                        const Color(0xFF0D7C66).withOpacity(.35),
+                                    color: Colors.white.withOpacity(.10),
                                   )
                                 : null,
                             boxShadow: [
                               if (_isDark)
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(.5),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                )
+                                ...[] // no shadow in dark to reduce pop
                               else
                                 const BoxShadow(
                                   color: Colors.black12,
@@ -900,9 +895,11 @@ class _HomePageState extends State<HomePage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.local_fire_department,
-                                color: Colors.deepOrange,
+                                color: _isDark
+                                    ? Colors.deepOrange.withOpacity(.85)
+                                    : Colors.deepOrange,
                                 size: 18,
                               ),
                               const SizedBox(width: 8),
@@ -1141,7 +1138,7 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 24),
 
-                      // View selector
+                      // View selector (higher contrast in dark mode)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: ChartView.values.map((v) {
@@ -1156,15 +1153,27 @@ class _HomePageState extends State<HomePage> {
                             child: ChoiceChip(
                               label: Text(
                                 lbl,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
+                                  color: _isDark ? Colors.white : Colors.black,
                                 ),
                               ),
                               selected: sel,
                               showCheckmark: false,
-                              selectedColor:
-                                  const Color(0xFF0D7C66).withOpacity(.15),
+                              selectedColor: _isDark
+                                  ? const Color(0xFF0D7C66).withOpacity(.55)
+                                  : const Color(0xFF0D7C66).withOpacity(.15),
+                              backgroundColor: _isDark
+                                  ? Colors.white.withOpacity(.08)
+                                  : Colors.black.withOpacity(.04),
+                              side: _isDark
+                                  ? BorderSide(
+                                      color: sel
+                                          ? Colors.transparent
+                                          : Colors.white.withOpacity(.28),
+                                    )
+                                  : BorderSide.none,
                               onSelected: (_) => setState(() => _view = v),
                             ),
                           );

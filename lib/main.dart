@@ -18,14 +18,22 @@ class ThemeController extends ChangeNotifier {
   bool _isDark;
   bool get isDark => _isDark;
 
+  Future<void> _persistDark() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_dark_mode', _isDark);
+  }
+
   void toggleTheme() {
     _isDark = !_isDark;
+    // fire-and-forget persistence
+    _persistDark();
     notifyListeners();
   }
 
   void setDark(bool value) {
     if (_isDark == value) return;
     _isDark = value;
+    _persistDark(); // fire-and-forget persistence
     notifyListeners();
   }
 }
@@ -62,7 +70,11 @@ Future<void> main() async {
   await UserSettings.init();
   await UserSession.instance.init();
 
-  final controller = ThemeController(isDark: false);
+  // ⚫️ Load persisted dark-mode preference (defaults to false)
+  final prefs = await SharedPreferences.getInstance();
+  final savedDark = prefs.getBool('is_dark_mode') ?? false;
+
+  final controller = ThemeController(isDark: savedDark);
 
   runApp(
     ThemeControllerScope(
