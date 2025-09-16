@@ -13,6 +13,10 @@ import 'package:new_rezonate/pages/home.dart' as home_page;
 import 'package:new_rezonate/pages/settings.dart';
 import 'package:new_rezonate/pages/services/user_settings.dart' as app_settings;
 
+
+import 'onboarding.dart';
+import 'package:showcaseview/showcaseview.dart';
+
 const _teal = Color(0xFF0D7C66);
 // same purple as the top of the header gradient
 const _headerPurple = Color(0xFFBDA9DB);
@@ -193,6 +197,25 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   }
 }
 
+// 👇 NEW: nice forward transition (slide a little + fade)
+PageRouteBuilder<T> _forwardRoute<T>(Widget child) {
+  return PageRouteBuilder<T>(
+    pageBuilder: (_, __, ___) => child,
+    transitionDuration: const Duration(milliseconds: 260),
+    transitionsBuilder: (_, anim, __, child) {
+      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(.06, 0), end: Offset.zero)
+              .animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 class _JournalPageState extends State<JournalPage>
     with SingleTickerProviderStateMixin {
   int _seg = 0;
@@ -222,6 +245,13 @@ class _JournalPageState extends State<JournalPage>
   bool? _anonGlobal;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
 
+  // ====== NEW: Showcase state ======
+  late BuildContext _showcaseCtx;
+  final GlobalKey _journalComposerKey = GlobalKey();
+  final GlobalKey _journalSortKey = GlobalKey();
+  bool _tourActive = false;
+  bool _startedJournalShowcase = false;
+
   @override
   void initState() {
     super.initState();
@@ -250,6 +280,9 @@ class _JournalPageState extends State<JournalPage>
             if (mounted) setState(() => _anonGlobal = anon);
           });
     }
+
+    // Schedule tutorial start after first frame (when _showcaseCtx is captured)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartJournalShowcase());
   }
 
   @override
@@ -261,6 +294,43 @@ class _JournalPageState extends State<JournalPage>
     }
     _userSub?.cancel(); // ✅ stop listening to avoid setState after dispose
     super.dispose();
+  }
+
+  Future<void> _maybeStartJournalShowcase() async {
+    final stage = await Onboarding.getStage();
+
+    // Start only for journal step or during replayed tour.
+    if (_startedJournalShowcase) return;
+    if (!(stage == OnboardingStage.replayingTutorial ||
+        stage == OnboardingStage.journalIntro)) {
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _tourActive = true);
+
+    // Small delay so the widgets are laid out
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        ShowCaseWidget.of(_showcaseCtx).startShowCase([
+          _journalComposerKey,
+          _journalSortKey,
+        ]);
+        _startedJournalShowcase = true;
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _goNextFromJournal() async {
+    // Move the tour along to Settings page.
+    // If you added a distinct `settingsSearch` stage, you can set that instead.
+    await Onboarding.setStage(OnboardingStage.replayingTutorial);
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      _forwardRoute(SettingsPage(userName: widget.userName)),
+    );
   }
 
   Future<void> _loadBlocked() async {
@@ -678,233 +748,292 @@ class _JournalPageState extends State<JournalPage>
   Widget build(BuildContext context) {
     final u = _user;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBody: true,
-      extendBodyBehindAppBar: true,
-      // AppBar removed
-      body: Stack(
-        children: [
-          // FIXED, NON-SCROLLING BACKGROUND LAYER
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(gradient: _bg(context)),
-              ),
-            ),
-          ),
+    return ShowCaseWidget(
+      builder: (ctx) {
+        // Capture a context below ShowCaseWidget
+        _showcaseCtx = ctx;
 
-          // Foreground content
-          SafeArea(
-            child: Stack(
-              children: [
-                Column(
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
+          extendBodyBehindAppBar: true,
+          // AppBar removed
+          body: Stack(
+            children: [
+              // FIXED, NON-SCROLLING BACKGROUND LAYER
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(gradient: _bg(context)),
+                  ),
+                ),
+              ),
+
+              // Foreground content
+              SafeArea(
+                child: Stack(
                   children: [
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Column(
                       children: [
-                        _SegPill(
-                          label: 'Community Feed',
-                          active: _seg == 0,
-                          onTap: () => setState(() => _seg = 0),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _SegPill(
+                              label: 'Community Feed',
+                              active: _seg == 0,
+                              onTap: () => setState(() => _seg = 0),
+                            ),
+                            const SizedBox(width: 16),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 0, 0, 70),
+                            ),
+                            _SegPill(
+                              label: 'My Journal',
+                              active: _seg == 1,
+                              onTap: () => setState(() => _seg = 1),
+                              alt: true,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(0, 0, 0, 70),
+
+                        // Only sort button (time filters removed)
+                        if (_seg == 0)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 3, 16, 1),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Showcase(
+                                key: _journalSortKey,
+                                description:
+                                    'Sort posts by newest, oldest, most reacted, or most replies.',
+                                disposeOnTap: true,
+                                onTargetClick: () {}, // required with disposeOnTap
+                                onToolTipClick: () {},
+                                onBarrierClick: () {},
+                                child: IconButton(
+                                  tooltip: 'Sort',
+                                  onPressed: _openSortSheet,
+                                  icon: const Icon(Icons.sort_rounded),
+                                  color: _textPrimary(context),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        Expanded(
+                          child:
+                              _seg == 0
+                                  ? _CommunityFeed(
+                                    user: u,
+                                    blocked: _blocked,
+                                    publicCol: _public,
+                                    onReact: _reactOnce,
+                                    onReply: _reply, // supports parentId
+                                    onDelete: _deletePost,
+                                    onEdit: _editPost,
+                                    onBlock: _blockUser,
+                                    openReplyFor: _openReplyFor,
+                                    setOpenReplyFor: (id) {
+                                      setState(
+                                        () =>
+                                            _openReplyFor =
+                                                id == _openReplyFor ? null : id,
+                                      );
+                                    },
+                                    replyCtlFor:
+                                        (id) => _replyCtls.putIfAbsent(
+                                          id,
+                                          () => TextEditingController(),
+                                        ),
+                                    fmtFull: _fmtFull,
+                                    relative: _relative,
+                                    filterFrom: _filterFromDate(_timeFilter),
+                                    orderBy: _orderBy,
+                                    selfAnon: _anonNow,
+                                  )
+                                  : FutureBuilder<bool>(
+                                    future: _promptForPin(context),
+                                    builder: (ctx, snap) {
+                                      if (snap.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const Center(
+                                          child: CircularProgressIndicator(),
+                                        );
+                                      }
+                                      if (snap.data == true) {
+                                        return _PrivateJournal(
+                                          uid: u?.uid,
+                                          col:
+                                              u == null
+                                                  ? null
+                                                  : _privateCol(u.uid),
+                                          fmtFull: _fmtFull,
+                                        );
+                                      } else {
+                                        return Center(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'My Journal is locked.',
+                                                style: TextStyle(
+                                                  color: _textPrimary(context),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  final ok =
+                                                      await _promptForPin(
+                                                        context,
+                                                      );
+                                                  if (ok) {
+                                                    if (mounted) {
+                                                      setState(() {});
+                                                    }
+                                                  }
+                                                },
+                                                child: const Text('Unlock'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
                         ),
-                        _SegPill(
-                          label: 'My Journal',
-                          active: _seg == 1,
-                          onTap: () => setState(() => _seg = 1),
-                          alt: true,
+
+                        const SizedBox(height: 16),
+
+                        // Warning appears RIGHT ABOVE only when typing
+                        if (_seg == 0 && _showTriggerAdvice)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Row(
+                                children: const [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 18,
+                                    color: Colors.orange,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'If discussing sensitive topics, please add a trigger warning to your post.',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                        // Composer (community only)
+                        if (_seg == 0)
+                          Showcase(
+                            key: _journalComposerKey,
+                            description:
+                                'Write a post to the community. You can @mention people too.',
+                            disposeOnTap: true,
+                            onTargetClick: () {},
+                            onToolTipClick: () {},
+                            onBarrierClick: () {},
+                            child: _ComposerWithMentions(
+                              controller: _pubCtl,
+                              focusNode: _pubFocus,
+                              hintText: 'start writing',
+                              onSubmit: _postPublic,
+                              showTriggerAdvice: (s) {
+                                if (!mounted) return;
+                                setState(() => _showTriggerAdvice = s);
+                              },
+                              leadingAvatarUrl: u?.photoURL,
+                            ),
+                          )
+                        else
+                          const SizedBox(height: 8),
+
+                        _BottomNavTransparent(
+                          selectedIndex: 1,
+                          onHome:
+                              () => Navigator.pushReplacement(
+                                context,
+                                NoTransitionPageRoute(
+                                  builder:
+                                      (_) => home_page.HomePage(
+                                        userName: widget.userName,
+                                      ),
+                                ),
+                              ),
+                          onJournal: () {},
+                          onSettings:
+                              () => Navigator.pushReplacement(
+                                context,
+                                NoTransitionPageRoute(
+                                  builder:
+                                      (_) =>
+                                          SettingsPage(userName: widget.userName),
+                                ),
+                              ),
                         ),
                       ],
                     ),
 
-                    // Only sort button (time filters removed)
-                    if (_seg == 0)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 3, 16, 1),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton(
-                            tooltip: 'Sort',
-                            onPressed: _openSortSheet,
-                            icon: const Icon(Icons.sort_rounded),
-                            color: _textPrimary(context),
-                          ),
+                    // FAB for adding private entry (floats above bottom nav)
+                    if (_seg == 1)
+                      Positioned(
+                        right: 16,
+                        bottom: 86,
+                        child: FloatingActionButton(
+                          backgroundColor: _teal,
+                          onPressed: _openCreatePrivateDialog,
+                          child: const Icon(Icons.add, color: Colors.white),
                         ),
                       ),
 
-                    Expanded(
-                      child:
-                          _seg == 0
-                              ? _CommunityFeed(
-                                user: u,
-                                blocked: _blocked,
-                                publicCol: _public,
-                                onReact: _reactOnce,
-                                onReply: _reply, // supports parentId
-                                onDelete: _deletePost,
-                                onEdit: _editPost,
-                                onBlock: _blockUser,
-                                openReplyFor: _openReplyFor,
-                                setOpenReplyFor: (id) {
-                                  setState(
-                                    () =>
-                                        _openReplyFor =
-                                            id == _openReplyFor ? null : id,
-                                  );
-                                },
-                                replyCtlFor:
-                                    (id) => _replyCtls.putIfAbsent(
-                                      id,
-                                      () => TextEditingController(),
-                                    ),
-                                fmtFull: _fmtFull,
-                                relative: _relative,
-                                filterFrom: _filterFromDate(_timeFilter),
-                                orderBy: _orderBy,
-                                selfAnon: _anonNow,
-                              )
-                              : FutureBuilder<bool>(
-                                future: _promptForPin(context),
-                                builder: (ctx, snap) {
-                                  if (snap.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
-                                    );
-                                  }
-                                  if (snap.data == true) {
-                                    return _PrivateJournal(
-                                      uid: u?.uid,
-                                      col:
-                                          u == null ? null : _privateCol(u.uid),
-                                      fmtFull: _fmtFull,
-                                    );
-                                  } else {
-                                    return Center(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'My Journal is locked.',
-                                            style: TextStyle(
-                                              color: _textPrimary(context),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              final ok = await _promptForPin(
-                                                context,
-                                              );
-                                              if (ok) {
-                                                if (mounted) setState(() {});
-                                              }
-                                            },
-                                            child: const Text('Unlock'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Warning appears RIGHT ABOVE only when typing
-                    if (_seg == 0 && _showTriggerAdvice)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade200),
+                    // 👇 NEW: "Next" button shown during the tour to move to Settings
+                    if (_tourActive)
+                      Positioned(
+                        right: 16,
+                        bottom: 16 + 56, // above bottom nav a bit
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                          label: const Text(
+                            'Next',
+                            style: TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          child: Row(
-                            children: const [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                size: 18,
-                                color: Colors.orange,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'If discussing sensitive topics, please add a trigger warning to your post.',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _teal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 3,
                           ),
+                          onPressed: _goNextFromJournal,
                         ),
                       ),
-
-                    // Composer (community only)
-                    if (_seg == 0)
-                      _ComposerWithMentions(
-                        controller: _pubCtl,
-                        focusNode: _pubFocus,
-                        hintText: 'start writing',
-                        onSubmit: _postPublic,
-                        showTriggerAdvice: (s) {
-                          setState(() => _showTriggerAdvice = s);
-                        },
-                        leadingAvatarUrl: u?.photoURL,
-                      )
-                    else
-                      const SizedBox(height: 8),
-
-                    _BottomNavTransparent(
-                      selectedIndex: 1,
-                      onHome:
-                          () => Navigator.pushReplacement(
-                            context,
-                            NoTransitionPageRoute(
-                              builder:
-                                  (_) => home_page.HomePage(
-                                    userName: widget.userName,
-                                  ),
-                            ),
-                          ),
-                      onJournal: () {},
-                      onSettings:
-                          () => Navigator.pushReplacement(
-                            context,
-                            NoTransitionPageRoute(
-                              builder:
-                                  (_) =>
-                                      SettingsPage(userName: widget.userName),
-                            ),
-                          ),
-                    ),
                   ],
                 ),
-
-                // FAB for adding private entry (floats above bottom nav)
-                if (_seg == 1)
-                  Positioned(
-                    right: 16,
-                    bottom: 86,
-                    child: FloatingActionButton(
-                      backgroundColor: _teal,
-                      onPressed: _openCreatePrivateDialog,
-                      child: const Icon(Icons.add, color: Colors.white),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -921,9 +1050,9 @@ class _CommunityFeed extends StatelessWidget {
     required this.onEdit,
     required this.onBlock,
     required this.openReplyFor,
+    required this.formatFull,
     required this.setOpenReplyFor,
     required this.replyCtlFor,
-    required this.fmtFull,
     required this.relative,
     required this.filterFrom,
     required this.orderBy,
@@ -942,7 +1071,7 @@ class _CommunityFeed extends StatelessWidget {
   final String? openReplyFor;
   final void Function(String? id) setOpenReplyFor;
   final TextEditingController Function(String postId) replyCtlFor;
-  final String Function(DateTime) fmtFull;
+  final String Function(DateTime) formatFull;
   final String Function(DateTime) relative;
   final DateTime? filterFrom;
   final _OrderBy orderBy;
@@ -1094,7 +1223,7 @@ class _CommunityFeed extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          fmtFull(ts),
+                          formatFull(ts),
                           style: TextStyle(
                             color: _textSecondary(context),
                             fontSize: 12,
@@ -1216,12 +1345,12 @@ class _PrivateJournal extends StatelessWidget {
   const _PrivateJournal({
     required this.uid,
     required this.col,
-    required this.fmtFull,
+    required this.formatFull,
   });
 
   final String? uid;
   final CollectionReference<Map<String, dynamic>>? col;
-  final String Function(DateTime) fmtFull;
+  final String Function(DateTime) formatFull;
 
   // --- Icon options for private entries
   static const Map<String, IconData> _iconChoices = {
@@ -1395,7 +1524,7 @@ class _PrivateJournal extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Created • ${fmtFull(created)}',
+                        'Created • ${formatFull(created)}',
                         style: TextStyle(
                           color: _textSecondary(context),
                           fontSize: 12,
@@ -1404,7 +1533,7 @@ class _PrivateJournal extends StatelessWidget {
                       if (edited && updated != null) ...[
                         const SizedBox(height: 2),
                         Text(
-                          'Edited • ${fmtFull(updated)}',
+                          'Edited • ${formatFull(updated)}',
                           style: TextStyle(
                             color: _textSecondary(context),
                             fontSize: 12,

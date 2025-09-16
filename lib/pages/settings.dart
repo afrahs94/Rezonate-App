@@ -40,11 +40,12 @@ class _SettingsPageState extends State<SettingsPage> {
   late List<_Item> _shown;
   late List<String> _suggestions;
 
-  // 👇 local key for the Search showcase (avoids OBKeys import issues)
+  // Local key for the Search showcase
   final GlobalKey _settingsSearchKey = GlobalKey();
 
-  // showcase ctx (must be under ShowCaseWidget)
-  late BuildContext _showcaseCtx;
+  // Showcase context (must be under ShowCaseWidget)
+  BuildContext? _showcaseCtx;
+  bool _startedSearchShowcase = false; // avoid double-start
 
   @override
   void initState() {
@@ -55,8 +56,8 @@ class _SettingsPageState extends State<SettingsPage> {
         label: 'Edit Profile',
         icon: Icons.person_outline,
         keywords: const [
-          'edit profile', 'profile', 'name', 'username', 'email', 'bio',
-          'photo', 'picture', 'avatar', 'birthday', 'account info', 'details',
+          'edit profile','profile','name','username','email','bio',
+          'photo','picture','avatar','birthday','account info','details',
         ],
         builder: () => EditProfilePage(userName: widget.userName),
       ),
@@ -105,18 +106,33 @@ class _SettingsPageState extends State<SettingsPage> {
     _shown = List.of(_all);
     _searchCtrl.addListener(_onSearch);
 
-    _maybeStartSettingsShowcase();
+    _maybeStartSettingsShowcase(); // will queue until context exists
   }
 
+  // Start the search showcase when coming from either replay OR the sequential flow.
   Future<void> _maybeStartSettingsShowcase() async {
     final stage = await Onboarding.getStage();
-    if (stage != OnboardingStage.replayingTutorial) return;
+    if (_startedSearchShowcase) return;
+    if (stage != OnboardingStage.settingsSearch &&
+        stage != OnboardingStage.replayingTutorial) {
+      return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final ctx = _showcaseCtx;
+      if (ctx == null) {
+        // build hasn't supplied the context yet; try again next frame
+        _maybeStartSettingsShowcase();
+        return;
+      }
       try {
-        ShowCaseWidget.of(_showcaseCtx).startShowCase([_settingsSearchKey]);
-      } catch (_) {}
+        ShowCaseWidget.of(ctx).startShowCase([_settingsSearchKey]);
+        _startedSearchShowcase = true;
+      } catch (_) {
+        // If context still not ready, try again on next frame.
+        _maybeStartSettingsShowcase();
+      }
     });
   }
 
@@ -127,10 +143,13 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
+  // ---------- search helpers ----------
   String _norm(String s) => s.toLowerCase().trim();
   int _lev(String a, String b) {
     a = _norm(a); b = _norm(b);
-    if (a == b) return 0; if (a.isEmpty) return b.length; if (b.isEmpty) return a.length;
+    if (a == b) return 0;
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
     final m = a.length, n = b.length;
     final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0));
     for (var i = 0; i <= m; i++) dp[i][0] = i;
@@ -165,7 +184,8 @@ class _SettingsPageState extends State<SettingsPage> {
         if (best == 0) break;
       }
       if (best <= 3) {
-        scores[it.label] = scores[it.label] == null ? best : (best < scores[it.label]!? best : scores[it.label]!);
+        scores[it.label] =
+            scores[it.label] == null ? best : (best < scores[it.label]! ? best : scores[it.label]!);
       }
     }
     final sorted = scores.entries.toList()
@@ -187,7 +207,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final isSearchable = it.type == _RowType.link || isLogout || isReplay;
       if (!isSearchable) return false;
 
-      final haystack = <String>[ it.label.toLowerCase(), ...it.keywords.map((k) => k.toLowerCase()) ];
+      final haystack = <String>[it.label.toLowerCase(), ...it.keywords.map((k) => k.toLowerCase())];
 
       const minLen = 3;
       if (isLogout) {
@@ -232,7 +252,8 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(height: 4, width: 44, margin: const EdgeInsets.only(bottom: 8),
+                Container(
+                  height: 4, width: 44, margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(20)),
                 ),
                 const Padding(
@@ -257,8 +278,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<Color> _gradient(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return dark ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-                : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)];
+    return dark
+        ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+        : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)];
   }
 
   @override
@@ -268,128 +290,168 @@ class _SettingsPageState extends State<SettingsPage> {
     final searchFill = isDark ? const Color(0x1AF5F5F5) : Colors.white;
 
     return ShowCaseWidget(
-      builder: (ctx) {
-        _showcaseCtx = ctx;
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: g, begin: Alignment.topCenter, end: Alignment.bottomCenter),
-            ),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(40, 29, 40, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text('Settings', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ),
-                  ),
+      builder: (root) {
+        // Capture a context that is under ShowCaseWidget
+        return Builder(
+          builder: (ctx) {
+            _showcaseCtx = ctx;
+            // If the stage was already set by Home, kick it off now
+            if (!_startedSearchShowcase) _maybeStartSettingsShowcase();
 
-                  // 🔎 Showcase ends here
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                    child: Showcase(
-                      key: _settingsSearchKey,
-                      description:
-                          'Search anything in Settings — try “password”, “notifications”, or “dark mode”. It’s the fastest way to find options.',
-                      disposeOnTap: true,
-                      onToolTipClick: () async => Onboarding.setStage(OnboardingStage.done),
-                      onTargetClick:  () async => Onboarding.setStage(OnboardingStage.done),
-                      onBarrierClick: () async => Onboarding.setStage(OnboardingStage.done),
-                      child: Material(
-                        elevation: 4,
-                        shadowColor: Colors.black12,
-                        borderRadius: BorderRadius.circular(28),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (_) => _goToSearchResult(),
-                          decoration: InputDecoration(
-                            hintText: 'Search settings…',
-                            filled: true,
-                            fillColor: searchFill,
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _searchCtrl.text.isEmpty
-                                ? null
-                                : IconButton(
-                                    tooltip: 'Clear',
-                                    icon: const Icon(Icons.close),
-                                    onPressed: () {
-                                      _searchCtrl.clear();
-                                      _onSearch();
-                                    },
-                                  ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(28),
-                              borderSide: BorderSide.none,
+            return Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: g, begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(40, 29, 40, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text('Settings', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700)),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 🔎 Search (showcased)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                        child: Showcase(
+                          key: _settingsSearchKey,
+                          description:
+                              'Search anything in Settings — try “password”, “notifications”, or “dark mode”. It’s the fastest way to find options.',
+                          disposeOnTap: true,
+                          onTargetClick: () async {
+                            // close this step and mark onboarding done
+                            try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
+                            await Onboarding.setStage(OnboardingStage.done);
+                          },
+                          onToolTipClick: () async {
+                            try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
+                            await Onboarding.setStage(OnboardingStage.done);
+                          },
+                          onBarrierClick: () async {
+                            try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
+                            await Onboarding.setStage(OnboardingStage.done);
+                          },
+                          child: Material(
+                            elevation: 4,
+                            shadowColor: Colors.black12,
+                            borderRadius: BorderRadius.circular(28),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: (_) => _goToSearchResult(),
+                              decoration: InputDecoration(
+                                hintText: 'Search settings…',
+                                filled: true,
+                                fillColor: searchFill,
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon: _searchCtrl.text.isEmpty
+                                    ? null
+                                    : IconButton(
+                                        tooltip: 'Clear',
+                                        icon: const Icon(Icons.close),
+                                        onPressed: () {
+                                          _searchCtrl.clear();
+                                          _onSearch();
+                                        },
+                                      ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
 
-                  if (_suggestions.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
-                      child: _DidYouMean(
-                        suggestions: _suggestions,
-                        onTap: (label) {
-                          _searchCtrl.text = label;
-                          _searchCtrl.selection =
-                              TextSelection.fromPosition(TextPosition(offset: _searchCtrl.text.length));
-                          _onSearch();
-                        },
-                      ),
-                    ),
-
-                  Expanded(
-                    child: _shown.isEmpty
-                        ? const Center(
-                            child: Text('No results',
-                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                            itemCount: _shown.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 14),
-                            itemBuilder: (context, i) {
-                              final it = _shown[i];
-                              if (it.type == _RowType.darkMode) return _darkModeRow(context);
-                              if (it.type == _RowType.logout) return _logoutRow(context);
-                              if (it.type == _RowType.replay) return _replayRow(context);
-                              return _linkRow(context, it);
+                      if (_suggestions.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                          child: _DidYouMean(
+                            suggestions: _suggestions,
+                            onTap: (label) {
+                              _searchCtrl.text = label;
+                              _searchCtrl.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _searchCtrl.text.length),
+                              );
+                              _onSearch();
                             },
                           ),
-                  ),
+                        ),
 
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _navIcon(context, icon: Icons.home_rounded, selected: false, onTap: () {
-                          Navigator.pushReplacement(context,
-                              NoTransitionPageRoute(builder: (_) => HomePage(userName: widget.userName)));
-                        }),
-                        _navIcon(context, icon: Icons.menu_book_rounded, selected: false, onTap: () {
-                          Navigator.pushReplacement(context,
-                              NoTransitionPageRoute(builder: (_) => JournalPage(userName: widget.userName)));
-                        }),
-                        _navIcon(context, icon: Icons.settings_rounded, selected: true, onTap: () {}),
-                      ],
-                    ),
+                      Expanded(
+                        child: _shown.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No results',
+                                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54),
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                                itemCount: _shown.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                                itemBuilder: (context, i) {
+                                  final it = _shown[i];
+                                  if (it.type == _RowType.darkMode) return _darkModeRow(context);
+                                  if (it.type == _RowType.logout) return _logoutRow(context);
+                                  if (it.type == _RowType.replay) return _replayRow(context);
+                                  return _linkRow(context, it);
+                                },
+                              ),
+                      ),
+
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _navIcon(
+                              context,
+                              icon: Icons.home_rounded,
+                              selected: false,
+                              onTap: () => Navigator.pushReplacement(
+                                context,
+                                NoTransitionPageRoute(
+                                  builder: (_) => HomePage(userName: widget.userName),
+                                ),
+                              ),
+                            ),
+                            _navIcon(
+                              context,
+                              icon: Icons.menu_book_rounded,
+                              selected: false,
+                              onTap: () => Navigator.pushReplacement(
+                                context,
+                                NoTransitionPageRoute(
+                                  builder: (_) => JournalPage(userName: widget.userName),
+                                ),
+                              ),
+                            ),
+                            _navIcon(
+                              context,
+                              icon: Icons.settings_rounded,
+                              selected: true,
+                              onTap: () {},
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -414,7 +476,10 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(it.icon, color: Colors.white, size: 22),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(it.label, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+              child: Text(
+                it.label,
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              ),
             ),
             const Icon(Icons.arrow_forward_rounded, color: Colors.white),
           ],
@@ -439,7 +504,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
       if (ok == true) {
-        await Onboarding.replayTutorial();
+        await Onboarding.replayTutorial(); // sets stage and returns to Home
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
@@ -464,7 +529,8 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(Icons.school_outlined, color: Colors.white, size: 22),
             SizedBox(width: 12),
             Expanded(
-              child: Text('Replay Tutorial', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+              child: Text('Replay Tutorial',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             Icon(Icons.play_circle_outline, color: Colors.white),
           ],
@@ -496,8 +562,14 @@ class _SettingsPageState extends State<SettingsPage> {
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               transitionBuilder: (child, anim) =>
-                  RotationTransition(turns: child.key == const ValueKey('sun') ? Tween<double>(begin: .75, end: 1).animate(anim) : Tween<double>(begin: .25, end: 1).animate(anim), child: FadeTransition(opacity: anim, child: child)),
-              child: Icon(on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded, key: ValueKey(on ? 'moon' : 'sun'), size: 26, color: on ? Colors.amber : Colors.white),
+                  RotationTransition(
+                    turns: child.key == const ValueKey('sun')
+                        ? Tween<double>(begin: .75, end: 1).animate(anim)
+                        : Tween<double>(begin: .25, end: 1).animate(anim),
+                    child: FadeTransition(opacity: anim, child: child),
+                  ),
+              child: Icon(on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
+                  key: ValueKey(on ? 'moon' : 'sun'), size: 26, color: on ? Colors.amber : Colors.white),
             ),
           ),
         ],
@@ -516,8 +588,10 @@ class _SettingsPageState extends State<SettingsPage> {
           title: Text('Log out?', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           content: Text('Are you sure you want to log out?', style: theme.textTheme.bodyMedium),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary))),
-            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600))),
+            TextButton(onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary))),
+            TextButton(onPressed: () => Navigator.pop(context, true),
+                child: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600))),
           ],
         ),
       );
@@ -586,14 +660,22 @@ class _Item {
 
   _Item._special(this.label, this.icon, this.keywords, this.type) : _builder = null;
 
-  factory _Item.darkMode() => _Item._special('Dark Mode', Icons.dark_mode_rounded, const [], _RowType.darkMode);
-  factory _Item.logout() => _Item._special('Log out', Icons.logout_rounded,
-      const ['logout', 'log out', 'sign out', 'logoff', 'log off'], _RowType.logout);
+  factory _Item.darkMode() =>
+      _Item._special('Dark Mode', Icons.dark_mode_rounded, const [], _RowType.darkMode);
+
+  factory _Item.logout() => _Item._special(
+        'Log out',
+        Icons.logout_rounded,
+        const ['logout', 'log out', 'sign out', 'logoff', 'log off'],
+        _RowType.logout,
+      );
+
   factory _Item.replayTutorial() => _Item._special(
-      'Replay Tutorial',
-      Icons.school_outlined,
-      const ['replay tutorial', 'tutorial', 'tour', 'walkthrough', 'guide', 'help', 'how to', 'onboarding', 'showcase', 'intro'],
-      _RowType.replay);
+        'Replay Tutorial',
+        Icons.school_outlined,
+        const ['replay tutorial', 'tutorial', 'tour', 'walkthrough', 'guide', 'help', 'how to', 'onboarding', 'showcase', 'intro'],
+        _RowType.replay,
+      );
 
   Widget builder() => _builder!.call();
 }
@@ -622,4 +704,3 @@ class _DidYouMean extends StatelessWidget {
     );
   }
 }
-
