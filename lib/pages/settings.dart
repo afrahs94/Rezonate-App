@@ -1,4 +1,6 @@
 // lib/pages/settings.dart
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +14,7 @@ import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
 import 'package:new_rezonate/pages/login_page.dart';
 
-// Onboarding + showcase
+
 import 'onboarding.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -46,6 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
   // Showcase context (must be under ShowCaseWidget)
   BuildContext? _showcaseCtx;
   bool _startedSearchShowcase = false; // avoid double-start
+  Timer? _replayAutoFinishTimer; // auto-complete in replay
 
   @override
   void initState() {
@@ -109,6 +112,14 @@ class _SettingsPageState extends State<SettingsPage> {
     _maybeStartSettingsShowcase(); // will queue until context exists
   }
 
+  @override
+  void dispose() {
+    _replayAutoFinishTimer?.cancel();
+    _searchCtrl.removeListener(_onSearch);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   // Start the search showcase when coming from either replay OR the sequential flow.
   Future<void> _maybeStartSettingsShowcase() async {
     final stage = await Onboarding.getStage();
@@ -118,7 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ctx = _showcaseCtx;
       if (ctx == null) {
@@ -129,18 +140,25 @@ class _SettingsPageState extends State<SettingsPage> {
       try {
         ShowCaseWidget.of(ctx).startShowCase([_settingsSearchKey]);
         _startedSearchShowcase = true;
+
+        // In replay mode: auto-finish this page after ~2s.
+        if (Onboarding.isReplayActive || stage == OnboardingStage.replayingTutorial) {
+          _replayAutoFinishTimer?.cancel();
+          _replayAutoFinishTimer = Timer(const Duration(seconds: 2), () async {
+            if (!mounted) return;
+            try { ShowCaseWidget.of(ctx).dismiss(); } catch (_) {}
+            await Onboarding.completeReplay(); // marks done
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tutorial finished ✨')),
+            );
+          });
+        }
       } catch (_) {
         // If context still not ready, try again on next frame.
         _maybeStartSettingsShowcase();
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.removeListener(_onSearch);
-    _searchCtrl.dispose();
-    super.dispose();
   }
 
   // ---------- search helpers ----------
@@ -327,17 +345,40 @@ class _SettingsPageState extends State<SettingsPage> {
                               'Search anything in Settings — try “password”, “notifications”, or “dark mode”. It’s the fastest way to find options.',
                           disposeOnTap: true,
                           onTargetClick: () async {
-                            // close this step and mark onboarding done
                             try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
-                            await Onboarding.setStage(OnboardingStage.done);
+                            if (Onboarding.isReplayActive) {
+                              await Onboarding.completeReplay();
+                            } else {
+                              await Onboarding.markDone();
+                            }
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('You’re all set ✨')),
+                            );
                           },
                           onToolTipClick: () async {
                             try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
-                            await Onboarding.setStage(OnboardingStage.done);
+                            if (Onboarding.isReplayActive) {
+                              await Onboarding.completeReplay();
+                            } else {
+                              await Onboarding.markDone();
+                            }
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('You’re all set ✨')),
+                            );
                           },
                           onBarrierClick: () async {
                             try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
-                            await Onboarding.setStage(OnboardingStage.done);
+                            if (Onboarding.isReplayActive) {
+                              await Onboarding.completeReplay();
+                            } else {
+                              await Onboarding.markDone();
+                            }
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('You’re all set ✨')),
+                            );
                           },
                           child: Material(
                             elevation: 4,
@@ -504,7 +545,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
       if (ok == true) {
-        await Onboarding.replayTutorial(); // sets stage and returns to Home
+        await Onboarding.startReplay(); // ephemeral replay mode
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
@@ -560,7 +601,7 @@ class _SettingsPageState extends State<SettingsPage> {
           GestureDetector(
             onTap: () => ctrl.toggleTheme(),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 2000),
               transitionBuilder: (child, anim) =>
                   RotationTransition(
                     turns: child.key == const ValueKey('sun')

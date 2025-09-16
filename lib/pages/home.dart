@@ -1,4 +1,5 @@
 // lib/pages/home.dart
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui' show FontFeature, ImageFilter;
 import 'package:flutter/material.dart';
@@ -66,6 +67,19 @@ class _HomePageState extends State<HomePage> {
   final _db = FirebaseFirestore.instance;
   User? get _user => _auth.currentUser;
 
+Timer? _replayAutoNext;            // auto-advance in replay
+int? _prevTrackerCount;            // detect 0 -> 1 transition
+bool _navigatedAfterHabit = false; // avoid double navigation
+
+  
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _trackersSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _logsSub;
+
+  // ---- Showcase
+  BuildContext? _showcaseCtx;
+  bool _tourActive = false;      // show helper UI like “Next”
+  bool _showNextButton = false;  // only when we can proceed to Journal
+
   // ---- Local UI state
   final _rnd = Random();
   List<Tracker> _trackers = [];
@@ -95,12 +109,19 @@ class _HomePageState extends State<HomePage> {
   };
   late Map<int, String> _emojiForTick = Map<int, String>.from(_defaultEmojis);
 
-  // ---- Lifecycle
   @override
   void initState() {
     super.initState();
     _bootstrap().then((_) => _maybeStartHomeShowcase());
-    _loadEmojis(); // load user custom emojis
+    _loadEmojis();
+  }
+
+  @override
+  void dispose() {
+    _replayAutoNext?.cancel(); 
+    _trackersSub?.cancel();
+    _logsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadEmojis() async {
@@ -109,6 +130,7 @@ class _HomePageState extends State<HomePage> {
     for (final t in _emojiTicks) {
       loaded[t] = prefs.getString('emoji_tick_$t') ?? _defaultEmojis[t]!;
     }
+    if (!mounted) return;
     setState(() => _emojiForTick = loaded);
   }
 
@@ -117,6 +139,7 @@ class _HomePageState extends State<HomePage> {
     for (final t in _emojiTicks) {
       await prefs.setString('emoji_tick_$t', next[t] ?? _defaultEmojis[t]!);
     }
+    if (!mounted) return;
     setState(() => _emojiForTick = Map<int, String>.from(next));
   }
 
@@ -185,7 +208,6 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     TextButton(
                       onPressed: () {
-                        // reset to defaults
                         for (final t in _emojiTicks) {
                           controllers[t]!.text = _defaultEmojis[t]!;
                           draft[t] = _defaultEmojis[t]!;
@@ -222,99 +244,135 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _maybeStartHomeShowcase() async {
-    final stage = await Onboarding.getStage();
+  var stage = await Onboarding.getStage();
 
-    // If first run, start at home intro
-    if (stage == OnboardingStage.notStarted) {
-      await Onboarding.setStage(OnboardingStage.homeIntro);
-    }
-
-    if (!mounted) return;
-
-    if (stage == OnboardingStage.notStarted ||
-        stage == OnboardingStage.homeIntro) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ShowCaseWidget.of(context).startShowCase([
-          OBKeys.addHabit,
-          OBKeys.chartSelector,
-          OBKeys.journalTab,
-          OBKeys.settingsTab,
-        ]);
-      });
-    }
+  if (stage == OnboardingStage.notStarted) {
+    await Onboarding.setStage(OnboardingStage.homeIntro);
+    stage = OnboardingStage.homeIntro;
   }
+  if (!mounted) return;
+
+  final isRelevant = stage == OnboardingStage.homeIntro ||
+      stage == OnboardingStage.needFirstHabit ||
+      stage == OnboardingStage.replayingTutorial;
+
+  setState(() {
+    _tourActive = isRelevant;
+    _showNextButton = false; 
+  });
+
+  if (!isRelevant) return;
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final ctx = _showcaseCtx;
+    if (ctx == null) return;
+    try {
+      ShowCaseWidget.of(ctx).startShowCase([
+        OBKeys.addHabit,
+        OBKeys.chartSelector,
+        OBKeys.journalTab,
+        OBKeys.settingsTab,
+      ]);
+    } catch (_) {}
+  });
+
+
+  if (stage == OnboardingStage.replayingTutorial) {
+    _replayAutoNext?.cancel();
+    _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        _slideTo(JournalPage(userName: widget.userName)),
+      );
+    });
+  }
+}
+
 
   Future<void> _bootstrap() async {
     final u = _user;
     if (u == null) return;
 
     // --- Trackers live snapshot
-    _db
-        .collection('users')
-        .doc(u.uid)
-        .collection('trackers')
-        .orderBy('sort')
-        .snapshots()
-        .listen((snap) async {
-      final list = snap.docs.map(Tracker.fromDoc).toList();
+    _trackersSub = _db
+    .collection('users')
+    .doc(u.uid)
+    .collection('trackers')
+    .orderBy('sort')
+    .snapshots()
+    .listen((snap) async {
+  final list = snap.docs.map(Tracker.fromDoc).toList();
+  final count = list.length;
 
-      // Update local state first
-      setState(() {
-        _trackers = list;
-        _selectedForChart
-          ..clear()
-          ..addAll(_trackers.map((t) => t.id));
-      });
+  if (!mounted) return;
+  setState(() {
+    _trackers = list;
+    _selectedForChart
+      ..clear()
+      ..addAll(_trackers.map((t) => t.id));
+  });
 
-      // Onboarding decisions
-      final stage = await Onboarding.getStage();
+  final stage = await Onboarding.getStage();
 
-      if (list.isEmpty) {
-        // Do NOT auto-create a tracker; guide user to create the first one.
-        if (stage == OnboardingStage.notStarted) {
-          await Onboarding.setStage(OnboardingStage.homeIntro);
-        } else if (stage.index < OnboardingStage.needFirstHabit.index) {
-          await Onboarding.setStage(OnboardingStage.needFirstHabit);
-        }
-
-        // Start the intro on home; first cue is "Add Habit"
-        if (mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // If user has 0 trackers, emphasize the add button first.
-            ShowCaseWidget.of(context).startShowCase([
-              OBKeys.addHabit,
-              OBKeys.chartSelector,
-              OBKeys.journalTab,
-              OBKeys.settingsTab,
-            ]);
-          });
-        }
-      } else {
-        // User already has at least one tracker; advance onboarding if needed.
-        if (stage == OnboardingStage.homeIntro ||
-            stage == OnboardingStage.needFirstHabit) {
-          await Onboarding.markHabitCreated();
-        }
-
-        // If we’re still in the intro stage, start (or continue) the home tour.
-        final nextStage = await Onboarding.getStage();
-        if (mounted &&
-            (stage == OnboardingStage.notStarted ||
-                stage == OnboardingStage.homeIntro)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ShowCaseWidget.of(context).startShowCase([
-              // Skip addHabit since they already have one, but harmless if left in.
-              OBKeys.chartSelector,
-              OBKeys.journalTab,
-              OBKeys.settingsTab,
-            ]);
-          });
-        }
+  // -------- Gated flow (new users) ----------
+  if (stage == OnboardingStage.homeIntro ||
+      stage == OnboardingStage.needFirstHabit) {
+    // Start bubbles on Home while count == 0
+    if (count == 0) {
+      await Onboarding.setStage(OnboardingStage.needFirstHabit);
+      if (mounted) {
+        setState(() {
+          _tourActive = true;
+          _showNextButton = false; // can't continue yet
+        });
       }
-    });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _showcaseCtx;
+        if (ctx == null) return;
+        try {
+          ShowCaseWidget.of(ctx).startShowCase([
+            OBKeys.addHabit,
+            OBKeys.chartSelector,
+            OBKeys.journalTab,
+            OBKeys.settingsTab,
+          ]);
+        } catch (_) {}
+      });
+    }
+
+    // Detect 0 -> 1+ transition and auto-advance to Journal
+    final prev = _prevTrackerCount ?? 0;
+    if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
+      await Onboarding.markHabitCreated(); // -> needFirstCommunity
+      _navigatedAfterHabit = true;
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        _slideTo(JournalPage(userName: widget.userName)),
+      );
+      return; // stop further UI updates on this frame
+    }
+  }
+
+  // Remember for next snapshot
+  _prevTrackerCount = count;
+
+  // -------- Replay mode ----------
+  if (stage == OnboardingStage.replayingTutorial) {
+    // Showcase is started in _maybeStartHomeShowcase and timer handles nav.
+    if (mounted) {
+      setState(() {
+        _tourActive = true;
+        _showNextButton = false;
+      });
+    }
+  }
+});
+
 
     // --- Pull last 120 days of logs and keep in memory
-    _db
+    _logsSub = _db
         .collection('users')
         .doc(u.uid)
         .collection('daily_logs')
@@ -368,6 +426,7 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
+      if (!mounted) return;
       setState(() {
         _daily
           ..clear()
@@ -428,7 +487,6 @@ class _HomePageState extends State<HomePage> {
     final within24h =
         _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
     if (!hasToday && !within24h) {
-      // >24h since any log → streak broken
       return 0;
     }
 
@@ -458,7 +516,6 @@ class _HomePageState extends State<HomePage> {
       d = d.subtract(const Duration(days: 1));
     }
 
-    // Require at least 2 filled days; display consecutive-1
     if (consecutive <= 1) return 0;
     return consecutive - 1;
   }
@@ -532,7 +589,6 @@ class _HomePageState extends State<HomePage> {
     final u = _user;
     if (u == null) return;
 
-    // local
     final now = DateTime.now();
     final key = _dayKey(now);
     _daily.putIfAbsent(key, () => {});
@@ -540,9 +596,8 @@ class _HomePageState extends State<HomePage> {
     _daysWithAnyLog.add(key);
     _lastLogAt = now;
     _firstLogTodayAt ??= now;
-    setState(() => t.value = v);
+    if (mounted) setState(() => t.value = v);
 
-    // remote
     final dayInt = int.parse(DateFormat('yyyyMMdd').format(now));
     final docRef =
         _db.collection('users').doc(u.uid).collection('daily_logs').doc(key);
@@ -569,6 +624,7 @@ class _HomePageState extends State<HomePage> {
         .collection('trackers')
         .doc(t.id)
         .delete();
+    if (!mounted) return;
     setState(() {
       _trackers.removeWhere((x) => x.id == t.id);
       _selectedForChart.remove(t.id);
@@ -661,8 +717,6 @@ class _HomePageState extends State<HomePage> {
 
     const double yPad = 2.0;
     const double xPad = 0.8;
-    final double minX = (xPoints.isEmpty ? 0 : xPoints.first) - xPad;
-    final double maxX = (xPoints.isEmpty ? 0 : xPoints.last) + xPad;
     const double minY = 0 - yPad;
     const double maxY = 10 + yPad;
 
@@ -671,7 +725,8 @@ class _HomePageState extends State<HomePage> {
       final t = sel[s];
       final vals = seriesValues[s];
       final spots = <FlSpot>[
-        for (int i = 0; i < xPoints.length; i++) FlSpot(xPoints[i], vals[i]),
+        for (int i = 0; i < (_view == ChartView.weekly ? 7 : 4); i++)
+          FlSpot(i.toDouble(), vals[i]),
       ];
       bars.add(
         LineChartBarData(
@@ -759,6 +814,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Slide transition to next page (used by "Next" button)
+  PageRouteBuilder _slideTo(Widget page) {
+    return PageRouteBuilder(
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (_, anim, __, child) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+    );
+  }
+
+  Future<void> _goNextFromHome() async {
+  // Dev helper: jump to Journal
+  if (!mounted) return;
+  Navigator.pushReplacement(
+    context,
+    _slideTo(JournalPage(userName: widget.userName)),
+  );
+}
+
+
   // ---- UI
   @override
   Widget build(BuildContext context) {
@@ -768,490 +845,598 @@ class _HomePageState extends State<HomePage> {
     final streakNow = _streak;
     final bool _isDark = app.ThemeControllerScope.of(context).isDark;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: BoxDecoration(gradient: _bg(context)),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+    return ShowCaseWidget(
+      builder: (ctx) {
+        _showcaseCtx = ctx;
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Container(
+            decoration: BoxDecoration(gradient: _bg(context)),
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
                     children: [
-                      // ===== Logo with green glow + green-tinted logo in dark mode =====
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: SizedBox(
-                          height: 72,
-                          child: Stack(
-                            alignment: Alignment.center,
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              if (_isDark)
-                                Transform.scale(
-                                  scale: 1.08,
-                                  child: ImageFiltered(
-                                    imageFilter: ImageFilter.blur(
-                                      sigmaX: 10,
-                                      sigmaY: 10,
-                                    ),
-                                    child: ColorFiltered(
-                                      colorFilter: ColorFilter.mode(
-                                        const Color(0xFF0D7C66)
-                                            .withOpacity(0.85),
-                                        BlendMode.srcATop,
-                                      ),
-                                      child: Image.asset(
-                                        'assets/images/Logo.png',
-                                        height: 72,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
+                              // ===== Logo with green glow + green-tinted logo in dark mode =====
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: SizedBox(
+                                  height: 72,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      if (_isDark)
+                                        Transform.scale(
+                                          scale: 1.08,
+                                          child: ImageFiltered(
+                                            imageFilter: ImageFilter.blur(
+                                              sigmaX: 10,
+                                              sigmaY: 10,
+                                            ),
+                                            child: ColorFiltered(
+                                              colorFilter: ColorFilter.mode(
+                                                const Color(0xFF0D7C66)
+                                                    .withOpacity(0.85),
+                                                BlendMode.srcATop,
+                                              ),
+                                              child: Image.asset(
+                                                'assets/images/Logo.png',
+                                                height: 72,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      _isDark
+                                          ? ColorFiltered(
+                                              colorFilter:
+                                                  const ColorFilter.mode(
+                                                Color(0xFF0D7C66),
+                                                BlendMode.srcATop,
+                                              ),
+                                              child: Image.asset(
+                                                'assets/images/Logo.png',
+                                                height: 72,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (_, __, ___) =>
+                                                    Icon(
+                                                  Icons.flash_on,
+                                                  size: 72,
+                                                  color:
+                                                      green.withOpacity(.85),
+                                                ),
+                                              ),
+                                            )
+                                          : Image.asset(
+                                              'assets/images/Logo.png',
+                                              height: 72,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (_, __, ___) =>
+                                                  Icon(
+                                                Icons.flash_on,
+                                                size: 72,
+                                                color: green.withOpacity(.85),
+                                              ),
+                                            ),
+                                    ],
                                   ),
                                 ),
-                              _isDark
-                                  ? ColorFiltered(
-                                      colorFilter: const ColorFilter.mode(
-                                        Color(0xFF0D7C66), // dark green logo tint
-                                        BlendMode.srcATop,
-                                      ),
-                                      child: Image.asset(
-                                        'assets/images/Logo.png',
-                                        height: 72,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => Icon(
-                                          Icons.flash_on,
-                                          size: 72,
-                                          color: green.withOpacity(.85),
-                                        ),
-                                      ),
-                                    )
-                                  : Image.asset(
-                                      'assets/images/Logo.png',
-                                      height: 72,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => Icon(
-                                        Icons.flash_on,
-                                        size: 72,
-                                        color: green.withOpacity(.85),
-                                      ),
-                                    ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-                      Text(
-                        'Hello, ${widget.userName}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        dateLine,
-                        style: TextStyle(
-                          color: Colors.black.withOpacity(.65),
-                          fontSize: 12,
-                        ),
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // ===== Streak pill (dark mode toned down) =====
-                      if (streakNow > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _isDark
-                                ? const Color(0xFF0D7C66).withOpacity(.14) // less pop
-                                : Colors.white.withOpacity(.9),
-                            borderRadius: BorderRadius.circular(24),
-                            border: _isDark
-                                ? Border.all(
-                                    color: Colors.white.withOpacity(.10),
-                                  )
-                                : null,
-                            boxShadow: [
-                              if (_isDark)
-                                ...[] // no shadow in dark to reduce pop
-                              else
-                                const BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 4,
-                                ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.local_fire_department,
-                                color: _isDark
-                                    ? Colors.deepOrange.withOpacity(.85)
-                                    : Colors.deepOrange,
-                                size: 18,
                               ),
-                              const SizedBox(width: 8),
+
+                              const SizedBox(height: 6),
                               Text(
-                                '$streakNow-day streak',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: _isDark ? Colors.white : Colors.black,
+                                'Hello, ${widget.userName}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: .2,
                                 ),
                               ),
-                            ],
-                          ),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'Track daily to start a streak',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _isDark
-                                  ? Colors.white.withOpacity(.85)
-                                  : Colors.black.withOpacity(.7),
-                            ),
-                          ),
-                        ),
+                              const SizedBox(height: 2),
+                              Text(
+                                dateLine,
+                                style: TextStyle(
+                                  color: Colors.black.withOpacity(.65),
+                                  fontSize: 12,
+                                ),
+                              ),
 
-                      const SizedBox(height: 14),
+                              const SizedBox(height: 18),
 
-                      // Trackers list
-                      ReorderableListView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: _trackers.length,
-                        onReorder: (oldIndex, newIndex) async {
-                          setState(() {
-                            if (newIndex > oldIndex) newIndex -= 1;
-                            final t = _trackers.removeAt(oldIndex);
-                            _trackers.insert(newIndex, t);
-                          });
-                          await _persistOrder();
-                        },
-                        itemBuilder: (context, i) {
-                          final t = _trackers[i];
-                          return Column(
-                            key: ValueKey(t.id),
-                            children: [
-                              Row(
-                                children: [
-                                  SizedBox(
-                                    width: 105,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        t.label,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
+                              // ===== Streak pill (dark mode toned down) =====
+                              if (streakNow > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
                                   ),
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          _emojiForTick[0] ?? "😄",
-                                          style: const TextStyle(fontSize: 20),
+                                  decoration: BoxDecoration(
+                                    color: _isDark
+                                        ? const Color(0xFF0D7C66)
+                                            .withOpacity(.14)
+                                        : Colors.white.withOpacity(.9),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: _isDark
+                                        ? Border.all(
+                                            color:
+                                                Colors.white.withOpacity(.10),
+                                          )
+                                        : null,
+                                    boxShadow: [
+                                      if (_isDark)
+                                        ...[]
+                                      else
+                                        const BoxShadow(
+                                          color: Colors.black12,
+                                          blurRadius: 4,
                                         ),
-                                        Expanded(
-                                          child: SliderTheme(
-                                            data: SliderTheme.of(context)
-                                                .copyWith(
-                                              trackHeight: 8,
-                                              thumbShape:
-                                                  const RoundSliderThumbShape(
-                                                enabledThumbRadius: 8,
-                                              ),
-                                            ),
-                                            child: Slider(
-                                              value: t.value,
-                                              min: 0,
-                                              max: 10,
-                                              divisions: 20,
-                                              activeColor: t.color,
-                                              onChanged: (v) =>
-                                                  _recordTrackerValue(t, v),
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          _emojiForTick[10] ?? "😢",
-                                          style: const TextStyle(fontSize: 20),
-                                        ),
-                                      ],
-                                    ),
+                                    ],
                                   ),
-                                  PopupMenuButton<String>(
-                                    color: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    elevation: 6,
-                                    offset: const Offset(0, 8),
-                                    onSelected: (v) async {
-                                      if (v == 'rename') {
-                                        final ctl = TextEditingController(
-                                          text: t.label,
-                                        );
-                                        await showDialog(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            title:
-                                                const Text('Rename tracker'),
-                                            content: TextField(
-                                              controller: ctl,
-                                              decoration:
-                                                  const InputDecoration(
-                                                hintText: 'Name',
-                                              ),
-                                              autofocus: true,
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () async {
-                                                  final v2 = ctl.text.trim();
-                                                  if (v2.isNotEmpty) {
-                                                    setState(
-                                                        () => t.label = v2);
-                                                    await _updateTracker(t,
-                                                        label: v2);
-                                                  }
-                                                  if (context.mounted)
-                                                    Navigator.pop(context);
-                                                },
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFF0D7C66),
-                                                  foregroundColor: Colors.white,
-                                                ),
-                                                child: const Text('Save'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      } else if (v == 'color') {
-                                        await _openColorPicker(t);
-                                        await _updateTracker(t, color: t.color);
-                                      } else if (v == 'delete') {
-                                        final ok = await showDialog<bool>(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            title:
-                                                const Text('Delete tracker?'),
-                                            content: Text(
-                                              'This will remove "${t.label}" from your trackers.',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(
-                                                        context, false),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(
-                                                        context, true),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: Colors.red,
-                                                ),
-                                                child: const Text('Delete'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                        if (ok == true) {
-                                          await _deleteTracker(t);
-                                        }
-                                      }
-                                    },
-                                    itemBuilder: (c) => const [
-                                      PopupMenuItem(
-                                        value: 'rename',
-                                        child: Text('Rename'),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.local_fire_department,
+                                        color: _isDark
+                                            ? Colors.deepOrange
+                                                .withOpacity(.85)
+                                            : Colors.deepOrange,
+                                        size: 18,
                                       ),
-                                      PopupMenuItem(
-                                        value: 'color',
-                                        child: Text('Color'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text(
-                                          'Delete',
-                                          style: TextStyle(color: Colors.red),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$streakNow-day streak',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: _isDark
+                                              ? Colors.white
+                                              : Colors.black,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const Icon(Icons.drag_indicator, size: 18),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  child: Text(
+                                    'Track daily to start a streak',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _isDark
+                                          ? Colors.white.withOpacity(.85)
+                                          : Colors.black.withOpacity(.7),
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 14),
+
+                              // Trackers list
+                              ReorderableListView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: _trackers.length,
+                                onReorder: (oldIndex, newIndex) async {
+                                  setState(() {
+                                    if (newIndex > oldIndex) newIndex -= 1;
+                                    final t = _trackers.removeAt(oldIndex);
+                                    _trackers.insert(newIndex, t);
+                                  });
+                                  await _persistOrder();
+                                },
+                                itemBuilder: (context, i) {
+                                  final t = _trackers[i];
+                                  return Column(
+                                    key: ValueKey(t.id),
+                                    children: [
+                                      Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 105,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 4,
+                                                vertical: 8,
+                                              ),
+                                              child: Text(
+                                                t.label,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                Text(
+                                                  _emojiForTick[0] ?? "😄",
+                                                  style: const TextStyle(
+                                                      fontSize: 20),
+                                                ),
+                                                Expanded(
+                                                  child: SliderTheme(
+                                                    data: SliderTheme.of(
+                                                            context)
+                                                        .copyWith(
+                                                      trackHeight: 8,
+                                                      thumbShape:
+                                                          const RoundSliderThumbShape(
+                                                        enabledThumbRadius: 8,
+                                                      ),
+                                                    ),
+                                                    child: Slider(
+                                                      value: t.value,
+                                                      min: 0,
+                                                      max: 10,
+                                                      divisions: 20,
+                                                      activeColor: t.color,
+                                                      onChanged: (v) =>
+                                                          _recordTrackerValue(
+                                                              t, v),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _emojiForTick[10] ?? "😢",
+                                                  style: const TextStyle(
+                                                      fontSize: 20),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            color: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            elevation: 6,
+                                            offset: const Offset(0, 8),
+                                            onSelected: (v) async {
+                                              if (v == 'rename') {
+                                                final ctl =
+                                                    TextEditingController(
+                                                  text: t.label,
+                                                );
+                                                await showDialog(
+                                                  context: context,
+                                                  builder: (_) => AlertDialog(
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              16),
+                                                    ),
+                                                    title: const Text(
+                                                        'Rename tracker'),
+                                                    content: TextField(
+                                                      controller: ctl,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                        hintText: 'Name',
+                                                      ),
+                                                      autofocus: true,
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                                context),
+                                                        child: const Text(
+                                                            'Cancel'),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () async {
+                                                          final v2 = ctl.text
+                                                              .trim();
+                                                          if (v2.isNotEmpty) {
+                                                            setState(() =>
+                                                                t.label = v2);
+                                                            await _updateTracker(
+                                                                t,
+                                                                label: v2);
+                                                          }
+                                                          if (context.mounted) {
+                                                            Navigator.pop(
+                                                                context);
+                                                          }
+                                                        },
+                                                        style: ElevatedButton
+                                                            .styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                  0xFF0D7C66),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                        ),
+                                                        child:
+                                                            const Text('Save'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              } else if (v == 'color') {
+                                                await _openColorPicker(t);
+                                                await _updateTracker(t,
+                                                    color: t.color);
+                                              } else if (v == 'delete') {
+                                                final ok =
+                                                    await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (_) => AlertDialog(
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              16),
+                                                    ),
+                                                    title: const Text(
+                                                        'Delete tracker?'),
+                                                    content: Text(
+                                                      'This will remove "${t.label}" from your trackers.',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                                context, false),
+                                                        child: const Text(
+                                                            'Cancel'),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                                context, true),
+                                                        style: TextButton
+                                                            .styleFrom(
+                                                          foregroundColor:
+                                                              Colors.red,
+                                                        ),
+                                                        child: const Text(
+                                                            'Delete'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (ok == true) {
+                                                  await _deleteTracker(t);
+                                                }
+                                              }
+                                            },
+                                            itemBuilder: (c) => const [
+                                              PopupMenuItem(
+                                                value: 'rename',
+                                                child: Text('Rename'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'color',
+                                                child: Text('Color'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: Text(
+                                                  'Delete',
+                                                  style: TextStyle(
+                                                      color: Colors.red),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const Icon(Icons.drag_indicator,
+                                              size: 18),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(height: 14),
+                              // Plus under trackers  (Showcase target)
+                              Showcase(
+                                key: OBKeys.addHabit,
+                                description:
+                                    'Tap here to add your first habit tracker.',
+                                disposeOnTap: true,
+                                onTargetClick: () {},
+                                onToolTipClick: () {},
+                                onBarrierClick: () {},
+                                child: IconButton(
+                                  tooltip: 'Add tracker',
+                                  onPressed: () =>
+                                      _createTracker(label: 'add tracker'),
+                                  icon: const Icon(
+                                      Icons.add_circle_outline,
+                                      size: 28),
+                                  color: const Color(0xFF0D7C66),
+                                ),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // View selector (Showcase target for chart selector)
+                              Showcase(
+                                key: OBKeys.chartSelector,
+                                description:
+                                    'Switch between Weekly, Monthly, or Overall views.',
+                                disposeOnTap: true,
+                                onTargetClick: () {},
+                                onToolTipClick: () {},
+                                onBarrierClick: () {},
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: ChartView.values.map((v) {
+                                    final sel = v == _view;
+                                    String lbl = switch (v) {
+                                      ChartView.weekly => 'Weekly',
+                                      ChartView.monthly => 'Monthly',
+                                      ChartView.overall => 'Overall',
+                                    };
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6),
+                                      child: ChoiceChip(
+                                        label: Text(
+                                          lbl,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _isDark
+                                                ? Colors.white
+                                                : Colors.black,
+                                          ),
+                                        ),
+                                        selected: sel,
+                                        showCheckmark: false,
+                                        selectedColor: _isDark
+                                            ? const Color(0xFF0D7C66)
+                                                .withOpacity(.55)
+                                            : const Color(0xFF0D7C66)
+                                                .withOpacity(.15),
+                                        backgroundColor: _isDark
+                                            ? Colors.white.withOpacity(.08)
+                                            : Colors.black.withOpacity(.04),
+                                        side: _isDark
+                                            ? BorderSide(
+                                                color: sel
+                                                    ? Colors.transparent
+                                                    : Colors.white
+                                                        .withOpacity(.28),
+                                              )
+                                            : BorderSide.none,
+                                        onSelected: (_) =>
+                                            setState(() => _view = v),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              // Date range + controls
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4),
+                                      child: Text(
+                                        _dateRangeHeading(),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color:
+                                              Colors.black.withOpacity(.75),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                        Icons.emoji_emotions_outlined),
+                                    color: const Color(0xFF0D7C66),
+                                    tooltip: 'Customize emojis',
+                                    onPressed: _openEmojiPicker,
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down_circle_outlined,
+                                    ),
+                                    color: const Color(0xFF0D7C66),
+                                    onPressed: _openSelectDialog,
+                                    tooltip: 'Select trackers to view',
+                                  ),
                                 ],
                               ),
-                              //const Divider(height: 0, indent: 4, endIndent: 4),
+
+                              const SizedBox(height: 6),
+
+                              // Chart card
+                              Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
+                                height: 320,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(.55),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                        color: Colors.black12, blurRadius: 6),
+                                  ],
+                                ),
+                                child: _selectedForChart.isEmpty
+                                    ? const Center(
+                                        child: Text(
+                                          'Select trackers to view',
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                      )
+                                    : LineChart(_chartData()),
+                              ),
                             ],
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 14),
-                      // Plus under trackers
-                      IconButton(
-                        tooltip: 'Add tracker',
-                        onPressed: () => _createTracker(label: 'add tracker'),
-                        icon: const Icon(Icons.add_circle_outline, size: 28),
-                        color: const Color(0xFF0D7C66),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // View selector (higher contrast in dark mode)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: ChartView.values.map((v) {
-                          final sel = v == _view;
-                          String lbl = switch (v) {
-                            ChartView.weekly => 'Weekly',
-                            ChartView.monthly => 'Monthly',
-                            ChartView.overall => 'Overall',
-                          };
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: ChoiceChip(
-                              label: Text(
-                                lbl,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                              selected: sel,
-                              showCheckmark: false,
-                              selectedColor: _isDark
-                                  ? const Color(0xFF0D7C66).withOpacity(.55)
-                                  : const Color(0xFF0D7C66).withOpacity(.15),
-                              backgroundColor: _isDark
-                                  ? Colors.white.withOpacity(.08)
-                                  : Colors.black.withOpacity(.04),
-                              side: _isDark
-                                  ? BorderSide(
-                                      color: sel
-                                          ? Colors.transparent
-                                          : Colors.white.withOpacity(.28),
-                                    )
-                                  : BorderSide.none,
-                              onSelected: (_) => setState(() => _view = v),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Date range + dropdown icon (selection dialog) + emoji scale editor
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(
-                                _dateRangeHeading(),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black.withOpacity(.75),
-                                ),
-                              ),
-                            ),
                           ),
-                          // Open emoji scale editor (small, unobtrusive)
-                          IconButton(
-                            icon: const Icon(Icons.emoji_emotions_outlined),
-                            color: const Color(0xFF0D7C66),
-                            tooltip: 'Customize emojis',
-                            onPressed: _openEmojiPicker,
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.arrow_drop_down_circle_outlined,
-                            ),
-                            color: const Color(0xFF0D7C66),
-                            onPressed: _openSelectDialog,
-                            tooltip: 'Select trackers to view',
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      // Chart card
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
                         ),
-                        height: 320,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.55),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 6),
-                          ],
-                        ),
-                        child: _selectedForChart.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Select trackers to view',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              )
-                            : LineChart(_chartData()),
                       ),
+
+                      // Bottom nav contains Showcase targets for Journal/Settings
+                      _BottomNav(index: 0, userName: widget.userName),
                     ],
                   ),
-                ),
-              ),
 
-              _BottomNav(index: 0, userName: widget.userName),
-            ],
+                  // “Next” button during tour to move to Journal
+                  if (_tourActive && _showNextButton)
+                    Positioned(
+                      right: 16,
+                      bottom: 16 + 56, // above bottom nav
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                        label: const Text(
+                          'Next',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D7C66),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 3,
+                        ),
+                        onPressed: _goNextFromHome,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1414,7 +1599,8 @@ class _HomePageState extends State<HomePage> {
                           onPressed: () => Navigator.pop(ctx),
                           child: Text(
                             'Cancel',
-                            style: TextStyle(color: textColor.withOpacity(.8)),
+                            style:
+                                TextStyle(color: textColor.withOpacity(.8)),
                           ),
                         ),
                         const Spacer(),
@@ -1476,7 +1662,6 @@ class _HomePageState extends State<HomePage> {
       return Color(v);
     }
 
-    // Start with empty hex as requested
     final hexCtl = TextEditingController(text: '');
 
     await showModalBottomSheet(
@@ -1569,7 +1754,7 @@ class _HomePageState extends State<HomePage> {
                         );
 
                         final innerDiameter = size.width - ringWidth * 2;
-                        final squareSize = innerDiameter * 0.76; // smaller than circle
+                        final squareSize = innerDiameter * 0.76;
 
                         return GestureDetector(
                           onPanDown:
@@ -1610,10 +1795,9 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: 12),
 
-                  // HEX input row: leading '#', live preview
+                  // HEX input row
                   Row(
                     children: [
-                      // Live preview circle
                       Container(
                         width: 28,
                         height: 28,
@@ -1626,7 +1810,8 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 10),
                       const Text(
                         '#',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style:
+                            TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -1635,7 +1820,8 @@ class _HomePageState extends State<HomePage> {
                           onChanged: (v) {
                             final txt = v.trim();
                             if (_validHex(txt)) {
-                              setSheet(() => hsv = HSVColor.fromColor(_fromHex(txt)));
+                              setSheet(() =>
+                                  hsv = HSVColor.fromColor(_fromHex(txt)));
                             }
                           },
                           textInputAction: TextInputAction.done,
@@ -1687,8 +1873,8 @@ class _HomePageState extends State<HomePage> {
                               decoration: BoxDecoration(
                                 color: c,
                                 shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.black26, width: 1),
+                                border: Border.all(
+                                    color: Colors.black26, width: 1),
                                 boxShadow: const [
                                   BoxShadow(
                                     color: Colors.black12,
@@ -1745,21 +1931,20 @@ class _HueRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final paint =
-        Paint()
-          ..shader = const SweepGradient(
-            colors: <Color>[
-              Color(0xFFFF0000),
-              Color(0xFFFFFF00),
-              Color(0xFF00FF00),
-              Color(0xFF00FFFF),
-              Color(0xFF0000FF),
-              Color(0xFFFF00FF),
-              Color(0xFFFF0000),
-            ],
-          ).createShader(rect)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ringWidth;
+    final paint = Paint()
+      ..shader = const SweepGradient(
+        colors: <Color>[
+          Color(0xFFFF0000),
+          Color(0xFFFFFF00),
+          Color(0xFF00FF00),
+          Color(0xFF00FFFF),
+          Color(0xFF0000FF),
+          Color(0xFFFF00FF),
+          Color(0xFFFF0000),
+        ],
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = ringWidth;
     final radius = min(size.width, size.height) / 2 - ringWidth / 2;
     canvas.drawCircle(Offset(size.width / 2, size.height / 2), radius, paint);
   }
@@ -1775,15 +1960,13 @@ class _KnobPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.fill;
-    final b =
-        Paint()
-          ..color = Colors.black.withOpacity(.35)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1;
+    final p = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final b = Paint()
+      ..color = Colors.black.withOpacity(.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
     canvas.drawCircle(position, r, p);
     canvas.drawCircle(position, r, b);
   }
@@ -1875,10 +2058,8 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
       : super(builder: builder);
 
   @override
-  Widget buildTransitions(BuildContext context,
-      Animation<double> animation,
-      Animation<double> secondaryAnimation,
-      Widget child) {
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
     return child; // no animation
   }
 }
@@ -1900,27 +2081,44 @@ class _BottomNav extends StatelessWidget {
       return Colors.white;
     }
 
+    // Wrap Journal/Settings with Showcase so Home can start the cues
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(icon: Icon(Icons.home, color: c(0)), onPressed: () {}),
-          IconButton(
-            icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(
-                builder: (_) => JournalPage(userName: userName),
+          Showcase(
+            key: OBKeys.journalTab,
+            description: 'Go to your Journal and community feed.',
+            disposeOnTap: true,
+            onTargetClick: () {},
+            onToolTipClick: () {},
+            onBarrierClick: () {},
+            child: IconButton(
+              icon: Icon(Icons.menu_book, color: c(1)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                NoTransitionPageRoute(
+                  builder: (_) => JournalPage(userName: userName),
+                ),
               ),
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.settings, color: c(2)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(
-                builder: (_) => SettingsPage(userName: userName),
+          Showcase(
+            key: OBKeys.settingsTab,
+            description: 'Open Settings to customize the app.',
+            disposeOnTap: true,
+            onTargetClick: () {},
+            onToolTipClick: () {},
+            onBarrierClick: () {},
+            child: IconButton(
+              icon: Icon(Icons.settings, color: c(2)),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                NoTransitionPageRoute(
+                  builder: (_) => SettingsPage(userName: userName),
+                ),
               ),
             ),
           ),

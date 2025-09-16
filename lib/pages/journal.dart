@@ -13,30 +13,20 @@ import 'package:new_rezonate/pages/home.dart' as home_page;
 import 'package:new_rezonate/pages/settings.dart';
 import 'package:new_rezonate/pages/services/user_settings.dart' as app_settings;
 
-
 import 'onboarding.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 const _teal = Color(0xFF0D7C66);
-// same purple as the top of the header gradient
 const _headerPurple = Color(0xFFBDA9DB);
 
-// Helpers for dark mode look (same layout, just darker)
-bool _isDark(BuildContext context) =>
-    app.ThemeControllerScope.of(context).isDark;
-Color _cardBg(BuildContext context) =>
-    _isDark(context) ? const Color(0xFF1E1F24) : Colors.white;
-Color _replyBg(BuildContext context) =>
-    _isDark(context) ? Colors.white.withOpacity(.06) : Colors.grey.shade50;
-Color _textPrimary(BuildContext context) =>
-    _isDark(context) ? Colors.white : Colors.black87;
-Color _textSecondary(BuildContext context) =>
-    _isDark(context) ? Colors.white70 : Colors.grey.shade600;
-
-// Single translucent background used for ALL write areas
+bool _isDark(BuildContext context) => app.ThemeControllerScope.of(context).isDark;
+Color _cardBg(BuildContext context) => _isDark(context) ? const Color(0xFF1E1F24) : Colors.white;
+Color _replyBg(BuildContext context) => _isDark(context) ? Colors.white.withOpacity(.06) : Colors.grey.shade50;
+Color _textPrimary(BuildContext context) => _isDark(context) ? Colors.white : Colors.black87;
+Color _textSecondary(BuildContext context) => _isDark(context) ? Colors.white70 : Colors.grey.shade600;
 Color _entryBg(BuildContext context) => _teal.withOpacity(.16);
 
-//for private journal lock
+// ===== PIN prompt (unchanged) =====
 Future<bool> _promptForPin(BuildContext context) async {
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;
@@ -47,7 +37,6 @@ Future<bool> _promptForPin(BuildContext context) async {
   final storedHash = snap.data()?['journal_lock_pin'] as String?;
   final enabled = snap.data()?['journal_lock_enabled'] as bool? ?? false;
 
-  // If no lock is enabled, just allow access
   if (!enabled || storedHash == null) return true;
 
   final pinCtrl = TextEditingController();
@@ -76,15 +65,11 @@ Future<bool> _promptForPin(BuildContext context) async {
               ],
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
               ElevatedButton(
                 onPressed: () {
                   final entered = pinCtrl.text.trim();
-                  final enteredHash =
-                      sha256.convert(utf8.encode(entered)).toString();
+                  final enteredHash = sha256.convert(utf8.encode(entered)).toString();
                   if (enteredHash == storedHash) {
                     Navigator.pop(ctx, true);
                   } else {
@@ -102,7 +87,7 @@ Future<bool> _promptForPin(BuildContext context) async {
   return ok == true;
 }
 
-/// Resolve usernames for display.
+// ===== Username / photo helpers (unchanged) =====
 class _UsernameResolver {
   static final Map<String, String> _cache = {};
 
@@ -110,8 +95,7 @@ class _UsernameResolver {
     if (uid.isEmpty) return null;
     if (_cache.containsKey(uid)) return _cache[uid];
     try {
-      final snap =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final snap = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final name = (snap.data()?['username'] as String?)?.trim();
       if (name != null && name.isNotEmpty) {
         _cache[uid] = name;
@@ -124,12 +108,7 @@ class _UsernameResolver {
   static Future<String?> resolveByEmail(String email) async {
     if (email.isEmpty) return null;
     try {
-      final q =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .where('email', isEqualTo: email)
-              .limit(1)
-              .get();
+      final q = await FirebaseFirestore.instance.collection('users').where('email', isEqualTo: email).limit(1).get();
       if (q.docs.isNotEmpty) {
         final uid = q.docs.first.id;
         final name = (q.docs.first.data()['username'] as String?)?.trim();
@@ -151,7 +130,6 @@ class _UsernameResolver {
   }
 }
 
-/// Resolve the latest profile photo from users/{uid}.photoUrl (cached).
 class _PhotoResolver {
   static final Map<String, String?> _cache = {};
 
@@ -159,8 +137,7 @@ class _PhotoResolver {
     if (uid.isEmpty) return null;
     if (_cache.containsKey(uid)) return _cache[uid];
     try {
-      final snap =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final snap = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       final url = (snap.data()?['photoUrl'] as String?)?.trim();
       _cache[uid] = (url != null && url.isNotEmpty) ? url : null;
       return _cache[uid];
@@ -171,7 +148,6 @@ class _PhotoResolver {
 }
 
 enum _TimeFilter { all, d1, d7, d30 }
-
 enum _OrderBy { dateDesc, dateAsc, mostReacted, mostReplies }
 
 class JournalPage extends StatefulWidget {
@@ -183,21 +159,15 @@ class JournalPage extends StatefulWidget {
 }
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
-  NoTransitionPageRoute({required WidgetBuilder builder})
-    : super(builder: builder);
+  NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
 
   @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
     return child; // no animation
   }
 }
 
-// 👇 NEW: nice forward transition (slide a little + fade)
 PageRouteBuilder<T> _forwardRoute<T>(Widget child) {
   return PageRouteBuilder<T>(
     pageBuilder: (_, __, ___) => child,
@@ -207,8 +177,7 @@ PageRouteBuilder<T> _forwardRoute<T>(Widget child) {
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween<Offset>(begin: const Offset(.06, 0), end: Offset.zero)
-              .animate(curved),
+          position: Tween<Offset>(begin: const Offset(.06, 0), end: Offset.zero).animate(curved),
           child: child,
         ),
       );
@@ -216,8 +185,7 @@ PageRouteBuilder<T> _forwardRoute<T>(Widget child) {
   );
 }
 
-class _JournalPageState extends State<JournalPage>
-    with SingleTickerProviderStateMixin {
+class _JournalPageState extends State<JournalPage> with SingleTickerProviderStateMixin {
   int _seg = 0;
 
   final _pubCtl = TextEditingController();
@@ -230,58 +198,50 @@ class _JournalPageState extends State<JournalPage>
   CollectionReference<Map<String, dynamic>> get _public =>
       FirebaseFirestore.instance.collection('public_posts');
   CollectionReference<Map<String, dynamic>> _privateCol(String uid) =>
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('private_posts');
+      FirebaseFirestore.instance.collection('users').doc(uid).collection('private_posts');
 
   Set<String> _blocked = {};
-
-  // filters (UI for time filters removed; sort remains)
   _TimeFilter _timeFilter = _TimeFilter.all;
   _OrderBy _orderBy = _OrderBy.dateDesc;
 
-  // 🔐 Live anonymity flag from user doc (null = unknown yet)
   bool? _anonGlobal;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
 
-  // ====== NEW: Showcase state ======
+  // ===== Showcase state =====
   late BuildContext _showcaseCtx;
   final GlobalKey _journalComposerKey = GlobalKey();
   final GlobalKey _journalSortKey = GlobalKey();
-  bool _tourActive = false;
-  bool _startedJournalShowcase = false;
+  final GlobalKey _privateFabKey = GlobalKey();
+
+  bool _startedCommunityShowcase = false;
+  bool _startedPrivateShowcase = false;
+
+  // Replay timers
+  Timer? _toPrivateTimer;
+  Timer? _toSettingsTimer;
 
   @override
   void initState() {
     super.initState();
     _loadBlocked();
 
-    // 🔐 Listen to current user's anonymity setting in Firestore (if signed in)
     final u = _user;
     if (u != null) {
-      _userSub = FirebaseFirestore.instance
-          .collection('users')
-          .doc(u.uid)
-          .snapshots()
-          .listen((snap) {
-            final data = snap.data();
-
-            // Priority: explicit fields → mode string → fallback to in-memory UserSettings
-            bool anon = app_settings.UserSettings.anonymous == true;
-            if (data != null) {
-              if (data['share_anonymously'] == true) anon = true;
-              if (data['anonymous'] == true) anon = true;
-              if (data['share_publicly'] == true) anon = false; // forced public
-              final mode = (data['shareMode'] as String?)?.toLowerCase().trim();
-              if (mode == 'anonymous') anon = true;
-              if (mode == 'public') anon = false;
-            }
-            if (mounted) setState(() => _anonGlobal = anon);
-          });
+      _userSub = FirebaseFirestore.instance.collection('users').doc(u.uid).snapshots().listen((snap) {
+        final data = snap.data();
+        bool anon = app_settings.UserSettings.anonymous == true;
+        if (data != null) {
+          if (data['share_anonymously'] == true) anon = true;
+          if (data['anonymous'] == true) anon = true;
+          if (data['share_publicly'] == true) anon = false;
+          final mode = (data['shareMode'] as String?)?.toLowerCase().trim();
+          if (mode == 'anonymous') anon = true;
+          if (mode == 'public') anon = false;
+        }
+        if (mounted) setState(() => _anonGlobal = anon);
+      });
     }
 
-    // Schedule tutorial start after first frame (when _showcaseCtx is captured)
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartJournalShowcase());
   }
 
@@ -292,52 +252,95 @@ class _JournalPageState extends State<JournalPage>
     for (final c in _replyCtls.values) {
       c.dispose();
     }
-    _userSub?.cancel(); // ✅ stop listening to avoid setState after dispose
+    _userSub?.cancel();
+    _toPrivateTimer?.cancel();
+    _toSettingsTimer?.cancel();
     super.dispose();
+  }
+
+  // ====== Onboarding helpers ======
+
+  bool _matchesIntroPhrase(String text) {
+    final exp = RegExp(
+      r"^\s*hi[,!\.]?\s*my\s+name\s+(is|’s|'s)\s+([a-z][a-z '\-\.]{1,50})\s*[\.!\s]*$",
+      caseSensitive: false,
+    );
+    return exp.hasMatch(text.trim());
   }
 
   Future<void> _maybeStartJournalShowcase() async {
     final stage = await Onboarding.getStage();
 
-    // Start only for journal step or during replayed tour.
-    if (_startedJournalShowcase) return;
-    if (!(stage == OnboardingStage.replayingTutorial ||
-        stage == OnboardingStage.journalIntro)) {
+    // Decide starting tab and which showcase to run
+    if (stage == OnboardingStage.needFirstJournal) {
+      if (mounted) setState(() => _seg = 1);
+      _startPrivateShowcase();
       return;
     }
 
-    if (!mounted) return;
-    setState(() => _tourActive = true);
+    // Default to Community for both gating and replay
+    if (mounted) setState(() => _seg = 0);
 
-    // Small delay so the widgets are laid out
+    if (stage == OnboardingStage.needFirstCommunity) {
+      _startCommunityShowcase();
+      return;
+    }
+
+    // Replay mode: show community bubble, auto-switch to private, then to settings
+    if (stage == OnboardingStage.replayingTutorial || Onboarding.isReplayActive) {
+      _startCommunityShowcase();
+      _toPrivateTimer?.cancel();
+      _toPrivateTimer = Timer(const Duration(milliseconds: 5000), () {
+        if (!mounted) return;
+        setState(() => _seg = 1);
+        _startPrivateShowcase();
+        _toSettingsTimer?.cancel();
+        _toSettingsTimer = Timer(const Duration(milliseconds: 5000), () {
+          if (!mounted) return;
+          Navigator.pushReplacement(context, _forwardRoute(SettingsPage(userName: widget.userName)));
+        });
+      });
+    }
+  }
+
+  void _startCommunityShowcase() {
+    if (_startedCommunityShowcase) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
-        ShowCaseWidget.of(_showcaseCtx).startShowCase([
-          _journalComposerKey,
-          _journalSortKey,
-        ]);
-        _startedJournalShowcase = true;
-      } catch (_) {}
+        ShowCaseWidget.of(_showcaseCtx).startShowCase([_journalComposerKey, _journalSortKey]);
+        _startedCommunityShowcase = true;
+      } catch (_) {
+        // try again next frame if context not ready
+        _startedCommunityShowcase = false;
+        _maybeStartJournalShowcase();
+      }
     });
   }
 
-  Future<void> _goNextFromJournal() async {
-    // Move the tour along to Settings page.
-    // If you added a distinct `settingsSearch` stage, you can set that instead.
-    await Onboarding.setStage(OnboardingStage.replayingTutorial);
+  void _startPrivateShowcase() {
+    if (_startedPrivateShowcase) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        ShowCaseWidget.of(_showcaseCtx).startShowCase([_privateFabKey]);
+        _startedPrivateShowcase = true;
+      } catch (_) {
+        _startedPrivateShowcase = false;
+        _maybeStartJournalShowcase();
+      }
+    });
+  }
+
+  Future<void> _navigateToSettingsAfterPrivateSaved() async {
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      _forwardRoute(SettingsPage(userName: widget.userName)),
-    );
+    Navigator.pushReplacement(context, _forwardRoute(SettingsPage(userName: widget.userName)));
   }
 
   Future<void> _loadBlocked() async {
     final u = _user;
     if (u == null) return;
-    final me =
-        await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
+    final me = await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
     final list = (me.data()?['blocked_uids'] as List?)?.cast<String>() ?? [];
     if (!mounted) return;
     setState(() => _blocked = list.toSet());
@@ -354,19 +357,14 @@ class _JournalPageState extends State<JournalPage>
     return '${diff.inDays}d';
   }
 
-  bool get _anonNow =>
-      _anonGlobal ?? (app_settings.UserSettings.anonymous == true); // fallback
+  bool get _anonNow => _anonGlobal ?? (app_settings.UserSettings.anonymous == true);
 
   // ---------- Mentions helpers ----------
   final RegExp _mentionExp = RegExp(r'@([A-Za-z0-9_.-]{2,30})');
 
   Future<List<Map<String, String>>> _resolveMentions(String text) async {
-    // unique usernames
-    final names = <String>{
-      for (final m in _mentionExp.allMatches(text)) m.group(1)!.trim(),
-    };
+    final names = <String>{ for (final m in _mentionExp.allMatches(text)) m.group(1)!.trim() };
     if (names.isEmpty) return [];
-
     final col = FirebaseFirestore.instance.collection('users');
     final results = <Map<String, String>>[];
     for (final name in names) {
@@ -385,18 +383,13 @@ class _JournalPageState extends State<JournalPage>
     if (text.isEmpty || u == null) return;
 
     final anon = _anonNow;
-    final safeUsername =
-        anon
-            ? 'anonymous user'
-            : await _UsernameResolver.forCurrent(u, widget.userName);
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
-    final photoUrl =
-        anon ? null : (userDoc.data()?['photoUrl'] as String?) ?? u.photoURL;
+    final safeUsername = anon ? 'anonymous user' : await _UsernameResolver.forCurrent(u, widget.userName);
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
+    final photoUrl = anon ? null : (userDoc.data()?['photoUrl'] as String?) ?? u.photoURL;
 
     final mentions = await _resolveMentions(text);
-
     final now = FieldValue.serverTimestamp();
+
     await _public.add({
       'uid': u.uid,
       'username': safeUsername,
@@ -416,6 +409,15 @@ class _JournalPageState extends State<JournalPage>
     if (!mounted) return;
     setState(() => _showTriggerAdvice = false);
     FocusScope.of(context).unfocus();
+
+    // Gated onboarding: if the message matches, advance to private step
+    final stage = await Onboarding.getStage();
+    if (stage == OnboardingStage.needFirstCommunity && _matchesIntroPhrase(text)) {
+      await Onboarding.markCommunityPosted(); // → needFirstJournal
+      if (!mounted) return;
+      setState(() => _seg = 1);
+      _startPrivateShowcase();
+    }
   }
 
   Future<void> _reactOnce(String postId, String emoji) async {
@@ -430,10 +432,7 @@ class _JournalPageState extends State<JournalPage>
       if (!postSnap.exists) return;
 
       if (!mySnap.exists) {
-        tx.set(myReactRef, {
-          'emoji': emoji,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        tx.set(myReactRef, {'emoji': emoji, 'createdAt': FieldValue.serverTimestamp()});
         tx.update(postRef, {
           'reactions.$emoji': FieldValue.increment(1),
           'reactionScore': FieldValue.increment(1),
@@ -455,18 +454,11 @@ class _JournalPageState extends State<JournalPage>
         tx.update(postRef, {'reactions.$prev': FieldValue.increment(-1)});
       }
       tx.update(postRef, {'reactions.$emoji': FieldValue.increment(1)});
-      tx.update(myReactRef, {
-        'emoji': emoji,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      tx.update(myReactRef, {'emoji': emoji, 'updatedAt': FieldValue.serverTimestamp()});
     });
   }
 
-  Future<void> _reactOnceReply(
-    String replyId,
-    String emoji,
-    String postId,
-  ) async {
+  Future<void> _reactOnceReply(String replyId, String emoji, String postId) async {
     final u = _user;
     if (u == null) return;
 
@@ -479,10 +471,7 @@ class _JournalPageState extends State<JournalPage>
       if (!replySnap.exists) return;
 
       if (!mySnap.exists) {
-        tx.set(myReactRef, {
-          'emoji': emoji,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        tx.set(myReactRef, {'emoji': emoji, 'createdAt': FieldValue.serverTimestamp()});
         tx.update(replyRef, {'reactions.$emoji': FieldValue.increment(1)});
         return;
       }
@@ -499,10 +488,7 @@ class _JournalPageState extends State<JournalPage>
       }
 
       tx.update(replyRef, {'reactions.$emoji': FieldValue.increment(1)});
-      tx.update(myReactRef, {
-        'emoji': emoji,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      tx.update(myReactRef, {'emoji': emoji, 'updatedAt': FieldValue.serverTimestamp()});
     });
   }
 
@@ -512,14 +498,9 @@ class _JournalPageState extends State<JournalPage>
     if (t.isEmpty || u == null) return;
 
     final anon = _anonNow;
-    final safeUsername =
-        anon
-            ? 'anonymous user'
-            : await _UsernameResolver.forCurrent(u, widget.userName);
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
-    final photoUrl =
-        anon ? null : (userDoc.data()?['photoUrl'] as String?) ?? u.photoURL;
+    final safeUsername = anon ? 'anonymous user' : await _UsernameResolver.forCurrent(u, widget.userName);
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(u.uid).get();
+    final photoUrl = anon ? null : (userDoc.data()?['photoUrl'] as String?) ?? u.photoURL;
     final mentions = await _resolveMentions(t);
 
     await FirebaseFirestore.instance.runTransaction((tx) async {
@@ -553,99 +534,69 @@ class _JournalPageState extends State<JournalPage>
     await _loadBlocked();
   }
 
-  Future<void> _deletePost(String postId) async {
-    await _public.doc(postId).delete();
-  }
+  Future<void> _deletePost(String postId) async => _public.doc(postId).delete();
 
   Future<void> _editPost(String postId, String currentText) async {
     final ctl = TextEditingController(text: currentText);
     await showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Edit post'),
-            content: TextField(
-              controller: ctl,
-              maxLines: 8,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final newText = ctl.text.trim();
-                  if (newText.isNotEmpty) {
-                    final mentions = await _resolveMentions(newText);
-                    await _public.doc(postId).update({
-                      'content': newText,
-                      'updatedAt': FieldValue.serverTimestamp(),
-                      'edited': true,
-                      if (mentions.isNotEmpty)
-                        'mentions': mentions
-                      else
-                        'mentions': FieldValue.delete(),
-                    });
-                  }
-                  if (mounted) Navigator.pop(context);
-                },
-                child: const Text('Save'),
-              ),
-            ],
+      builder: (_) => AlertDialog(
+        title: const Text('Edit post'),
+        content: TextField(controller: ctl, maxLines: 8, decoration: const InputDecoration(border: OutlineInputBorder())),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final newText = ctl.text.trim();
+              if (newText.isNotEmpty) {
+                final mentions = await _resolveMentions(newText);
+                await _public.doc(postId).update({
+                  'content': newText,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'edited': true,
+                  if (mentions.isNotEmpty) 'mentions': mentions else 'mentions': FieldValue.delete(),
+                });
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
           ),
+        ],
+      ),
     );
   }
 
-  // ---------------- Private journal creation (plus button) ----------------
+  // ---------------- Private journal creation ----------------
   Future<void> _openCreatePrivateDialog() async {
     final tCtl = TextEditingController();
     final cCtl = TextEditingController();
 
     await showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('New entry'),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: tCtl,
-                    decoration: const InputDecoration(
-                      labelText: 'Entry Title',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: cCtl,
-                    maxLines: 10,
-                    decoration: const InputDecoration(
-                      labelText: 'Write a private entry…',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await _createPrivateEntry(tCtl.text.trim(), cCtl.text.trim());
-                  if (mounted) Navigator.pop(context);
-                },
-                child: const Text('Save'),
-              ),
+      builder: (_) => AlertDialog(
+        title: const Text('New entry'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: tCtl, decoration: const InputDecoration(labelText: 'Entry Title', border: OutlineInputBorder())),
+              const SizedBox(height: 10),
+              TextField(controller: cCtl, maxLines: 10, decoration: const InputDecoration(labelText: 'Write a private entry…', border: OutlineInputBorder())),
             ],
           ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              await _createPrivateEntry(tCtl.text.trim(), cCtl.text.trim());
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -653,6 +604,7 @@ class _JournalPageState extends State<JournalPage>
     final u = _user;
     if (u == null) return;
     if (title.isEmpty || body.isEmpty) return;
+
     await _privateCol(u.uid).add({
       'title': title,
       'content': body,
@@ -661,6 +613,13 @@ class _JournalPageState extends State<JournalPage>
       'edited': false,
       'iconKey': 'book',
     });
+
+    // Gated onboarding: first private entry saved
+    final stage = await Onboarding.getStage();
+    if (stage == OnboardingStage.needFirstJournal) {
+      await Onboarding.markJournalAdded(); // → settingsSearch
+      await _navigateToSettingsAfterPrivateSaved();
+    }
   }
 
   // ---------------- Filters helpers ----------------
@@ -678,16 +637,9 @@ class _JournalPageState extends State<JournalPage>
     }
   }
 
-  // Open a friendly chooser for sort options
   Future<void> _openSortSheet() async {
     final dark = _isDark(context);
-
-    // High-contrast labels for both modes
-    final labelStyle = TextStyle(
-      fontWeight: FontWeight.w700,
-      color: dark ? Colors.white : Colors.black87,
-    );
-
+    final labelStyle = TextStyle(fontWeight: FontWeight.w700, color: dark ? Colors.white : Colors.black87);
     final bg = dark ? const Color(0xFF123A36) : Colors.white;
     final iconColor = dark ? Colors.white : _teal;
     final checkColor = dark ? Colors.white : _teal;
@@ -696,15 +648,12 @@ class _JournalPageState extends State<JournalPage>
       context: context,
       showDragHandle: true,
       backgroundColor: bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) {
         Widget tile(String title, IconData icon, _OrderBy value) => ListTile(
           leading: Icon(icon, color: iconColor),
           title: Text(title, style: labelStyle),
-          trailing:
-              _orderBy == value ? Icon(Icons.check, color: checkColor) : null,
+          trailing: _orderBy == value ? Icon(Icons.check, color: checkColor) : null,
           onTap: () {
             setState(() => _orderBy = value);
             Navigator.pop(context);
@@ -718,11 +667,7 @@ class _JournalPageState extends State<JournalPage>
               const SizedBox(height: 4),
               tile('Newest', Icons.new_releases, _OrderBy.dateDesc),
               tile('Oldest', Icons.history, _OrderBy.dateAsc),
-              tile(
-                'Most reacted',
-                Icons.emoji_emotions_outlined,
-                _OrderBy.mostReacted,
-              ),
+              tile('Most reacted', Icons.emoji_emotions_outlined, _OrderBy.mostReacted),
               tile('Most replies', Icons.forum_outlined, _OrderBy.mostReplies),
               const SizedBox(height: 8),
             ],
@@ -737,10 +682,7 @@ class _JournalPageState extends State<JournalPage>
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors:
-          dark
-              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors: dark ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)] : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -750,26 +692,19 @@ class _JournalPageState extends State<JournalPage>
 
     return ShowCaseWidget(
       builder: (ctx) {
-        // Capture a context below ShowCaseWidget
         _showcaseCtx = ctx;
 
         return Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
           extendBodyBehindAppBar: true,
-          // AppBar removed
           body: Stack(
             children: [
-              // FIXED, NON-SCROLLING BACKGROUND LAYER
               Positioned.fill(
                 child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(gradient: _bg(context)),
-                  ),
+                  child: DecoratedBox(decoration: BoxDecoration(gradient: _bg(context))),
                 ),
               ),
-
-              // Foreground content
               SafeArea(
                 child: Stack(
                   children: [
@@ -779,25 +714,13 @@ class _JournalPageState extends State<JournalPage>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _SegPill(
-                              label: 'Community Feed',
-                              active: _seg == 0,
-                              onTap: () => setState(() => _seg = 0),
-                            ),
+                            _SegPill(label: 'Community Feed', active: _seg == 0, onTap: () => setState(() => _seg = 0)),
                             const SizedBox(width: 16),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 0, 0, 70),
-                            ),
-                            _SegPill(
-                              label: 'My Journal',
-                              active: _seg == 1,
-                              onTap: () => setState(() => _seg = 1),
-                              alt: true,
-                            ),
+                            const Padding(padding: EdgeInsets.fromLTRB(0, 0, 0, 70)),
+                            _SegPill(label: 'My Journal', active: _seg == 1, onTap: () => setState(() => _seg = 1), alt: true),
                           ],
                         ),
 
-                        // Only sort button (time filters removed)
                         if (_seg == 0)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 3, 16, 1),
@@ -805,10 +728,9 @@ class _JournalPageState extends State<JournalPage>
                               alignment: Alignment.centerRight,
                               child: Showcase(
                                 key: _journalSortKey,
-                                description:
-                                    'Sort posts by newest, oldest, most reacted, or most replies.',
+                                description: 'Sort posts by newest, oldest, most reacted, or most replies.',
                                 disposeOnTap: true,
-                                onTargetClick: () {}, // required with disposeOnTap
+                                onTargetClick: () {},
                                 onToolTipClick: () {},
                                 onBarrierClick: () {},
                                 child: IconButton(
@@ -822,91 +744,61 @@ class _JournalPageState extends State<JournalPage>
                           ),
 
                         Expanded(
-                          child:
-                              _seg == 0
-                                  ? _CommunityFeed(
-                                    user: u,
-                                    blocked: _blocked,
-                                    publicCol: _public,
-                                    onReact: _reactOnce,
-                                    onReply: _reply, // supports parentId
-                                    onDelete: _deletePost,
-                                    onEdit: _editPost,
-                                    onBlock: _blockUser,
-                                    openReplyFor: _openReplyFor,
-                                    setOpenReplyFor: (id) {
-                                      setState(
-                                        () =>
-                                            _openReplyFor =
-                                                id == _openReplyFor ? null : id,
+                          child: _seg == 0
+                              ? _CommunityFeed(
+                                  user: u,
+                                  blocked: _blocked,
+                                  publicCol: _public,
+                                  onReact: _reactOnce,
+                                  onReply: _reply,
+                                  onDelete: _deletePost,
+                                  onEdit: _editPost,
+                                  onBlock: _blockUser,
+                                  openReplyFor: _openReplyFor,
+                                  setOpenReplyFor: (id) { setState(() => _openReplyFor = id == _openReplyFor ? null : id); },
+                                  replyCtlFor: (id) => _replyCtls.putIfAbsent(id, () => TextEditingController()),
+                                  formatFull: _fmtFull,
+                                  relative: _relative,
+                                  filterFrom: _filterFromDate(_timeFilter),
+                                  orderBy: _orderBy,
+                                  selfAnon: _anonNow,
+                                )
+                              : FutureBuilder<bool>(
+                                  future: _promptForPin(context),
+                                  builder: (ctx, snap) {
+                                    if (snap.connectionState == ConnectionState.waiting) {
+                                      return const Center(child: CircularProgressIndicator());
+                                    }
+                                    if (snap.data == true) {
+                                      return _PrivateJournal(
+                                        uid: u?.uid,
+                                        col: u == null ? null : _privateCol(u.uid),
+                                        formatFull: _fmtFull,
                                       );
-                                    },
-                                    replyCtlFor:
-                                        (id) => _replyCtls.putIfAbsent(
-                                          id,
-                                          () => TextEditingController(),
+                                    } else {
+                                      return Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text('My Journal is locked.', style: TextStyle(color: _textPrimary(context))),
+                                            const SizedBox(height: 16),
+                                            ElevatedButton(
+                                              onPressed: () async {
+                                                final ok = await _promptForPin(context);
+                                                if (ok && mounted) setState(() {});
+                                              },
+                                              child: const Text('Unlock'),
+                                            ),
+                                          ],
                                         ),
-                                    fmtFull: _fmtFull,
-                                    relative: _relative,
-                                    filterFrom: _filterFromDate(_timeFilter),
-                                    orderBy: _orderBy,
-                                    selfAnon: _anonNow,
-                                  )
-                                  : FutureBuilder<bool>(
-                                    future: _promptForPin(context),
-                                    builder: (ctx, snap) {
-                                      if (snap.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const Center(
-                                          child: CircularProgressIndicator(),
-                                        );
-                                      }
-                                      if (snap.data == true) {
-                                        return _PrivateJournal(
-                                          uid: u?.uid,
-                                          col:
-                                              u == null
-                                                  ? null
-                                                  : _privateCol(u.uid),
-                                          fmtFull: _fmtFull,
-                                        );
-                                      } else {
-                                        return Center(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                'My Journal is locked.',
-                                                style: TextStyle(
-                                                  color: _textPrimary(context),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 16),
-                                              ElevatedButton(
-                                                onPressed: () async {
-                                                  final ok =
-                                                      await _promptForPin(
-                                                        context,
-                                                      );
-                                                  if (ok) {
-                                                    if (mounted) {
-                                                      setState(() {});
-                                                    }
-                                                  }
-                                                },
-                                                child: const Text('Unlock'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
+                                      );
+                                    }
+                                  },
+                                ),
                         ),
 
                         const SizedBox(height: 16),
 
-                        // Warning appears RIGHT ABOVE only when typing
                         if (_seg == 0 && _showTriggerAdvice)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -916,16 +808,11 @@ class _JournalPageState extends State<JournalPage>
                               decoration: BoxDecoration(
                                 color: Colors.orange.shade50,
                                 borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: Colors.orange.shade200),
+                                border: Border.all(color: Colors.orange.shade200),
                               ),
                               child: Row(
                                 children: const [
-                                  Icon(
-                                    Icons.warning_amber_rounded,
-                                    size: 18,
-                                    color: Colors.orange,
-                                  ),
+                                  Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -938,12 +825,10 @@ class _JournalPageState extends State<JournalPage>
                             ),
                           ),
 
-                        // Composer (community only)
                         if (_seg == 0)
                           Showcase(
                             key: _journalComposerKey,
-                            description:
-                                'Write a post to the community. You can @mention people too.',
+                            description: 'Write a post to the community. You can @mention people too.',
                             disposeOnTap: true,
                             onTargetClick: () {},
                             onToolTipClick: () {},
@@ -953,10 +838,7 @@ class _JournalPageState extends State<JournalPage>
                               focusNode: _pubFocus,
                               hintText: 'start writing',
                               onSubmit: _postPublic,
-                              showTriggerAdvice: (s) {
-                                if (!mounted) return;
-                                setState(() => _showTriggerAdvice = s);
-                              },
+                              showTriggerAdvice: (s) { if (!mounted) return; setState(() => _showTriggerAdvice = s); },
                               leadingAvatarUrl: u?.photoURL,
                             ),
                           )
@@ -965,66 +847,36 @@ class _JournalPageState extends State<JournalPage>
 
                         _BottomNavTransparent(
                           selectedIndex: 1,
-                          onHome:
-                              () => Navigator.pushReplacement(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder:
-                                      (_) => home_page.HomePage(
-                                        userName: widget.userName,
-                                      ),
-                                ),
-                              ),
+                          onHome: () => Navigator.pushReplacement(
+                            context,
+                            NoTransitionPageRoute(builder: (_) => home_page.HomePage(userName: widget.userName)),
+                          ),
                           onJournal: () {},
-                          onSettings:
-                              () => Navigator.pushReplacement(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder:
-                                      (_) =>
-                                          SettingsPage(userName: widget.userName),
-                                ),
-                              ),
+                          onSettings: () => Navigator.pushReplacement(
+                            context,
+                            NoTransitionPageRoute(builder: (_) => SettingsPage(userName: widget.userName)),
+                          ),
                         ),
                       ],
                     ),
 
-                    // FAB for adding private entry (floats above bottom nav)
+                    // FAB for adding private entry (showcased in private step)
                     if (_seg == 1)
                       Positioned(
                         right: 16,
                         bottom: 86,
-                        child: FloatingActionButton(
-                          backgroundColor: _teal,
-                          onPressed: _openCreatePrivateDialog,
-                          child: const Icon(Icons.add, color: Colors.white),
-                        ),
-                      ),
-
-                    // 👇 NEW: "Next" button shown during the tour to move to Settings
-                    if (_tourActive)
-                      Positioned(
-                        right: 16,
-                        bottom: 16 + 56, // above bottom nav a bit
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                          label: const Text(
-                            'Next',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          style: ElevatedButton.styleFrom(
+                        child: Showcase(
+                          key: _privateFabKey,
+                          description: 'This is your private space. Tap + to write your first entry.',
+                          disposeOnTap: true,
+                          onTargetClick: () {},
+                          onToolTipClick: () {},
+                          onBarrierClick: () {},
+                          child: FloatingActionButton(
                             backgroundColor: _teal,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 3,
+                            onPressed: _openCreatePrivateDialog,
+                            child: const Icon(Icons.add, color: Colors.white),
                           ),
-                          onPressed: _goNextFromJournal,
                         ),
                       ),
                   ],
@@ -1038,7 +890,7 @@ class _JournalPageState extends State<JournalPage>
   }
 }
 
-// ---------------- Community Feed ----------------
+// ---------------- Community Feed (unchanged except for imports) ----------------
 class _CommunityFeed extends StatelessWidget {
   const _CommunityFeed({
     required this.user,
@@ -1062,8 +914,7 @@ class _CommunityFeed extends StatelessWidget {
   final User? user;
   final Set<String> blocked;
   final CollectionReference<Map<String, dynamic>> publicCol;
-  final Future<void> Function(String postId, String text, {String? parentId})
-  onReply;
+  final Future<void> Function(String postId, String text, {String? parentId}) onReply;
   final Future<void> Function(String postId, String emoji) onReact;
   final Future<void> Function(String postId) onDelete;
   final Future<void> Function(String postId, String currentText) onEdit;
@@ -1078,14 +929,10 @@ class _CommunityFeed extends StatelessWidget {
   final bool selfAnon;
 
   Query<Map<String, dynamic>> _buildQuery() {
-    // Avoid composite indexes entirely
     Query<Map<String, dynamic>> q = publicCol;
 
     if (filterFrom != null) {
-      q = q.where(
-        'createdAt',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(filterFrom!),
-      );
+      q = q.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(filterFrom!));
       q = q.orderBy('createdAt', descending: true);
       return q.limit(500);
     }
@@ -1119,20 +966,15 @@ class _CommunityFeed extends StatelessWidget {
         }
 
         List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
-            (snap.data?.docs ?? [])
-                .where((d) => !blocked.contains(d.data()['uid']))
-                .toList();
+            (snap.data?.docs ?? []).where((d) => !blocked.contains(d.data()['uid'])).toList();
 
-        // Client-side sort for aggregate sorts (no index needed).
         if (orderBy == _OrderBy.mostReacted) {
           docs.sort((a, b) {
             final ar = (a.data()['reactionScore'] ?? 0) as int;
             final br = (b.data()['reactionScore'] ?? 0) as int;
             if (br != ar) return br.compareTo(ar);
-            final at =
-                (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
-            final bt =
-                (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
+            final at = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
+            final bt = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
             return bt.compareTo(at);
           });
         } else if (orderBy == _OrderBy.mostReplies) {
@@ -1140,10 +982,8 @@ class _CommunityFeed extends StatelessWidget {
             final ar = (a.data()['replyCount'] ?? 0) as int;
             final br = (b.data()['replyCount'] ?? 0) as int;
             if (br != ar) return br.compareTo(ar);
-            final at =
-                (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
-            final bt =
-                (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
+            final at = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
+            final bt = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(0);
             return bt.compareTo(at);
           });
         }
@@ -1157,15 +997,13 @@ class _CommunityFeed extends StatelessWidget {
         }
 
         return ListView.builder(
-          // ⬇️ extra bottom padding adds space above the composer
           key: const PageStorageKey<String>('community_feed_list'),
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 220),
           itemCount: docs.length,
           itemBuilder: (_, i) {
             final doc = docs[i];
             final m = doc.data();
-            final ts =
-                (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+            final ts = (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
             final postUid = (m['uid'] as String?) ?? '';
             final providedName = (m['username'] as String?)?.trim() ?? '';
             final storedAnon = (m['isAnonymous'] as bool?) == true;
@@ -1200,122 +1038,64 @@ class _CommunityFeed extends StatelessWidget {
                                   uid: postUid,
                                   provided: providedName,
                                   isAnonymous: displayAnon,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                    color: _textPrimary(context),
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: _textPrimary(context)),
                                 ),
                               ),
                               if ((m['edited'] as bool?) == true)
                                 Padding(
                                   padding: const EdgeInsets.only(right: 8.0),
-                                  child: Text(
-                                    'Edited',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontStyle: FontStyle.italic,
-                                      color: _textSecondary(context),
-                                    ),
-                                  ),
+                                  child: Text('Edited', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: _textSecondary(context))),
                                 ),
                             ],
                           ),
                         ),
                         Text(
                           formatFull(ts),
-                          style: TextStyle(
-                            color: _textSecondary(context),
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: _textSecondary(context), fontSize: 12),
                         ),
                         const SizedBox(width: 6),
                         _PostMenu(
                           canEdit: canEdit,
                           canDelete: canEdit,
                           canBlock: canBlock,
-                          onEdit:
-                              () => onEdit(
-                                doc.id,
-                                (m['content'] as String?) ?? '',
-                              ),
+                          onEdit: () => onEdit(doc.id, (m['content'] as String?) ?? ''),
                           onDelete: () => onDelete(doc.id),
                           onBlock: () => onBlock(postUid),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 10),
-
                     _ExpandableText(text: (m['content'] as String?) ?? ''),
-
                     const SizedBox(height: 12),
-
                     StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                      stream:
-                          (user == null)
-                              ? null
-                              : publicCol
-                                  .doc(doc.id)
-                                  .collection('reactions')
-                                  .doc(user!.uid)
-                                  .snapshots(),
+                      stream: (user == null) ? null : publicCol.doc(doc.id).collection('reactions').doc(user!.uid).snapshots(),
                       builder: (context, rxSnap) {
-                        final myEmoji =
-                            (rxSnap.data?.data()?['emoji'] as String?) ?? '';
+                        final myEmoji = (rxSnap.data?.data()?['emoji'] as String?) ?? '';
                         return Row(
                           children: [
-                            _EmojiSelectable(
-                              emoji: '❤️',
-                              count: (m['reactions']?['❤️'] ?? 0) as int,
-                              selected: myEmoji == '❤️',
-                              onTap:
-                                  user == null
-                                      ? null
-                                      : () => onReact(doc.id, '❤️'),
-                            ),
+                            _EmojiSelectable(emoji: '❤️', count: (m['reactions']?['❤️'] ?? 0) as int, selected: myEmoji == '❤️', onTap: user == null ? null : () => onReact(doc.id, '❤️')),
                             const SizedBox(width: 8),
-                            _EmojiSelectable(
-                              emoji: '👍',
-                              count: (m['reactions']?['👍'] ?? 0) as int,
-                              selected: myEmoji == '👍',
-                              onTap:
-                                  user == null
-                                      ? null
-                                      : () => onReact(doc.id, '👍'),
-                            ),
+                            _EmojiSelectable(emoji: '👍', count: (m['reactions']?['👍'] ?? 0) as int, selected: myEmoji == '👍', onTap: user == null ? null : () => onReact(doc.id, '👍')),
                             const SizedBox(width: 8),
-                            _EmojiSelectable(
-                              emoji: '🥲',
-                              count: (m['reactions']?['🥲'] ?? 0) as int,
-                              selected: myEmoji == '🥲',
-                              onTap:
-                                  user == null
-                                      ? null
-                                      : () => onReact(doc.id, '🥲'),
-                            ),
+                            _EmojiSelectable(emoji: '🥲', count: (m['reactions']?['🥲'] ?? 0) as int, selected: myEmoji == '🥲', onTap: user == null ? null : () => onReact(doc.id, '🥲')),
                             const Spacer(),
                             _RepliesToggle(
                               col: publicCol,
                               postId: doc.id,
                               open: openReplyFor == doc.id,
-                              onPressed:
-                                  () => setOpenReplyFor(
-                                    openReplyFor == doc.id ? null : doc.id,
-                                  ),
+                              onPressed: () => setOpenReplyFor(openReplyFor == doc.id ? null : doc.id),
                             ),
                           ],
                         );
                       },
                     ),
-
                     if (openReplyFor == doc.id) ...[
                       _ReplyThread(
                         postId: doc.id,
                         public: publicCol,
                         currentUid: user?.uid,
                         selfAnon: selfAnon,
-                        onReply: onReply, // supports nested
+                        onReply: onReply,
                         onBlock: onBlock,
                         blocked: blocked,
                       ),
@@ -1340,19 +1120,14 @@ class _CommunityFeed extends StatelessWidget {
   }
 }
 
-// ---------------- Private Journal ----------------
+// ---------------- Private Journal (unchanged) ----------------
 class _PrivateJournal extends StatelessWidget {
-  const _PrivateJournal({
-    required this.uid,
-    required this.col,
-    required this.formatFull,
-  });
+  const _PrivateJournal({required this.uid, required this.col, required this.formatFull});
 
   final String? uid;
   final CollectionReference<Map<String, dynamic>>? col;
   final String Function(DateTime) formatFull;
 
-  // --- Icon options for private entries
   static const Map<String, IconData> _iconChoices = {
     'book': Icons.menu_book_rounded,
     'star': Icons.star_rounded,
@@ -1363,64 +1138,39 @@ class _PrivateJournal extends StatelessWidget {
     'flower': Icons.local_florist_rounded,
   };
 
-  IconData _iconForKey(String? key) {
-    return _iconChoices[key] ?? Icons.menu_book_rounded;
-  }
+  IconData _iconForKey(String? key) => _iconChoices[key] ?? Icons.menu_book_rounded;
 
-  Future<void> _chooseIcon(
-    BuildContext context,
-    CollectionReference<Map<String, dynamic>> col,
-    String id,
-    String currentKey,
-  ) async {
+  Future<void> _chooseIcon(BuildContext context, CollectionReference<Map<String, dynamic>> col, String id, String currentKey) async {
     String selected = currentKey;
     await showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Choose an icon'),
-            content: SizedBox(
-              width: 420,
-              child: Wrap(
-                alignment:
-                    WrapAlignment.spaceEvenly, // or .center, .spaceAround
-                spacing: 12,
-                runSpacing: 12,
-                children:
-                    _iconChoices.entries.map((e) {
-                      final isSel = e.key == selected;
-                      return InkWell(
-                        onTap: () {
-                          selected = e.key;
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color:
-                                isSel ? _teal.withOpacity(.12) : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSel ? _teal : Colors.black12,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black12, blurRadius: 6),
-                            ],
-                          ),
-                          child: Icon(e.value, color: _teal, size: 30),
-                        ),
-                      );
-                    }).toList(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ],
+      builder: (_) => AlertDialog(
+        title: const Text('Choose an icon'),
+        content: SizedBox(
+          width: 420,
+          child: Wrap(
+            alignment: WrapAlignment.spaceEvenly,
+            spacing: 12, runSpacing: 12,
+            children: _iconChoices.entries.map((e) {
+              final isSel = e.key == selected;
+              return InkWell(
+                onTap: () { selected = e.key; Navigator.pop(context); },
+                child: Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    color: isSel ? _teal.withOpacity(.12) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isSel ? _teal : Colors.black12),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                  ),
+                  child: Icon(e.value, color: _teal, size: 30),
+                ),
+              );
+            }).toList(),
           ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+      ),
     );
     if (selected != currentKey) {
       await col.doc(id).update({'iconKey': selected});
@@ -1430,63 +1180,32 @@ class _PrivateJournal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (uid == null || col == null) {
-      return Center(
-        child: Text(
-          'Sign in to view your private entries.',
-          style: TextStyle(color: _textPrimary(context)),
-        ),
-      );
+      return Center(child: Text('Sign in to view your private entries.', style: TextStyle(color: _textPrimary(context))));
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream:
-          col!.orderBy('createdAt', descending: true).limit(200).snapshots(),
+      stream: col!.orderBy('createdAt', descending: true).limit(200).snapshots(),
       builder: (context, snap) {
         final list = snap.data?.docs ?? [];
         if (list.isEmpty) {
-          return Center(
-            child: Text(
-              'No entries yet. Tap + to add one.',
-              style: TextStyle(color: _textPrimary(context)),
-            ),
-          );
+          return Center(child: Text('No entries yet. Tap + to add one.', style: TextStyle(color: _textPrimary(context))));
         }
 
-        Future<void> _viewEntry(
-          QueryDocumentSnapshot<Map<String, dynamic>> d,
-        ) async {
+        Future<void> _viewEntry(QueryDocumentSnapshot<Map<String, dynamic>> d) async {
           final m = d.data();
           await showDialog(
             context: context,
-            builder:
-                (_) => AlertDialog(
-                  title: Text((m['title'] as String?) ?? 'Untitled'),
-                  content: SizedBox(
-                    width: 520,
-                    child: SingleChildScrollView(
-                      child: Text((m['content'] as String?) ?? ''),
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _editEntry(
-                          context,
-                          col!,
-                          d.id,
-                          m['title'] ?? '',
-                          m['content'] ?? '',
-                        );
-                      },
-                      child: const Text('Edit'),
-                    ),
-                  ],
+            builder: (_) => AlertDialog(
+              title: Text((m['title'] as String?) ?? 'Untitled'),
+              content: SizedBox(width: 520, child: SingleChildScrollView(child: Text((m['content'] as String?) ?? ''))),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                TextButton(
+                  onPressed: () { Navigator.pop(context); _editEntry(context, col!, d.id, m['title'] ?? '', m['content'] ?? ''); },
+                  child: const Text('Edit'),
                 ),
+              ],
+            ),
           );
         }
 
@@ -1495,8 +1214,7 @@ class _PrivateJournal extends StatelessWidget {
           children: [
             ...list.map((d) {
               final m = d.data();
-              final created =
-                  (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final created = (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
               final updated = (m['updatedAt'] as Timestamp?)?.toDate();
               final edited = (m['edited'] as bool?) == true;
               final iconKey = (m['iconKey'] as String?) ?? 'book';
@@ -1505,75 +1223,36 @@ class _PrivateJournal extends StatelessWidget {
                 child: ListTile(
                   onTap: () => _viewEntry(d),
                   leading: Icon(_iconForKey(iconKey), color: _teal),
-                  title: Text(
-                    (m['title'] as String?) ?? 'Untitled',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary(context),
-                    ),
-                  ),
+                  title: Text((m['title'] as String?) ?? 'Untitled', style: TextStyle(fontWeight: FontWeight.w600, color: _textPrimary(context))),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 6),
-                      Text(
-                        (m['content'] as String?) ?? '',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: _textPrimary(context)),
-                      ),
+                      Text((m['content'] as String?) ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: _textPrimary(context))),
                       const SizedBox(height: 6),
-                      Text(
-                        'Created • ${formatFull(created)}',
-                        style: TextStyle(
-                          color: _textSecondary(context),
-                          fontSize: 12,
-                        ),
-                      ),
+                      Text('Created • ${formatFull(created)}', style: TextStyle(color: _textSecondary(context), fontSize: 12)),
                       if (edited && updated != null) ...[
                         const SizedBox(height: 2),
-                        Text(
-                          'Edited • ${formatFull(updated)}',
-                          style: TextStyle(
-                            color: _textSecondary(context),
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
+                        Text('Edited • ${formatFull(updated)}', style: TextStyle(color: _textSecondary(context), fontSize: 12, fontStyle: FontStyle.italic)),
                       ],
                     ],
                   ),
                   trailing: PopupMenuButton<String>(
                     onSelected: (v) async {
                       if (v == 'edit') {
-                        _editEntry(
-                          context,
-                          col!,
-                          d.id,
-                          m['title'] ?? '',
-                          m['content'] ?? '',
-                        );
+                        _editEntry(context, col!, d.id, m['title'] ?? '', m['content'] ?? '');
                       }
                       if (v == 'delete') {
                         final ok = await showDialog<bool>(
                           context: context,
-                          builder:
-                              (_) => AlertDialog(
-                                title: const Text('Delete entry?'),
-                                content: const Text('This cannot be undone.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed:
-                                        () => Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed:
-                                        () => Navigator.pop(context, true),
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
+                          builder: (_) => AlertDialog(
+                            title: const Text('Delete entry?'),
+                            content: const Text('This cannot be undone.'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                              ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                            ],
+                          ),
                         );
                         if (ok == true) {
                           await col!.doc(d.id).delete();
@@ -1583,15 +1262,11 @@ class _PrivateJournal extends StatelessWidget {
                         await _chooseIcon(context, col!, d.id, iconKey);
                       }
                     },
-                    itemBuilder:
-                        (_) => const [
-                          PopupMenuItem(value: 'edit', child: Text('Edit')),
-                          PopupMenuItem(
-                            value: 'icon',
-                            child: Text('Change icon'),
-                          ),
-                          PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(value: 'icon', child: Text('Change icon')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+                    ],
                   ),
                 ),
               );
@@ -1614,69 +1289,46 @@ class _PrivateJournal extends StatelessWidget {
 
     await showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Edit entry'),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: tCtl,
-                    decoration: const InputDecoration(
-                      labelText: 'Entry Title',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: cCtl,
-                    maxLines: 10,
-                    decoration: const InputDecoration(
-                      labelText: 'Write a private entry…',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final newTitle = tCtl.text.trim();
-                  final newContent = cCtl.text.trim();
-                  if (newTitle.isNotEmpty && newContent.isNotEmpty) {
-                    await col.doc(id).update({
-                      'title': newTitle,
-                      'content': newContent,
-                      'updatedAt': FieldValue.serverTimestamp(),
-                      'edited': true,
-                    });
-                  }
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: const Text('Save'),
-              ),
+      builder: (_) => AlertDialog(
+        title: const Text('Edit entry'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: tCtl, decoration: const InputDecoration(labelText: 'Entry Title', border: OutlineInputBorder())),
+              const SizedBox(height: 10),
+              TextField(controller: cCtl, maxLines: 10, decoration: const InputDecoration(labelText: 'Write a private entry…', border: OutlineInputBorder())),
             ],
           ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final newTitle = tCtl.text.trim();
+              final newContent = cCtl.text.trim();
+              if (newTitle.isNotEmpty && newContent.isNotEmpty) {
+                await col.doc(id).update({
+                  'title': newTitle,
+                  'content': newContent,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'edited': true,
+                });
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ---------------- Small widgets ----------------
-
+// ---------------- Small widgets & helpers (unchanged) ----------------
 class _SegPill extends StatelessWidget {
-  const _SegPill({
-    required this.label,
-    required this.active,
-    required this.onTap,
-    this.alt = false,
-  });
+  const _SegPill({required this.label, required this.active, required this.onTap, this.alt = false});
 
   final String label;
   final bool active;
@@ -1686,12 +1338,9 @@ class _SegPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = _isDark(context);
-
-    // Adjust to dark mode for better contrast
     final Color bg = dark
         ? (active ? const Color(0xFF123A36) : Colors.white.withOpacity(.12))
         : (active ? (alt ? const Color(0xFFFFFFFF) : Colors.white) : Colors.white70);
-
     final Color fg = dark
         ? (active ? Colors.white : Colors.white70)
         : (active ? (alt ? const Color(0xFF000000) : Colors.black) : Colors.black87);
@@ -1701,21 +1350,13 @@ class _SegPill extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(color: fg, fontWeight: FontWeight.w700),
-        ),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)]),
+        child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
       ),
     );
   }
 }
 
-/// Smart avatar that shows latest profile photo unless anonymous.
 class _AvatarSmart extends StatelessWidget {
   const _AvatarSmart({
     required this.uid,
@@ -1734,72 +1375,40 @@ class _AvatarSmart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const radius = 18.0;
-    final placeholder = const CircleAvatar(
-      radius: radius,
-      backgroundColor: Color(0xFFD7CFFC),
-      child: Icon(Icons.person, color: Colors.black54),
-    );
-
+    final placeholder = const CircleAvatar(radius: radius, backgroundColor: Color(0xFFD7CFFC), child: Icon(Icons.person, color: Colors.black54));
     if (postAnonymous) return placeholder;
 
     if (preferFresh && (uid != null && uid!.isNotEmpty)) {
       return FutureBuilder<String?>(
         future: _PhotoResolver.byUid(uid!),
         builder: (_, snap) {
-          final url =
-              (snap.data ?? '').isNotEmpty
-                  ? snap.data
-                  : (selfFallbackUrl?.isNotEmpty == true
-                      ? selfFallbackUrl
-                      : (photoUrlFromPost?.isNotEmpty == true
-                          ? photoUrlFromPost
-                          : null));
-          if (url != null && url.isNotEmpty) {
-            return CircleAvatar(
-              radius: radius,
-              backgroundImage: NetworkImage(url),
-            );
-          }
+          final url = (snap.data ?? '').isNotEmpty
+              ? snap.data
+              : (selfFallbackUrl?.isNotEmpty == true ? selfFallbackUrl : (photoUrlFromPost?.isNotEmpty == true ? photoUrlFromPost : null));
+          if (url != null && url.isNotEmpty) return CircleAvatar(radius: radius, backgroundImage: NetworkImage(url));
           return placeholder;
         },
       );
     }
 
     if (photoUrlFromPost != null && photoUrlFromPost!.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(photoUrlFromPost!),
-      );
+      return CircleAvatar(radius: radius, backgroundImage: NetworkImage(photoUrlFromPost!));
     }
 
     if (uid != null && uid!.isNotEmpty) {
       return FutureBuilder<String?>(
         future: _PhotoResolver.byUid(uid!),
         builder: (_, snap) {
-          final url =
-              (snap.data ?? '').isNotEmpty
-                  ? snap.data
-                  : (selfFallbackUrl?.isNotEmpty == true
-                      ? selfFallbackUrl
-                      : null);
-          if (url != null && url.isNotEmpty) {
-            return CircleAvatar(
-              radius: radius,
-              backgroundImage: NetworkImage(url),
-            );
-          }
+          final url = (snap.data ?? '').isNotEmpty ? snap.data : (selfFallbackUrl?.isNotEmpty == true ? selfFallbackUrl : null);
+          if (url != null && url.isNotEmpty) return CircleAvatar(radius: radius, backgroundImage: NetworkImage(url));
           return placeholder;
         },
       );
     }
 
     if (selfFallbackUrl != null && selfFallbackUrl!.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(selfFallbackUrl!),
-      );
+      return CircleAvatar(radius: radius, backgroundImage: NetworkImage(selfFallbackUrl!));
     }
-
     return placeholder;
   }
 }
@@ -1830,70 +1439,38 @@ class _PostMenu extends StatelessWidget {
         if (v == 'delete') onDelete();
         if (v == 'block') onBlock();
       },
-      itemBuilder:
-          (c) => [
-            if (canEdit)
-              const PopupMenuItem(value: 'edit', child: Text('Edit post')),
-            if (canDelete)
-              const PopupMenuItem(value: 'delete', child: Text('Delete post')),
-            if (canBlock)
-              const PopupMenuItem(value: 'block', child: Text('Block user')),
-          ],
+      itemBuilder: (c) => [
+        if (canEdit) const PopupMenuItem(value: 'edit', child: Text('Edit post')),
+        if (canDelete) const PopupMenuItem(value: 'delete', child: Text('Delete post')),
+        if (canBlock) const PopupMenuItem(value: 'block', child: Text('Block user')),
+      ],
     );
   }
 }
 
 class _EmojiSelectable extends StatelessWidget {
-  const _EmojiSelectable({
-    required this.emoji,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String emoji;
-  final int count;
-  final bool selected;
-  final VoidCallback? onTap;
-
+  const _EmojiSelectable({required this.emoji, required this.count, required this.selected, required this.onTap});
+  final String emoji; final int count; final bool selected; final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final color = selected ? _teal : _textPrimary(context);
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      onTap: onTap, borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: Row(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: TextStyle(
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                color: color,
-              ),
-            ),
-          ],
-        ),
+        child: Row(children: [
+          Text(emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 6),
+          Text('$count', style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w400, color: color)),
+        ]),
       ),
     );
   }
 }
 
 class _RepliesToggle extends StatelessWidget {
-  const _RepliesToggle({
-    required this.col,
-    required this.postId,
-    required this.open,
-    required this.onPressed,
-  });
-
-  final CollectionReference<Map<String, dynamic>> col;
-  final String postId;
-  final bool open;
-  final VoidCallback onPressed;
+  const _RepliesToggle({required this.col, required this.postId, required this.open, required this.onPressed});
+  final CollectionReference<Map<String, dynamic>> col; final String postId; final bool open; final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -1901,43 +1478,26 @@ class _RepliesToggle extends StatelessWidget {
       stream: col.doc(postId).collection('replies').snapshots(),
       builder: (context, snap) {
         final count = snap.data?.size ?? 0;
-        return TextButton.icon(
-          onPressed: onPressed,
-          icon: const Icon(Icons.forum_outlined),
-          label: Text(open ? 'Hide replies ($count)' : 'Replies $count'),
-        );
+        return TextButton.icon(onPressed: onPressed, icon: const Icon(Icons.forum_outlined), label: Text(open ? 'Hide replies ($count)' : 'Replies $count'));
       },
     );
   }
 }
 
-// ---------------- INLINE REPLY COMPOSER (friendlier UI) -------------------
 class _InlineReplyComposer extends StatelessWidget {
-  const _InlineReplyComposer({
-    required this.currentUserName,
-    required this.currentUserPhoto,
-    required this.ctl,
-    required this.onSend,
-  });
-
-  final String currentUserName;
-  final String? currentUserPhoto;
-  final TextEditingController ctl;
-  final Future<void> Function(String text) onSend;
-
+  const _InlineReplyComposer({required this.currentUserName, required this.currentUserPhoto, required this.ctl, required this.onSend});
+  final String currentUserName; final String? currentUserPhoto; final TextEditingController ctl; final Future<void> Function(String text) onSend;
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: _ComposerWithMentions(
-        controller: ctl,
-        hintText: 'Write a reply…',
-        onSubmit: () => onSend(ctl.text),
-        compact: true, // friendlier compact style for replies
-        leadingAvatarUrl: currentUserPhoto,
+        controller: ctl, hintText: 'Write a reply…', onSubmit: () => onSend(ctl.text),
+        compact: true, leadingAvatarUrl: currentUserPhoto,
       ),
     );
   }
+
 }
 
 // ---------------- Mention-aware composer used for public + replies -------
