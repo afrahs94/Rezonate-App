@@ -1,4 +1,3 @@
-// lib/pages/home.dart
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui' show FontFeature, ImageFilter;
@@ -67,11 +66,10 @@ class _HomePageState extends State<HomePage> {
   final _db = FirebaseFirestore.instance;
   User? get _user => _auth.currentUser;
 
-Timer? _replayAutoNext;            // auto-advance in replay
-int? _prevTrackerCount;            // detect 0 -> 1 transition
-bool _navigatedAfterHabit = false; // avoid double navigation
+  Timer? _replayAutoNext;            // auto-advance in replay
+  int? _prevTrackerCount;            // detect 0 -> 1 transition
+  bool _navigatedAfterHabit = false; // avoid double navigation
 
-  
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _trackersSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _logsSub;
 
@@ -97,14 +95,10 @@ bool _navigatedAfterHabit = false; // avoid double navigation
   DateTime? _firstLogTodayAt; // earliest log time for "today"
   DateTime? _lastLogBeforeTodayAt; // most recent log time BEFORE "today"
 
-  // ---- Custom emoji scale (applies to sliders & chart Y-axis)
-  final List<int> _emojiTicks = const [0, 2, 4, 6, 8, 10];
+  // ---- Custom emoji scale (ONLY ends kept: 0 and 10)
+  final List<int> _emojiTicks = const [0, 10];
   final Map<int, String> _defaultEmojis = const {
     0: "😄",
-    2: "🙂",
-    4: "😐",
-    6: "😕",
-    8: "☹️",
     10: "😢",
   };
   late Map<int, String> _emojiForTick = Map<int, String>.from(_defaultEmojis);
@@ -144,10 +138,19 @@ bool _navigatedAfterHabit = false; // avoid double navigation
   }
 
   Future<void> _openEmojiPicker() async {
+    // Only two fields: 0 and 10
     final Map<int, String> draft = Map<int, String>.from(_emojiForTick);
     final controllers = {
       for (final t in _emojiTicks) t: TextEditingController(text: draft[t])
     };
+
+    String sanitize(String v, int tick) {
+      final trimmed = v.trim();
+      if (trimmed.isEmpty) return _defaultEmojis[tick]!;
+      return trimmed.characters.isNotEmpty
+          ? trimmed.characters.first
+          : _defaultEmojis[tick]!;
+    }
 
     await showDialog(
       context: context,
@@ -156,7 +159,7 @@ bool _navigatedAfterHabit = false; // avoid double navigation
         return AlertDialog(
           backgroundColor: dark ? const Color(0xFF123A36) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Customize emoji scale'),
+          title: const Text('Customize end emojis'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -164,7 +167,7 @@ bool _navigatedAfterHabit = false; // avoid double navigation
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'These emojis label the mood/value range at 0–10.\nUsed on sliders (ends) and Y-axis of the chart.',
+                    'Set only the start (0) and end (10) emojis used on sliders and chart.',
                     style: TextStyle(fontSize: 12.5),
                   ),
                 ),
@@ -175,9 +178,9 @@ bool _navigatedAfterHabit = false; // avoid double navigation
                     child: Row(
                       children: [
                         SizedBox(
-                          width: 54,
+                          width: 74,
                           child: Text(
-                            t == 0 || t == 10 ? '$t (end)' : '$t',
+                            t == 0 ? '0 (start)' : '10 (end)',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13),
                           ),
@@ -186,19 +189,19 @@ bool _navigatedAfterHabit = false; // avoid double navigation
                         Expanded(
                           child: TextField(
                             controller: controllers[t],
+                            maxLength: 2,
+                            buildCounter: (_, {required currentLength, maxLength, required isFocused}) => const SizedBox.shrink(),
                             textInputAction: TextInputAction.done,
                             decoration: const InputDecoration(
                               isDense: true,
-                              hintText: 'Enter emoji (e.g., 🙂)',
+                              hintText: 'Enter emoji',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 8,
                               ),
                             ),
-                            onChanged: (v) => draft[t] = v.trim().isEmpty
-                                ? _defaultEmojis[t]!
-                                : v.trim(),
+                            onChanged: (v) => draft[t] = sanitize(v, t),
                           ),
                         ),
                       ],
@@ -665,18 +668,18 @@ bool _navigatedAfterHabit = false; // avoid double navigation
     final sel =
         _trackers.where((t) => _selectedForChart.contains(t.id)).toList();
 
-    late List<double> xPoints;
     final List<List<double>> seriesValues = [];
+    int pointCount;
 
     if (_view == ChartView.weekly) {
       final days = _currentWeekMonToSun();
-      xPoints = List.generate(days.length, (i) => i.toDouble());
+      pointCount = 7;
       for (final t in sel) {
         seriesValues.add(_valuesForDates(t, days));
       }
     } else if (_view == ChartView.monthly) {
       final days = _lastNDays(28);
-      xPoints = [0, 1, 2, 3];
+      pointCount = 4;
       for (final t in sel) {
         final vals = _valuesForDates(t, days);
         final chunks = [
@@ -695,7 +698,7 @@ bool _navigatedAfterHabit = false; // avoid double navigation
       }
     } else {
       final days = _lastNDays(84);
-      xPoints = [0, 1, 2, 3];
+      pointCount = 4;
       for (final t in sel) {
         final vals = _valuesForDates(t, days);
         const size = 21;
@@ -716,17 +719,16 @@ bool _navigatedAfterHabit = false; // avoid double navigation
     }
 
     const double yPad = 2.0;
-    const double xPad = 0.8;
     const double minY = 0 - yPad;
     const double maxY = 10 + yPad;
 
+    // Build series
     final bars = <LineChartBarData>[];
     for (int s = 0; s < sel.length; s++) {
       final t = sel[s];
       final vals = seriesValues[s];
       final spots = <FlSpot>[
-        for (int i = 0; i < (_view == ChartView.weekly ? 7 : 4); i++)
-          FlSpot(i.toDouble(), vals[i]),
+        for (int i = 0; i < pointCount; i++) FlSpot(i.toDouble(), vals[i]),
       ];
       bars.add(
         LineChartBarData(
@@ -747,9 +749,18 @@ bool _navigatedAfterHabit = false; // avoid double navigation
       );
     }
 
+    // ==== Compact + centered horizontally without duplicating last label ====
+    // Show symmetric padding around the first/last point.
+    // Keep labels only at whole integers so no repeats (Sun/Week4/Q4).
+    const pad = 0.5; // tweak if you want tighter/looser fit
+    final double minX = -pad;
+    final double maxX = (pointCount - 1) + pad;
+
+    bool _isWhole(num v) => v == v.roundToDouble();
+
     return LineChartData(
-      minX: -0.3,
-      maxX: _view == ChartView.weekly ? 7 : 4,
+      minX: minX,
+      maxX: maxX,
       minY: minY,
       maxY: maxY,
       gridData: FlGridData(
@@ -764,10 +775,10 @@ bool _navigatedAfterHabit = false; // avoid double navigation
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 30,
-            interval: 2,
+            interval: 10, // only 0 and 10 will render
             getTitlesWidget: (value, meta) {
               final v = value.toInt();
-              if (_emojiForTick.containsKey(v)) {
+              if (v == 0 || v == 10) {
                 return Text(
                   _emojiForTick[v]!,
                   style: const TextStyle(fontSize: 20),
@@ -782,19 +793,29 @@ bool _navigatedAfterHabit = false; // avoid double navigation
             showTitles: true,
             interval: 1,
             getTitlesWidget: (value, meta) {
+              if (!_isWhole(value)) return const SizedBox.shrink();
+              final i = value.toInt();
               if (_view == ChartView.weekly) {
                 final days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-                if (value >= 0 && value < days.length) {
+                if (i >= 0 && i < days.length) {
                   return Text(
-                    days[value.toInt()],
+                    days[i],
                     style: const TextStyle(fontSize: 12.5),
                   );
                 }
               } else if (_view == ChartView.monthly) {
                 final weeks = ["Week 1", "Week 2", "Week 3", "Week 4"];
-                if (value >= 0 && value < 4) {
+                if (i >= 0 && i < 4) {
                   return Text(
-                    weeks[value.toInt()],
+                    weeks[i],
+                    style: const TextStyle(fontSize: 12),
+                  );
+                }
+              } else if (_view == ChartView.overall) {
+                final labels = ["Q1", "Q2", "Q3", "Q4"];
+                if (i >= 0 && i < 4) {
+                  return Text(
+                    labels[i],
                     style: const TextStyle(fontSize: 12),
                   );
                 }
@@ -1695,16 +1716,20 @@ bool _navigatedAfterHabit = false; // avoid double navigation
 
             final presets = <Color>[
               const Color(0xFF0D7C66),
-              Colors.teal,
-              Colors.blue,
-              Colors.indigo,
-              Colors.purple,
-              Colors.pinkAccent,
-              Colors.orange,
-              Colors.amber,
-              Colors.redAccent,
-              Colors.brown,
-              Colors.grey,
+              const Color(0xFF41B3A2),
+              const Color(0xFF3E8F84),
+              const Color(0xFFD7C3F1),
+              const Color(0xFFBDA9DB),
+              const Color(0xFF99BBFF),
+            ];
+
+            final themeSwatches = <Color>[
+              const Color(0xFF0D7C66),
+              const Color(0xFF41B3A2),
+              const Color(0xFF3E8F84),
+              const Color(0xFFD7C3F1),
+              const Color(0xFFBDA9DB),
+              const Color(0xFF99BBFF),
             ];
 
             return Container(
@@ -1754,7 +1779,7 @@ bool _navigatedAfterHabit = false; // avoid double navigation
                         );
 
                         final innerDiameter = size.width - ringWidth * 2;
-                        final squareSize = innerDiameter * 0.76;
+                        final squareSize = innerDiameter * 0.60;
 
                         return GestureDetector(
                           onPanDown:
@@ -1884,6 +1909,53 @@ bool _navigatedAfterHabit = false; // avoid double navigation
                               ),
                             ),
                           ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Theme colors
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Theme colors',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final c in themeSwatches)
+                              GestureDetector(
+                                onTap: () =>
+                                    setSheet(() => hsv = HSVColor.fromColor(c)),
+                                child: Container(
+                                  width: 26,
+                                  height: 26,
+                                  decoration: BoxDecoration(
+                                    color: c,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.black26, width: 1),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
