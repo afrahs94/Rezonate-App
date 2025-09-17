@@ -73,17 +73,25 @@ class _LoginPageState extends State<LoginPage> {
   void _snack(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
-  InputDecoration _dec(String hint, {Widget? suffix}) => InputDecoration(
-    hintText: hint,
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-    suffixIcon: suffix,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(30),
-      borderSide: BorderSide.none,
-    ),
-  );
+  // Adaptive decoration for dark/light
+  InputDecoration _dec(BuildContext context, String hint, {Widget? suffix}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fill = isDark ? const Color(0xFF123A36) : Colors.white;
+    final hintColor = isDark ? Colors.white70 : Colors.black45;
+
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: hintColor),
+      filled: true,
+      fillColor: fill,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      suffixIcon: suffix,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
 
   Future<void> _handleLogin() async {
     final rawId = _idCtrl.text.trim();
@@ -198,6 +206,9 @@ class _LoginPageState extends State<LoginPage> {
       height: 1.0,
     );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textOnBg = isDark ? Colors.white : const Color.fromARGB(255, 0, 0, 0);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -243,11 +254,13 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Username/email (smaller spacing)
+                        // Username/email
                         TextField(
                           controller: _idCtrl,
                           textInputAction: TextInputAction.next,
-                          decoration: _dec('username/email'),
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                          cursorColor: isDark ? Colors.white : Colors.black87,
+                          decoration: _dec(context, 'username/email'),
                         ),
                         const SizedBox(height: 10),
 
@@ -256,14 +269,17 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _pwCtrl,
                           obscureText: !_showPw,
                           onSubmitted: (_) => _handleLogin(),
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                          cursorColor: isDark ? Colors.white : Colors.black87,
                           decoration: _dec(
+                            context,
                             'password',
                             suffix: IconButton(
                               icon: Icon(
                                 _showPw
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: Colors.grey[700],
+                                color: isDark ? Colors.white70 : Colors.grey[700],
                               ),
                               onPressed:
                                   () => setState(() => _showPw = !_showPw),
@@ -308,11 +324,11 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 0),
-                                const Text(
+                                Text(
                                   "Remember me",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Color.fromARGB(255, 0, 0, 0),
+                                    color: textOnBg,
                                   ),
                                 ),
                               ],
@@ -331,7 +347,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: Text(
                                 'forgot password?',
                                 style: TextStyle(
-                                  color: const Color.fromARGB(255, 0, 0, 0),
+                                  color: textOnBg,
                                   fontSize: 12.5,
                                   decoration: TextDecoration.underline,
                                 ),
@@ -341,7 +357,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 17),
 
-                        // Log in (smaller & centered)
+                        // Log in
                         SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -392,7 +408,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Sign up (smaller & centered)
+                        // Sign up
                         SizedBox(
                           width: double.infinity,
                           height: 52,

@@ -248,6 +248,11 @@ class _SignUpPageState extends State<SignUpPage> {
     String? helperText,
     Widget? suffix,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fill = isDark ? const Color(0xFF123A36) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final hintColor = isDark ? Colors.white70 : Colors.black45;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
@@ -256,10 +261,13 @@ class _SignUpPageState extends State<SignUpPage> {
         readOnly: readOnly,
         onTap: onTap,
         onChanged: onChanged,
+        style: TextStyle(color: textColor),
+        cursorColor: textColor,
         decoration: InputDecoration(
           hintText: hint,
+          hintStyle: TextStyle(color: hintColor),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: fill,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 22,
             vertical: 18,
@@ -282,6 +290,8 @@ class _SignUpPageState extends State<SignUpPage> {
   // -------------------- Page 1 --------------------
   Widget _buildFirstPage() {
     final up = -MediaQuery.of(context).size.height * 0.03;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final linkColor = isDark ? Colors.white : const Color.fromARGB(255, 0, 0, 0);
 
     return Center(
       child: SingleChildScrollView(
@@ -310,7 +320,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: TextStyle(
                         fontSize: 45,
                         color: Color(0xFF0D7C66),
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w500, // <-- fixed
                       ),
                     ),
                   ),
@@ -362,6 +372,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   suffix: IconButton(
                     icon: Icon(
                       _passwordObscured ? Icons.visibility_off : Icons.visibility,
+                      color: isDark ? Colors.white70 : null,
                     ),
                     onPressed: () => setState(() {
                       _passwordObscured = !_passwordObscured;
@@ -379,6 +390,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       _confirmPasswordObscured
                           ? Icons.visibility_off
                           : Icons.visibility,
+                      color: isDark ? Colors.white70 : null,
                     ),
                     onPressed: () => setState(() {
                       _confirmPasswordObscured = !_confirmPasswordObscured;
@@ -414,13 +426,12 @@ class _SignUpPageState extends State<SignUpPage> {
                 const Align(alignment: Alignment.center, child: Text('1 of 2')),
                 const SizedBox(height: 2),
 
-                // FIX: GestureDetector uses onTap, not onPressed
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const LoginPage()),
                   ),
-                  child: const Align(
+                  child: Align(
                     alignment: Alignment.center,
                     child: Text.rich(
                       TextSpan(
@@ -430,7 +441,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             text: 'log in',
                             style: TextStyle(
                               decoration: TextDecoration.underline,
-                              color: Color.fromARGB(255, 0, 0, 0),
+                              color: linkColor,
                             ),
                           ),
                         ],
@@ -458,6 +469,8 @@ class _SignUpPageState extends State<SignUpPage> {
   // -------------------- Page 2 (more spacing + centered/clean layout) --------------------
   Widget _buildSecondPage() {
     final up = -MediaQuery.of(context).size.height * 0.03;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final linkColor = isDark ? Colors.white : const Color(0xFF0D7C66);
 
     return Center(
       child: SingleChildScrollView(
@@ -481,7 +494,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 style: TextStyle(
                   fontSize: 45,
                   color: Color(0xFF0D7C66),
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w500, // <-- fixed
                 ),
               ),
 
@@ -585,20 +598,20 @@ class _SignUpPageState extends State<SignUpPage> {
                   context,
                   MaterialPageRoute(builder: (_) => const LoginPage()),
                 ),
-                child: const Text.rich(
-                  TextSpan(
+                child: Text.rich(
+                  const TextSpan(
                     text: 'already have an account? ',
                     children: [
                       TextSpan(
                         text: 'log in',
                         style: TextStyle(
                           decoration: TextDecoration.underline,
-                          color: Color(0xFF0D7C66),
                         ),
                       ),
                     ],
                   ),
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: linkColor),
                 ),
               ),
               const SizedBox(height: 4),
@@ -887,13 +900,19 @@ class _SignUpPageState extends State<SignUpPage> {
             ? Colors.pink
             : Colors.purple;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () => setState(() => gender = g),
       child: Container(
         width: 94,
         height: 90,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+          color: isSelected
+              ? (isDark ? const Color(0xFF123A36) : Colors.white)
+              : (isDark
+                  ? const Color(0xFF123A36).withOpacity(0.35)
+                  : Colors.white.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -1045,9 +1064,6 @@ class _TermsAndPrivacyPageState extends State<TermsAndPrivacyPage> {
                 const Text('8. Governing Law',
                     style:
                         TextStyle(fontWeight: FontWeight.w700, color: Colors.black)),
-                const SizedBox(height: 6),
-                const Text(
-                    'These Terms are governed by applicable law in your jurisdiction unless superseded by mandatory law.'),
                 const SizedBox(height: 20),
 
                 // PRIVACY
