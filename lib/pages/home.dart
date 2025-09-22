@@ -166,10 +166,6 @@ class _HomePageState extends State<HomePage> {
               children: [
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Set only the start (0) and end (10) emojis used on sliders and chart.',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
                 ),
                 const SizedBox(height: 12),
                 for (final t in _emojiTicks)
@@ -217,7 +213,7 @@ class _HomePageState extends State<HomePage> {
                         }
                         setState(() {});
                       },
-                      child: const Text('Reset to default'),
+                      child: const Text('Reset'),
                     ),
                     const Spacer(),
                     TextButton(
