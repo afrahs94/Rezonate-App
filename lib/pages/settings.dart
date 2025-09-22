@@ -601,7 +601,7 @@ class _SettingsPageState extends State<SettingsPage> {
           GestureDetector(
             onTap: () => ctrl.toggleTheme(),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 2000),
+              duration: const Duration(milliseconds: 500),
               transitionBuilder: (child, anim) =>
                   RotationTransition(
                     turns: child.key == const ValueKey('sun')

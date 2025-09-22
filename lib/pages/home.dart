@@ -159,7 +159,7 @@ class _HomePageState extends State<HomePage> {
         return AlertDialog(
           backgroundColor: dark ? const Color(0xFF123A36) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Customize end emojis'),
+          title: const Text('Customize emojis'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -167,7 +167,7 @@ class _HomePageState extends State<HomePage> {
                 const Align(
                   alignment: Alignment.centerLeft,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 3),
                 for (final t in _emojiTicks)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),

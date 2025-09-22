@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:new_rezonate/main.dart' as app;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:new_rezonate/pages/services/biometric_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'home.dart';
@@ -40,6 +41,7 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
 
 class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
   bool _appLock = false;
+  bool _biometricLock = false;
 
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
@@ -391,6 +393,7 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
 
     setState(() {
       _appLock = (d['journal_lock_enabled'] as bool?) ?? false;
+      _biometricLock = (d['journal_lock_biometrics'] as bool?) ?? false;
     });
   }
 
@@ -401,6 +404,14 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
     if (uid == null) return;
     await _db.collection('users').doc(uid).set({
       'journal_lock_enabled': enabled,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _saveBiometricLock(bool enabled) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('users').doc(uid).set({
+      'journal_lock_biometrics': enabled,
     }, SetOptions(merge: true));
   }
 
@@ -776,6 +787,23 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                           ],
                         ),
                       ),
+                      /*if (_appLock) ...[
+                        const SizedBox(height: 7),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: _changePin,
+                            child: Text(
+                              'Change PIN',
+                              style: TextStyle(
+                                color: green,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],*/
                       if (_appLock) ...[
                         const SizedBox(height: 7),
                         Align(
@@ -790,6 +818,57 @@ class _SecurityAndPrivacyPageState extends State<SecurityAndPrivacyPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: green.withOpacity(.75),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black26, blurRadius: 6),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.fingerprint,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Use Face ID / Biometrics',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Switch(
+                                value: _biometricLock,
+                                onChanged: (v) async {
+                                  setState(() => _biometricLock = v);
+                                  await _saveBiometricLock(v);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        v
+                                            ? 'Face ID / biometrics enabled.'
+                                            : 'Face ID / biometrics disabled.',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                activeColor: Colors.white,
+                                activeTrackColor: Colors.white54,
+                              ),
+                            ],
                           ),
                         ),
                       ],
