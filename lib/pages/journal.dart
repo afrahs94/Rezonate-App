@@ -632,9 +632,10 @@ class _JournalPageState extends State<JournalPage>
 
   Future<void> _deletePost(String postId) async => _public.doc(postId).delete();
 
-  Future<void> _editPost(String postId, String currentText, dynamic existingText) async {
+  Future<void> _editPost(String postId, String currentText) async {
     final ctl = TextEditingController(text: currentText);
-    ctl.selection = TextSelection.collapsed(offset: existingText.length);
+    ctl.selection = TextSelection.collapsed(offset: currentText.length);
+
     await showDialog(
       context: context,
       builder:
@@ -673,7 +674,8 @@ class _JournalPageState extends State<JournalPage>
           ),
     );
   }
-/// hereee
+
+  /// hereee
   // ---------------- Private journal creation ----------------
   Future<void> _openCreatePrivateDialog() async {
     final tCtl = TextEditingController();
@@ -1257,7 +1259,6 @@ class _CommunityFeed extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            
                             ],
                           ),
                         ),
@@ -1373,6 +1374,7 @@ class _CommunityFeed extends StatelessWidget {
     );
   }
 }
+
 ///here
 // ---------------- Private Journal (unchanged) ----------------
 class _PrivateJournal extends StatelessWidget {

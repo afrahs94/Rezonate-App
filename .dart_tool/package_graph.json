@@ -16,6 +16,7 @@
         "firebase_storage",
         "fl_chart",
         "flutter",
+        "flutter_local_notifications",
         "flutter_quill",
         "http",
         "image_cropper",
@@ -104,6 +105,18 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "flutter_local_notifications",
+      "version": "19.4.2",
+      "dependencies": [
+        "clock",
+        "flutter",
+        "flutter_local_notifications_linux",
+        "flutter_local_notifications_platform_interface",
+        "flutter_local_notifications_windows",
+        "timezone"
       ]
     },
     {
@@ -697,6 +710,45 @@
       ]
     },
     {
+      "name": "timezone",
+      "version": "0.10.1",
+      "dependencies": [
+        "http",
+        "path"
+      ]
+    },
+    {
+      "name": "flutter_local_notifications_platform_interface",
+      "version": "9.1.0",
+      "dependencies": [
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "flutter_local_notifications_windows",
+      "version": "1.0.3",
+      "dependencies": [
+        "ffi",
+        "flutter",
+        "flutter_local_notifications_platform_interface",
+        "meta",
+        "timezone",
+        "xml"
+      ]
+    },
+    {
+      "name": "flutter_local_notifications_linux",
+      "version": "6.0.0",
+      "dependencies": [
+        "dbus",
+        "ffi",
+        "flutter",
+        "flutter_local_notifications_platform_interface",
+        "path",
+        "xdg_directories"
+      ]
+    },
+    {
       "name": "local_auth_windows",
       "version": "1.0.11",
       "dependencies": [
@@ -714,7 +766,7 @@
     },
     {
       "name": "local_auth_darwin",
-      "version": "1.6.1",
+      "version": "1.6.0",
       "dependencies": [
         "flutter",
         "intl",
@@ -723,7 +775,7 @@
     },
     {
       "name": "local_auth_android",
-      "version": "1.0.53",
+      "version": "1.0.52",
       "dependencies": [
         "flutter",
         "flutter_plugin_android_lifecycle",
@@ -1439,17 +1491,6 @@
       ]
     },
     {
-      "name": "leak_tracker",
-      "version": "11.0.2",
-      "dependencies": [
-        "clock",
-        "collection",
-        "meta",
-        "path",
-        "vm_service"
-      ]
-    },
-    {
       "name": "term_glyph",
       "version": "1.2.2",
       "dependencies": []
@@ -1460,6 +1501,38 @@
       "dependencies": [
         "source_span",
         "string_scanner"
+      ]
+    },
+    {
+      "name": "xml",
+      "version": "6.5.0",
+      "dependencies": [
+        "collection",
+        "meta",
+        "petitparser"
+      ]
+    },
+    {
+      "name": "ffi",
+      "version": "2.1.4",
+      "dependencies": []
+    },
+    {
+      "name": "xdg_directories",
+      "version": "1.1.0",
+      "dependencies": [
+        "meta",
+        "path"
+      ]
+    },
+    {
+      "name": "dbus",
+      "version": "0.7.11",
+      "dependencies": [
+        "args",
+        "ffi",
+        "meta",
+        "xml"
       ]
     },
     {
@@ -1509,11 +1582,6 @@
       "dependencies": [
         "ffi"
       ]
-    },
-    {
-      "name": "ffi",
-      "version": "2.1.4",
-      "dependencies": []
     },
     {
       "name": "device_info_plus_platform_interface",
@@ -1669,17 +1737,28 @@
       "dependencies": []
     },
     {
+      "name": "petitparser",
+      "version": "6.1.0",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
+    },
+    {
+      "name": "leak_tracker",
+      "version": "11.0.2",
+      "dependencies": [
+        "clock",
+        "collection",
+        "meta",
+        "path",
+        "vm_service"
+      ]
+    },
+    {
       "name": "vm_service",
       "version": "14.3.1",
       "dependencies": []
-    },
-    {
-      "name": "xdg_directories",
-      "version": "1.1.0",
-      "dependencies": [
-        "meta",
-        "path"
-      ]
     }
   ],
   "configVersion": 1
