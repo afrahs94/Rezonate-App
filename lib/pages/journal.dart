@@ -632,8 +632,9 @@ class _JournalPageState extends State<JournalPage>
 
   Future<void> _deletePost(String postId) async => _public.doc(postId).delete();
 
-  Future<void> _editPost(String postId, String currentText) async {
+  Future<void> _editPost(String postId, String currentText, dynamic existingText) async {
     final ctl = TextEditingController(text: currentText);
+    ctl.selection = TextSelection.collapsed(offset: existingText.length);
     await showDialog(
       context: context,
       builder:
@@ -1208,7 +1209,7 @@ class _CommunityFeed extends StatelessWidget {
 
         return ListView.builder(
           key: const PageStorageKey<String>('community_feed_list'),
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 220),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
           itemCount: docs.length,
           itemBuilder: (_, i) {
             final doc = docs[i];
@@ -1256,18 +1257,7 @@ class _CommunityFeed extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if ((m['edited'] as bool?) == true)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8.0),
-                                  child: Text(
-                                    'Edited',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontStyle: FontStyle.italic,
-                                      color: _textSecondary(context),
-                                    ),
-                                  ),
-                                ),
+                            
                             ],
                           ),
                         ),
