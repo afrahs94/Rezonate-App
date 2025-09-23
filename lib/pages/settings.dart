@@ -14,7 +14,6 @@ import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
 import 'package:new_rezonate/pages/login_page.dart';
 
-
 import 'onboarding.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -28,12 +27,10 @@ class SettingsPage extends StatefulWidget {
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
-
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
-      Animation<double> secondaryAnimation, Widget child) {
-    return child; // no animation
-  }
+          Animation<double> secondaryAnimation, Widget child) =>
+      child;
 }
 
 class _SettingsPageState extends State<SettingsPage> {
@@ -42,13 +39,11 @@ class _SettingsPageState extends State<SettingsPage> {
   late List<_Item> _shown;
   late List<String> _suggestions;
 
-  // Local key for the Search showcase
+  // Showcase target for the search box
   final GlobalKey _settingsSearchKey = GlobalKey();
 
-  // Showcase context (must be under ShowCaseWidget)
-  BuildContext? _showcaseCtx;
   bool _startedSearchShowcase = false; // avoid double-start
-  Timer? _replayAutoFinishTimer; // auto-complete in replay
+  Timer? _replayAutoFinishTimer;       // auto-complete in replay
 
   @override
   void initState() {
@@ -108,8 +103,6 @@ class _SettingsPageState extends State<SettingsPage> {
     ];
     _shown = List.of(_all);
     _searchCtrl.addListener(_onSearch);
-
-    _maybeStartSettingsShowcase(); // will queue until context exists
   }
 
   @override
@@ -120,46 +113,50 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  // Start the search showcase when coming from either replay OR the sequential flow.
-  Future<void> _maybeStartSettingsShowcase() async {
-    final stage = await Onboarding.getStage();
-    if (_startedSearchShowcase) return;
-    if (stage != OnboardingStage.settingsSearch &&
-        stage != OnboardingStage.replayingTutorial) {
-      return;
-    }
+  Future<void> _maybeStartSettingsShowcase(BuildContext ctx) async {
+  if (_startedSearchShowcase) return;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final ctx = _showcaseCtx;
-      if (ctx == null) {
-        // build hasn't supplied the context yet; try again next frame
-        _maybeStartSettingsShowcase();
-        return;
-      }
-      try {
-        ShowCaseWidget.of(ctx).startShowCase([_settingsSearchKey]);
-        _startedSearchShowcase = true;
+  final stage = await Onboarding.getStage();
+  final shouldShow = stage == OnboardingStage.settingsSearch ||
+      stage == OnboardingStage.replayingTutorial;
+  if (!shouldShow) return;
 
-        // In replay mode: auto-finish this page after ~2s.
-        if (Onboarding.isReplayActive || stage == OnboardingStage.replayingTutorial) {
-          _replayAutoFinishTimer?.cancel();
-          _replayAutoFinishTimer = Timer(const Duration(seconds: 2), () async {
-            if (!mounted) return;
-            try { ShowCaseWidget.of(ctx).dismiss(); } catch (_) {}
-            await Onboarding.completeReplay(); // marks done
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Tutorial finished ✨')),
-            );
-          });
-        }
-      } catch (_) {
-        // If context still not ready, try again on next frame.
-        _maybeStartSettingsShowcase();
+  _startedSearchShowcase = true;
+
+  if (Onboarding.isFreshSignup) {
+    Onboarding.isFreshSignup = false; // clear the flag after first use
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Welcome! Let’s walk through the Settings briefly.'),
+          ),
+        );
       }
     });
   }
+
+  // Start the showcase
+  await OBShowcase.startWhenReady(ctx, keys: [_settingsSearchKey]);
+
+  // Auto-finish if in replay mode
+  if (Onboarding.isReplayActive || stage == OnboardingStage.replayingTutorial) {
+    final show = ShowCaseWidget.of(ctx);
+    _replayAutoFinishTimer?.cancel();
+    _replayAutoFinishTimer = Timer(const Duration(seconds: 2), () async {
+      try {
+        if (show.mounted) show.dismiss();
+      } catch (_) {}
+      await Onboarding.completeReplay(); // marks done
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tutorial finished ✨')),
+      );
+    });
+  }
+}
+
 
   // ---------- search helpers ----------
   String _norm(String s) => s.toLowerCase().trim();
@@ -301,6 +298,21 @@ class _SettingsPageState extends State<SettingsPage> {
         : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)];
   }
 
+  Future<void> _finishTutorial(ShowCaseWidgetState show) async {
+    try {
+      if (show.mounted) show.dismiss();
+    } catch (_) {}
+    if (Onboarding.isReplayActive) {
+      await Onboarding.completeReplay();
+    } else {
+      await Onboarding.markDone();
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('You’re all set ✨')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final g = _gradient(context);
@@ -309,12 +321,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return ShowCaseWidget(
       builder: (root) {
-        // Capture a context that is under ShowCaseWidget
         return Builder(
-          builder: (ctx) {
-            _showcaseCtx = ctx;
-            // If the stage was already set by Home, kick it off now
-            if (!_startedSearchShowcase) _maybeStartSettingsShowcase();
+          builder: (ctxUnderShowcase) {
+            // Capture the ShowCase state synchronously (no async-gap context use).
+            final show = ShowCaseWidget.of(ctxUnderShowcase);
+
+            // If onboarding says to show the tooltip, kick it off.
+            if (!_startedSearchShowcase) {
+              // fire-and-forget; it handles its own waits & timers
+              _maybeStartSettingsShowcase(ctxUnderShowcase);
+            }
 
             return Scaffold(
               backgroundColor: Colors.transparent,
@@ -344,42 +360,9 @@ class _SettingsPageState extends State<SettingsPage> {
                           description:
                               'Search anything in Settings — try “password”, “notifications”, or “dark mode”. It’s the fastest way to find options.',
                           disposeOnTap: true,
-                          onTargetClick: () async {
-                            try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
-                            if (Onboarding.isReplayActive) {
-                              await Onboarding.completeReplay();
-                            } else {
-                              await Onboarding.markDone();
-                            }
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('You’re all set ✨')),
-                            );
-                          },
-                          onToolTipClick: () async {
-                            try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
-                            if (Onboarding.isReplayActive) {
-                              await Onboarding.completeReplay();
-                            } else {
-                              await Onboarding.markDone();
-                            }
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('You’re all set ✨')),
-                            );
-                          },
-                          onBarrierClick: () async {
-                            try { ShowCaseWidget.of(_showcaseCtx!).dismiss(); } catch (_) {}
-                            if (Onboarding.isReplayActive) {
-                              await Onboarding.completeReplay();
-                            } else {
-                              await Onboarding.markDone();
-                            }
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('You’re all set ✨')),
-                            );
-                          },
+                          onTargetClick: () => _finishTutorial(show),
+                          onToolTipClick: () => _finishTutorial(show),
+                          onBarrierClick: () => _finishTutorial(show),
                           child: Material(
                             elevation: 4,
                             shadowColor: Colors.black12,
@@ -629,10 +612,14 @@ class _SettingsPageState extends State<SettingsPage> {
           title: Text('Log out?', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           content: Text('Are you sure you want to log out?', style: theme.textTheme.bodyMedium),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false),
-                child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary))),
-            TextButton(onPressed: () => Navigator.pop(context, true),
-                child: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600))),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+            ),
           ],
         ),
       );

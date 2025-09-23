@@ -33,6 +33,7 @@ dependencies:
   emoji_picker_flutter: ^4.3.0
   showcaseview: ^4.0.1
   local_auth: ^2.1.6
+  flutter_local_notifications: ^19.4.2
 
 
 dev_dependencies:

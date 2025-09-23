@@ -2,15 +2,56 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:showcaseview/showcaseview.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'firebase_options.dart';
 import 'pages/signup_page.dart';
 import 'pages/login_page.dart';
 import 'pages/home.dart';
 import 'pages/user_sessions.dart';
 import 'pages/services/user_settings.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Simple theme controller + scope ------------------------------------------------
+// NEW
+import 'pages/onboarding.dart';
+import 'pages/onboarding_keys';
+
+final FlutterLocalNotificationsPlugin _fln = FlutterLocalNotificationsPlugin();
+const String _kChannelId = 'rezonate_default';
+const String _kChannelName = 'General';
+const String _kChannelDesc = 'General notifications';
+
+@pragma('vm:entry-point') // required by Android background isolate
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Keep minimal work here.
+}
+
+Future<void> _initLocalNotifs() async {
+  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const ios = DarwinInitializationSettings();
+
+  await _fln.initialize(
+    const InitializationSettings(android: android, iOS: ios),
+    onDidReceiveNotificationResponse: (resp) {
+
+    },
+  );
+
+  await _fln
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _kChannelId,
+          _kChannelName,
+          description: _kChannelDesc,
+          importance: Importance.high,
+        ),
+      );
+}
 
 class ThemeController extends ChangeNotifier {
   ThemeController({bool isDark = false}) : _isDark = isDark;
@@ -25,7 +66,6 @@ class ThemeController extends ChangeNotifier {
 
   void toggleTheme() {
     _isDark = !_isDark;
-    // fire-and-forget persistence
     _persistDark();
     notifyListeners();
   }
@@ -33,7 +73,7 @@ class ThemeController extends ChangeNotifier {
   void setDark(bool value) {
     if (_isDark == value) return;
     _isDark = value;
-    _persistDark(); // fire-and-forget persistence
+    _persistDark();
     notifyListeners();
   }
 }
@@ -53,7 +93,6 @@ class ThemeControllerScope extends InheritedNotifier<ThemeController> {
   }
 }
 
-/// -------------------------------------------------------------------------------
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,15 +101,25 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('✅ Firebase Initialized!');
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await _initLocalNotifs();
+
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   } catch (e) {
-    print('❌ Firebase Init Error: $e');
+    debugPrint(' Firebase init error: $e');
   }
 
   await UserSettings.init();
   await UserSession.instance.init();
 
-  // ⚫️ Load persisted dark-mode preference (defaults to false)
+  // Load cached onboarding stage early (helps if offline)
+  await Onboarding.loadCacheIfEmpty();
+
+  // Load persisted dark-mode preference (defaults to false)
   final prefs = await SharedPreferences.getInstance();
   final savedDark = prefs.getBool('is_dark_mode') ?? false;
 
@@ -84,37 +133,100 @@ Future<void> main() async {
   );
 }
 
-class RezonateApp extends StatelessWidget {
+class RezonateApp extends StatefulWidget {
   final ThemeController controller;
   const RezonateApp({super.key, required this.controller});
 
-  Future<Widget> _getStartPage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final remember = prefs.getBool('remember_me') ?? false;
-    final user = FirebaseAuth.instance.currentUser;
+  @override
+  State<RezonateApp> createState() => _RezonateAppState();
+}
 
-    if (remember && user != null) {
-      // ✅ Go straight to Home if remembered + logged in
-      return HomePage(
-        userName: user.displayName ?? user.email!.split('@').first,
+class _RezonateAppState extends State<RezonateApp> {
+  static final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
+  late final Stream<User?> _authStream;
+
+@override
+void initState() {
+  super.initState();
+
+  // Foreground push → show local notification
+  FirebaseMessaging.onMessage.listen((RemoteMessage msg) async {
+    final notification = msg.notification;
+    if (notification != null) {
+      await _fln.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _kChannelId,
+            _kChannelName,
+            channelDescription: _kChannelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+        payload: msg.data['postId'] ?? '',
       );
-    } else {
-      // ✅ Otherwise show Login
-      return const LoginPage();
     }
+  });
+
+  // Handle when app is opened from a terminated state via notification
+  FirebaseMessaging.instance.getInitialMessage().then((message) {
+    if (message != null) _handleOpenedMessage(message);
+  });
+
+  // Handle when app is opened from background via notification
+  FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
+
+  // Onboarding stage setup when user signs in
+  _authStream = FirebaseAuth.instance.authStateChanges();
+  _authStream.listen((user) {
+    if (user != null) {
+      Onboarding.ensureStageForCurrentUser();
+    }
+  });
+}
+
+
+  void _handleOpenedMessage(RemoteMessage msg) {
+    final type = msg.data['type'] ?? '';
+    final postId = msg.data['postId'];
   }
+
+  Future<Widget> _getStartPage() async {
+  final prefs = await SharedPreferences.getInstance();
+  final remember = prefs.getBool('remember_me') ?? false;
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (remember && user != null) {
+    return HomePage(userName: user.displayName ?? user.email!.split('@').first);
+  } else {
+    return const LoginPage();
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: controller,
+      animation: widget.controller,
       builder: (context, _) {
         return MaterialApp(
+          navigatorKey: _navKey,
           title: 'Rezonate',
           debugShowCheckedModeBanner: false,
-          themeMode: controller.isDark ? ThemeMode.dark : ThemeMode.light,
+          themeMode: widget.controller.isDark ? ThemeMode.dark : ThemeMode.light,
           theme: _lightTheme,
           darkTheme: _darkTheme,
+
+          builder: (context, child) {
+            return ShowCaseWidget(
+              builder: (showcaseCtx) => child ?? const SizedBox.shrink(),
+            );
+          },
+
           home: FutureBuilder<Widget>(
             future: _getStartPage(),
             builder: (context, snapshot) {
@@ -137,8 +249,7 @@ class RezonateApp extends StatelessWidget {
 final ThemeData _lightTheme = ThemeData(
   brightness: Brightness.light,
   primaryColor: const Color(0xFF0D7C66),
-  scaffoldBackgroundColor:
-      Colors.transparent, // most pages draw their own gradient
+  scaffoldBackgroundColor: Colors.transparent,
   colorScheme: ColorScheme.fromSeed(
     seedColor: const Color(0xFF0D7C66),
     brightness: Brightness.light,
@@ -173,7 +284,7 @@ final ThemeData _lightTheme = ThemeData(
 final ThemeData _darkTheme = ThemeData(
   brightness: Brightness.dark,
   primaryColor: const Color(0xFF0D7C66),
-  scaffoldBackgroundColor: Colors.transparent, // pages keep using gradients
+  scaffoldBackgroundColor: Colors.transparent,
   colorScheme: ColorScheme.fromSeed(
     seedColor: const Color(0xFF0D7C66),
     brightness: Brightness.dark,
@@ -196,7 +307,7 @@ final ThemeData _darkTheme = ThemeData(
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
-    fillColor: Colors.white.withOpacity(0.08),
+    fillColor: Colors.white24,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide.none,

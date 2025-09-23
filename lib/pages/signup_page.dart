@@ -1,5 +1,5 @@
-// lib/pages/sign_up_page.dart
-import 'dart:async'; // for debounce
+// lib/pages/signup_page.dart
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,13 +7,13 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'home.dart';
 import 'login_page.dart';
 import 'user_sessions.dart';
 
-// keeps your cached profile after signup
+// Onboarding
+import 'onboarding.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -227,7 +227,7 @@ class _SignUpPageState extends State<SignUpPage> {
             padEnds: false,
             children: [
               _buildFirstPage(),
-              _buildSecondPage(), // layout-only edits
+              _buildSecondPage(),
             ],
           ),
         ),
@@ -310,7 +310,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     fit: BoxFit.contain,
                   ),
                 ),
-
                 Transform.translate(
                   offset: const Offset(0, -14),
                   child: const Align(
@@ -320,12 +319,11 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: TextStyle(
                         fontSize: 45,
                         color: Color(0xFF0D7C66),
-                        fontWeight: FontWeight.w500, // <-- fixed
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ),
-
                 _buildTextField(
                   'username *',
                   usernameController,
@@ -343,7 +341,6 @@ class _SignUpPageState extends State<SignUpPage> {
                       : null,
                   suffix: _availabilitySuffix(_usernameAvailable),
                 ),
-
                 _buildTextField(
                   'email *',
                   emailController,
@@ -361,7 +358,6 @@ class _SignUpPageState extends State<SignUpPage> {
                       : null,
                   suffix: _availabilitySuffix(_emailAvailable),
                 ),
-
                 _buildTextField(
                   'password *',
                   passwordController,
@@ -379,7 +375,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     }),
                   ),
                 ),
-
                 _buildTextField(
                   'confirm password *',
                   confirmPasswordController,
@@ -397,7 +392,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     }),
                   ),
                 ),
-
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () {
@@ -421,11 +415,9 @@ class _SignUpPageState extends State<SignUpPage> {
                     style: TextStyle(fontSize: 18, color: Colors.white),
                   ),
                 ),
-
                 const SizedBox(height: 10),
                 const Align(alignment: Alignment.center, child: Text('1 of 2')),
                 const SizedBox(height: 2),
-
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
@@ -466,7 +458,7 @@ class _SignUpPageState extends State<SignUpPage> {
     return const Icon(Icons.error_outline, color: Colors.red);
   }
 
-  // -------------------- Page 2 (more spacing + centered/clean layout) --------------------
+  // -------------------- Page 2 --------------------
   Widget _buildSecondPage() {
     final up = -MediaQuery.of(context).size.height * 0.03;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -487,17 +479,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   fit: BoxFit.contain,
                 ),
               ),
-
               const Text(
                 'sign up',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 45,
                   color: Color(0xFF0D7C66),
-                  fontWeight: FontWeight.w500, // <-- fixed
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-
               Align(
                 alignment: Alignment.center,
                 child: ConstrainedBox(
@@ -506,7 +496,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     children: [
                       _buildTextField('first name *', firstNameController),
                       _buildTextField('last name', lastNameController),
-
                       _buildTextField(
                         'date of birth *',
                         dobController,
@@ -514,7 +503,6 @@ class _SignUpPageState extends State<SignUpPage> {
                         onTap: _selectDate,
                         errorText: _dobError,
                       ),
-
                       const SizedBox(height: 10),
                       const Text(
                         'gender',
@@ -525,7 +513,6 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -536,9 +523,7 @@ class _SignUpPageState extends State<SignUpPage> {
                           _genderTile('other'),
                         ],
                       ),
-
                       const SizedBox(height: 40),
-
                       Row(
                         children: [
                           Expanded(
@@ -589,7 +574,6 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 10),
               const Text('2 of 2', textAlign: TextAlign.center),
               const SizedBox(height: 4),
@@ -622,9 +606,125 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  // -------------------- Terms & Conditions helper --------------------
-  static const String _termsUrl = 'https://example.com/terms'; // optional external fallback
+ // -------------------- Actions --------------------
+Future<void> _handleSignUp() async {
+  // Capture these up front so we don't touch context after awaits.
+  final messenger = ScaffoldMessenger.of(context);
 
+  try {
+    final ok = await _ensureTermsAccepted();
+    if (!ok) return;
+
+    final permsOk = await _ensureDataPermissions();
+    if (!permsOk) return;
+
+    if (dobController.text.isEmpty) {
+      setState(() => _dobError = 'Please select date of birth');
+      return;
+    }
+
+    final parsedDob = DateFormat('MM/dd/yyyy').parse(dobController.text);
+    if (!_isAtLeast18(parsedDob)) {
+      setState(() => _dobError = 'You must be at least 18 years old.');
+      return;
+    } else {
+      if (_dobError != null) setState(() => _dobError = null);
+    }
+
+    final username = usernameController.text.trim();
+    final usernameLower = username.toLowerCase();
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (!_isStrongPassword(password)) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text(
+          'Password must be at least 6 characters, include a number and a special character.',
+        ),
+      ));
+      return;
+    }
+
+    final pre =
+        await _firestore.collection('usernames').doc(usernameLower).get();
+    if (pre.exists) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Username already taken')),
+      );
+      return;
+    }
+
+    final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final uid = cred.user!.uid;
+
+    final hashedPassword = sha256.convert(utf8.encode(password)).toString();
+
+    try {
+      await _firestore.runTransaction((tx) async {
+        final unameRef = _firestore.collection('usernames').doc(usernameLower);
+        final unameSnap = await tx.get(unameRef);
+        if (unameSnap.exists) {
+          throw Exception('USERNAME_TAKEN');
+        }
+
+        final userRef = _firestore.collection('users').doc(uid);
+        tx.set(userRef, {
+          'uid': uid,
+          'username': username,
+          'username_lower': usernameLower,
+          'email': email,
+          'password': hashedPassword, // consider removing
+          'first_name': firstNameController.text,
+          'last_name': lastNameController.text,
+          'gender': gender,
+          'dob': dobController.text,
+          'created_at': DateTime.now().toIso8601String(),
+          // Onboarding flags
+          'onboardingStage': OnboardingStage.homeIntro.name,
+          'onboardingDone': false,
+          'accepted_terms': true,
+          'consented_data_processing': true,
+        });
+
+        tx.set(unameRef, {
+          'uid': uid,
+          'username': username,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      if (e.toString().contains('USERNAME_TAKEN')) {
+        try { await FirebaseAuth.instance.currentUser?.delete(); } catch (_) {}
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Username already taken')),
+        );
+        return;
+      }
+      rethrow;
+    }
+
+    await UserSession.instance.refreshFromFirestore(_firestore, uid);
+    Onboarding.isFreshSignup = true;
+    await Onboarding.setStage(OnboardingStage.homeIntro);
+
+
+    if (!mounted) return; // guard before using Navigator
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomePage(userName: firstNameController.text),
+      ),
+    );
+  } catch (e) {
+    try { await FirebaseAuth.instance.currentUser?.delete(); } catch (_) {}
+    messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+  }
+}
+
+  // -------------------- Terms & Privacy helpers --------------------
   Future<void> _openTerms() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const TermsAndPrivacyPage()),
@@ -653,7 +753,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: _openTerms,
-                    child: const Text('View full Terms & Conditions'),
+                    child: const Text('View full Terms & Privacy'),
                   ),
                 ],
               ),
@@ -687,7 +787,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  // -------------------- Data & Permissions helper --------------------
   Future<bool> _ensureDataPermissions() async {
     if (_acceptedDataPermissions) return true;
 
@@ -703,22 +802,20 @@ class _SignUpPageState extends State<SignUpPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
-                  'To provide and improve the service, we request your permission to collect and process certain data. '
-                  'By selecting “I Consent”, you acknowledge and agree that the app may:',
+                  'To provide and improve the service, we request your permission to collect and process certain data.',
                 ),
                 SizedBox(height: 10),
                 Text(
-                  '• collect app activity and usage analytics (e.g., screens visited, feature interactions) to improve performance;\n'
-                  '• process crash reports and diagnostic logs to maintain security and stability;\n'
-                  '• store device information such as model, OS version, and push notification token to deliver features and notifications;\n'
-                  '• use country/region inferred from your device/network settings for localization and compliance;\n'
-                  '• associate the above with your account to personalize content and communications within the app;\n'
-                  '• share such data with contracted service providers solely to operate the service (we do not sell your personal data).',
+                  '• collect app usage analytics to improve performance;\n'
+                  '• process crash reports and diagnostic logs;\n'
+                  '• store device info (model, OS), and push token to deliver notifications;\n'
+                  '• use region for localization and compliance;\n'
+                  '• associate this with your account to personalize the app;\n'
+                  '• share with contracted providers only to operate the service.',
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'You can withdraw consent at any time in Settings → Security & Privacy. '
-                  'For details on how we protect your information, please review the Privacy Policy in our Terms & Privacy.',
+                  'You can withdraw consent at any time in Settings → Security & Privacy.',
                   style: TextStyle(fontStyle: FontStyle.italic),
                 ),
               ],
@@ -748,124 +845,6 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
       );
       return false;
-    }
-  }
-
-  // -------------------- Actions --------------------
-  Future<void> _handleSignUp() async {
-    try {
-      // Require Terms & Conditions acceptance first
-      final ok = await _ensureTermsAccepted();
-      if (!ok) return;
-
-      // Require data & permissions consent
-      final permsOk = await _ensureDataPermissions();
-      if (!permsOk) return;
-
-      if (dobController.text.isEmpty) {
-        setState(() => _dobError = 'Please select date of birth');
-        return;
-      }
-
-      // Enforce 18+
-      final parsedDob = DateFormat('MM/dd/yyyy').parse(dobController.text);
-      if (!_isAtLeast18(parsedDob)) {
-        setState(() => _dobError = 'You must be at least 18 years old.');
-        return;
-      } else {
-        if (_dobError != null) setState(() => _dobError = null);
-      }
-
-      final username = usernameController.text.trim();
-      final usernameLower = username.toLowerCase();
-      final email = emailController.text.trim();
-      final password = passwordController.text.trim();
-
-      if (!_isStrongPassword(password)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Password must be at least 6 characters, include a number and a special character.',
-            ),
-          ),
-        );
-        return;
-      }
-
-      final pre =
-          await _firestore.collection('usernames').doc(usernameLower).get();
-      if (pre.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Username already taken')));
-        return;
-      }
-
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      final uid = cred.user!.uid;
-
-      final hashedPassword = sha256.convert(utf8.encode(password)).toString();
-
-      try {
-        await _firestore.runTransaction((tx) async {
-          final unameRef =
-              _firestore.collection('usernames').doc(usernameLower);
-          final unameSnap = await tx.get(unameRef);
-          if (unameSnap.exists) {
-            throw Exception('USERNAME_TAKEN');
-          }
-
-          final userRef = _firestore.collection('users').doc(uid);
-          tx.set(userRef, {
-            'uid': uid,
-            'username': username,
-            'username_lower': usernameLower,
-            'email': email,
-            'password': hashedPassword, // consider removing
-            'first_name': firstNameController.text,
-            'last_name': lastNameController.text,
-            'gender': gender,
-            'dob': dobController.text,
-            'created_at': DateTime.now().toIso8601String(),
-            'accepted_terms': true,
-            'consented_data_processing': true, // reflects popup consent
-          });
-
-          tx.set(unameRef, {
-            'uid': uid,
-            'username': username,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        });
-      } catch (e) {
-        if (e.toString().contains('USERNAME_TAKEN')) {
-          try {
-            await FirebaseAuth.instance.currentUser?.delete();
-          } catch (_) {}
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Username already taken')));
-          return;
-        }
-        rethrow;
-      }
-
-      await UserSession.instance.refreshFromFirestore(_firestore, uid);
-
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomePage(userName: firstNameController.text),
-        ),
-      );
-    } catch (e) {
-      try {
-        await FirebaseAuth.instance.currentUser?.delete();
-      } catch (_) {}
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 

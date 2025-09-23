@@ -672,7 +672,7 @@ class _JournalPageState extends State<JournalPage>
           ),
     );
   }
-
+/// hereee
   // ---------------- Private journal creation ----------------
   Future<void> _openCreatePrivateDialog() async {
     final tCtl = TextEditingController();
@@ -1383,7 +1383,7 @@ class _CommunityFeed extends StatelessWidget {
     );
   }
 }
-
+///here
 // ---------------- Private Journal (unchanged) ----------------
 class _PrivateJournal extends StatelessWidget {
   const _PrivateJournal({

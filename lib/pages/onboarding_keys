@@ -2,17 +2,15 @@ import 'package:flutter/widgets.dart';
 
 class OBKeys {
   // Home
-  static final addHabit = GlobalKey();         // the “+ Add tracker” button
-  static final chartSelector = GlobalKey();    // the dropdown icon for chart
-  static final journalTab = GlobalKey();       // bottom nav journal
-  static final settingsTab = GlobalKey();      // bottom nav settings
+  static final addHabit = GlobalKey<State<StatefulWidget>>();
+  static final chartSelector = GlobalKey<State<StatefulWidget>>();
+  static final journalTab = GlobalKey<State<StatefulWidget>>();
+  static final settingsTab = GlobalKey<State<StatefulWidget>>();
 
+  // Journal - Community
+  static final communityComposer = GlobalKey<State<StatefulWidget>>();
+  static final communitySort = GlobalKey<State<StatefulWidget>>();
 
-  // Community screen
-  static final communityComposer = GlobalKey(); // the “start writing” bar / post button
-
-  // Journal screen
-  static final addJournal = GlobalKey();        // the FAB “+” (or list add)
-
-  // You can add more as you like.
+  // Journal - Private
+  static final myJournalFab = GlobalKey<State<StatefulWidget>>();
 }

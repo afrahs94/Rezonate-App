@@ -13,7 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'home.dart';
 import 'journal.dart';
 import 'settings.dart';
-import 'signup_page.dart'; // <-- added to reuse Terms & Privacy page
+import 'signup_page.dart';
 
 class SecurityAndPrivacyPage extends StatefulWidget {
   final String userName;

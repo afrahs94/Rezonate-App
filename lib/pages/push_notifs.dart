@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -6,6 +7,9 @@ import 'home.dart';
 import 'journal.dart';
 import 'settings.dart';
 import 'package:new_rezonate/pages/services/firestore_service.dart';
+import 'dart:io' show Platform;             
+import 'package:permission_handler/permission_handler.dart';
+
 
 class PushNotificationsPage extends StatefulWidget {
   final String userName;
@@ -16,32 +20,39 @@ class PushNotificationsPage extends StatefulWidget {
 }
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
-  NoTransitionPageRoute({required WidgetBuilder builder})
-      : super(builder: builder);
-
+  NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
   @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    return child; // no animation
-  }
+  Widget buildTransitions(BuildContext context, Animation<double> a, Animation<double> b, Widget child) => child;
 }
 
 class _PushNotificationsPageState extends State<PushNotificationsPage> {
   bool enableAll = false;
   bool daily = false;
   bool replies = false;
+  bool mentions = false;
+  bool reactions = false;
 
   final _auth = FirebaseAuth.instance;
   final _firestoreService = FirestoreService();
+  StreamSubscription<String>? _tokenSub;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    // keep token fresh
+    _tokenSub = FirebaseMessaging.instance.onTokenRefresh.listen((t) async {
+      final uid = _auth.currentUser?.uid;
+      if (uid != null && t.isNotEmpty) {
+        await _firestoreService.updateFcmToken(uid, t);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tokenSub?.cancel();
+    super.dispose();
   }
 
   LinearGradient _bg(BuildContext context) {
@@ -50,8 +61,8 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: isDark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)] // dark mode gradient
-          : const [Color(0xFFD7C3F1), Color(0xFFBDE8CA)], // original light
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFD7C3F1), Color(0xFFBDE8CA)],
     );
   }
 
@@ -59,19 +70,24 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    final settings = await _firestoreService.getNotificationSettings(uid);
+    final s = await _firestoreService.getNotificationSettings(uid);
 
     setState(() {
-      enableAll = settings['push_notifications_enabled'] ?? false;
-      daily = settings['daily_reminder_enabled'] ?? false;
-      replies = settings['reply_notifications_enabled'] ?? false;
+      // defaults = on (you can flip to false if you prefer opt-in)
+      enableAll = s['push_enabled'] ?? false;
+      daily     = s['reminders_enabled'] ?? false;
+      replies   = s['replies_enabled'] ?? false;
+      mentions  = s['mentions_enabled'] ?? false;
+      reactions = s['reactions_enabled'] ?? false;
     });
   }
 
   Future<void> _saveSettings({
     bool? push,
-    bool? dailyReminder,
-    bool? replyNotifications,
+    bool? reminders,
+    bool? repliesOn,
+    bool? mentionsOn,
+    bool? reactionsOn,
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
@@ -81,8 +97,10 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
     await _firestoreService.updateNotificationSettings(
       uid,
       pushEnabled: pushState,
-      dailyReminderEnabled: dailyReminder ?? daily,
-      replyNotificationsEnabled: replyNotifications ?? replies,
+      remindersEnabled: reminders ?? daily,
+      repliesEnabled: repliesOn ?? replies,
+      mentionsEnabled: mentionsOn ?? mentions,
+      reactionsEnabled: reactionsOn ?? reactions,
     );
 
     if (pushState) {
@@ -91,28 +109,29 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
   }
 
   Future<bool> _requestNotificationPermission() async {
-    final messaging = FirebaseMessaging.instance;
-    final settings = await messaging.requestPermission();
-    final granted =
-        settings.authorizationStatus == AuthorizationStatus.authorized;
-
-    if (granted) {
-      await _registerFcmToken();
-    } else {
+  if (Platform.isAndroid) {
+    final status = await Permission.notification.request();
+    if (!status.isGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Notification permission denied.')),
         );
       }
+      return false;
     }
-
-    return granted;
   }
+  final settings = await FirebaseMessaging.instance.requestPermission(
+    alert: true, badge: true, sound: true, provisional: true,
+  );
+  final ok = settings.authorizationStatus == AuthorizationStatus.authorized ||
+             settings.authorizationStatus == AuthorizationStatus.provisional;
+  if (ok) await _registerFcmToken();
+  return ok;
+}
 
   Future<void> _registerFcmToken() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null && token.isNotEmpty) {
@@ -144,20 +163,10 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
+                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: Colors.white.withOpacity(.9)),
-                  ),
+                  Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(.9))),
                 ],
               ],
             ),
@@ -192,9 +201,7 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                   children: [
                     IconButton(
                       icon: Icon(Icons.arrow_back, color: onText),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -209,7 +216,6 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                 ),
               ),
 
-              // Notification toggle list
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -217,52 +223,72 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                     children: [
                       _pill(
                         title: 'Receive Push Notifications',
-                        subtitle:
-                            "Turn on to get tracking and reply notifications.",
+                        subtitle: "Turn on to get daily writing reminders and activity on your posts.",
                         value: enableAll,
                         onChanged: (v) async {
                           if (v) {
-                            final granted =
-                                await _requestNotificationPermission();
+                            final granted = await _requestNotificationPermission();
                             if (!granted) return;
                           }
-
                           setState(() {
                             enableAll = v;
                             if (!v) {
                               daily = false;
                               replies = false;
+                              mentions = false;
+                              reactions = false;
                             }
                           });
-
                           await _saveSettings(
                             push: v,
-                            dailyReminder: v ? daily : false,
-                            replyNotifications: v ? replies : false,
+                            reminders: v ? daily : false,
+                            repliesOn: v ? replies : false,
+                            mentionsOn: v ? mentions : false,
+                            reactionsOn: v ? reactions : false,
                           );
                         },
                       ),
                       _pill(
-                        title: 'Daily Tracking Reminder',
-                        subtitle:
-                            "Send a friendly reminder if you haven’t tracked today.",
+                        title: 'Daily Writing Reminder',
+                        subtitle: "Get a gentle nudge to journal each day.",
                         value: daily,
                         onChanged: enableAll
                             ? (v) async {
                                 setState(() => daily = v);
-                                await _saveSettings(dailyReminder: v);
+                                await _saveSettings(reminders: v);
                               }
                             : null,
                       ),
                       _pill(
-                        title: 'Replies to your Posts',
-                        subtitle:
-                            "Receive notifications about replies on the community feed.",
+                        title: 'Replies to Your Posts',
+                        subtitle: "Notifications for new replies on the Community feed.",
                         value: replies,
                         onChanged: enableAll
                             ? (v) async {
                                 setState(() => replies = v);
-                                await _saveSettings(replyNotifications: v);
+                                await _saveSettings(repliesOn: v);
+                              }
+                            : null,
+                      ),
+                      _pill(
+                        title: 'Mentions (@you)',
+                        subtitle: "When someone mentions you in a post or reply.",
+                        value: mentions,
+                        onChanged: enableAll
+                            ? (v) async {
+                                setState(() => mentions = v);
+                                await _saveSettings(mentionsOn: v);
+                              }
+                            : null,
+                      ),
+                      _pill(
+                        title: 'Reactions',
+                        subtitle: "When someone reacts to your post or reply.",
+                        value: reactions,
+                        onChanged: enableAll
+                            ? (v) async {
+                                setState(() => reactions = v);
+                                await _saveSettings(reactionsOn: v);
                               }
                             : null,
                       ),
@@ -271,7 +297,6 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
                 ),
               ),
 
-              // Bottom navigation
               _BottomNav(index: 2, userName: widget.userName),
             ],
           ),
@@ -291,9 +316,7 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    Color _c(int i) => i == index
-        ? (isDark ? const Color(0xFF9B5DE5) : _teal) // purple when dark
-        : Colors.white;
+    Color _c(int i) => i == index ? (isDark ? const Color(0xFF9B5DE5) : _teal) : Colors.white;
 
     return SafeArea(
       top: false,
@@ -306,27 +329,21 @@ class _BottomNav extends StatelessWidget {
               icon: Icon(Icons.home_filled, color: _c(0)),
               onPressed: () => Navigator.pushReplacement(
                 context,
-                NoTransitionPageRoute(
-                  builder: (_) => HomePage(userName: userName),
-                ),
+                NoTransitionPageRoute(builder: (_) => HomePage(userName: userName)),
               ),
             ),
             IconButton(
               icon: Icon(Icons.menu_book_rounded, color: _c(1)),
               onPressed: () => Navigator.pushReplacement(
                 context,
-                NoTransitionPageRoute(
-                  builder: (_) => JournalPage(userName: userName),
-                ),
+                NoTransitionPageRoute(builder: (_) => JournalPage(userName: userName)),
               ),
             ),
             IconButton(
               icon: Icon(Icons.settings, color: _c(2)),
               onPressed: () => Navigator.pushReplacement(
                 context,
-                NoTransitionPageRoute(
-                  builder: (_) => SettingsPage(userName: userName),
-                ),
+                NoTransitionPageRoute(builder: (_) => SettingsPage(userName: userName)),
               ),
             ),
           ],
@@ -335,3 +352,4 @@ class _BottomNav extends StatelessWidget {
     );
   }
 }
+
