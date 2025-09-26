@@ -675,7 +675,6 @@ class _JournalPageState extends State<JournalPage>
     );
   }
 
-  /// hereee
   // ---------------- Private journal creation ----------------
   Future<void> _openCreatePrivateDialog() async {
     final tCtl = TextEditingController();
@@ -1134,7 +1133,6 @@ class _CommunityFeed extends StatelessWidget {
 
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> q = publicCol;
-
     if (filterFrom != null) {
       q = q.where(
         'createdAt',
@@ -1143,7 +1141,6 @@ class _CommunityFeed extends StatelessWidget {
       q = q.orderBy('createdAt', descending: true);
       return q.limit(500);
     }
-
     switch (orderBy) {
       case _OrderBy.dateDesc:
         q = q.orderBy('createdAt', descending: true);
@@ -1221,10 +1218,8 @@ class _CommunityFeed extends StatelessWidget {
             final postUid = (m['uid'] as String?) ?? '';
             final providedName = (m['username'] as String?)?.trim() ?? '';
             final storedAnon = (m['isAnonymous'] as bool?) == true;
-
             final isSelf = user?.uid == postUid;
             final displayAnon = isSelf ? selfAnon : storedAnon;
-
             final canEdit = user?.uid == postUid;
             final canBlock = postUid.isNotEmpty && user?.uid != postUid;
 
@@ -1262,12 +1257,26 @@ class _CommunityFeed extends StatelessWidget {
                             ],
                           ),
                         ),
-                        Text(
-                          formatFull(ts),
-                          style: TextStyle(
-                            color: _textSecondary(context),
-                            fontSize: 12,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              formatFull(ts),
+                              style: TextStyle(
+                                color: _textSecondary(context),
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (m['edited'] == true)
+                              Text(
+                                'Edited',
+                                style: TextStyle(
+                                  color: _textSecondary(context),
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(width: 6),
                         _PostMenu(
@@ -1284,9 +1293,10 @@ class _CommunityFeed extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 7),
+                    // Post text
                     _ExpandableText(text: (m['content'] as String?) ?? ''),
-                    const SizedBox(height: 12),
+                    // Reactions & replies row
                     StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                       stream:
                           (user == null)
@@ -1344,6 +1354,7 @@ class _CommunityFeed extends StatelessWidget {
                         );
                       },
                     ),
+
                     if (openReplyFor == doc.id) ...[
                       _ReplyThread(
                         postId: doc.id,
@@ -1375,7 +1386,6 @@ class _CommunityFeed extends StatelessWidget {
   }
 }
 
-///here
 // ---------------- Private Journal (unchanged) ----------------
 class _PrivateJournal extends StatelessWidget {
   const _PrivateJournal({
