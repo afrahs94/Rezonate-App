@@ -91,7 +91,7 @@ class _HomePageState extends State<HomePage> {
   // Most recent log across all days (for 24h grace when no "today" log)
   DateTime? _lastLogAt;
 
-  // To enforce strict 24h rule even when there IS a log today
+  // To enforce strict 24h rule using “first log of day”
   DateTime? _firstLogTodayAt; // earliest log time for "today"
   DateTime? _lastLogBeforeTodayAt; // most recent log time BEFORE "today"
 
@@ -474,49 +474,62 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Strict 24h break enforcement + "starts after a day" rule
+  // ===== Streak logic (only extends when ≥24h between first logs of days) ====
   int get _streak {
     if (_daysWithAnyLog.isEmpty) return 0;
 
     final now = DateTime.now();
-    final todayMidnight = DateTime(now.year, now.month, now.day);
     final todayKey = _dayKey(now);
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
-    final within24h =
-        _lastLogAt != null && now.difference(_lastLogAt!).inHours < 24;
-    if (!hasToday && !within24h) {
-      return 0;
+    // Decide which day is the active "anchor" for streak counting.
+    // If today's first log is within 24h of the previous day's first/last log,
+    // do NOT count today—anchor on yesterday instead.
+    String? anchorKey;
+    if (hasToday) {
+      bool tooSoonFromYesterday = false;
+      if (_firstLogTodayAt != null && _lastLogBeforeTodayAt != null) {
+        final gapHrs = _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
+        // If less than 24h has elapsed, today should not extend the streak.
+        if (gapHrs < 24) {
+          tooSoonFromYesterday = true;
+        }
+      }
+      if (tooSoonFromYesterday) {
+        final y = now.subtract(const Duration(days: 1));
+        final yKey = _dayKey(y);
+        if (_daysWithAnyLog.contains(yKey)) {
+          anchorKey = yKey;
+        } else {
+          // No valid yesterday anchor -> streak is whatever was before (0)
+          return 0;
+        }
+      } else {
+        anchorKey = todayKey;
+      }
+    } else {
+      // No log today — allow grace if the latest log is within last 24h.
+      if (_lastLogAt != null && now.difference(_lastLogAt!).inHours < 24) {
+        anchorKey = _dayKey(_lastLogAt!);
+      } else {
+        return 0;
+      }
     }
 
-    bool brokeBetweenYesterdayAndToday = false;
-    if (hasToday && _firstLogTodayAt != null && _lastLogBeforeTodayAt != null) {
-      final gap = _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
-      if (gap > 24) brokeBetweenYesterdayAndToday = true;
-    }
-
-    int consecutive = 0;
-    var d = todayMidnight;
-    bool graceForToday = !hasToday && within24h;
-
+    // Count consecutive calendar days with any log, going backward from anchor.
+    int count = 0;
+    DateTime d = DateTime.parse(anchorKey!);
     while (true) {
       final key = _dayKey(d);
-      final isYesterday =
-          d.isAtSameMomentAs(todayMidnight.subtract(const Duration(days: 1)));
-      final filled =
-          _daysWithAnyLog.contains(key) ||
-          (graceForToday && d.isAtSameMomentAs(todayMidnight));
-
-      if (isYesterday && brokeBetweenYesterdayAndToday) break;
-      if (!filled) break;
-
-      consecutive++;
-      graceForToday = false;
+      if (!_daysWithAnyLog.contains(key)) break;
+      count++;
       d = d.subtract(const Duration(days: 1));
     }
 
-    if (consecutive <= 1) return 0;
-    return consecutive - 1;
+    // Display convention in this UI: do not include "current day in progress".
+    // If count <= 1, show 0; else show (count - 1).
+    if (count <= 1) return 0;
+    return count - 1;
   }
 
   LinearGradient _bg(BuildContext context) {
@@ -1256,8 +1269,8 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                             ],
                                           ),
-                                          const Icon(Icons.drag_indicator,
-                                              size: 18),
+                                          // Removed the trailing drag_indicator icon (reordering dots)
+                                          // const Icon(Icons.drag_indicator, size: 18),
                                         ],
                                       ),
                                     ],
