@@ -370,7 +370,11 @@ class _SettingsPageState extends State<SettingsPage> {
                             child: TextField(
                               controller: _searchCtrl,
                               textInputAction: TextInputAction.search,
-                              onSubmitted: (_) => _goToSearchResult(),
+                              // CHANGE: pressing Enter just applies the search and closes keyboard (no filters pop-up)
+                              onSubmitted: (_) {
+                                _onSearch();
+                                FocusScope.of(context).unfocus();
+                              },
                               decoration: InputDecoration(
                                 hintText: 'Search settings…',
                                 filled: true,
