@@ -62,7 +62,7 @@ class _PushNotificationsPageState extends State<PushNotificationsPage> {
       end: Alignment.bottomCenter,
       colors: isDark
           ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFD7C3F1), Color(0xFFBDE8CA)],
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -352,4 +352,3 @@ class _BottomNav extends StatelessWidget {
     );
   }
 }
-
