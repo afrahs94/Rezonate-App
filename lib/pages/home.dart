@@ -112,7 +112,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _replayAutoNext?.cancel(); 
+    _replayAutoNext?.cancel();
     _trackersSub?.cancel();
     _logsSub?.cancel();
     super.dispose();
@@ -164,9 +164,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
-                ),
+                const Align(alignment: Alignment.centerLeft),
                 const SizedBox(height: 3),
                 for (final t in _emojiTicks)
                   Padding(
@@ -243,51 +241,49 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _maybeStartHomeShowcase() async {
-  var stage = await Onboarding.getStage();
+    var stage = await Onboarding.getStage();
 
-  if (stage == OnboardingStage.notStarted) {
-    await Onboarding.setStage(OnboardingStage.homeIntro);
-    stage = OnboardingStage.homeIntro;
-  }
-  if (!mounted) return;
+    if (stage == OnboardingStage.notStarted) {
+      await Onboarding.setStage(OnboardingStage.homeIntro);
+      stage = OnboardingStage.homeIntro;
+    }
+    if (!mounted) return;
 
-  final isRelevant = stage == OnboardingStage.homeIntro ||
-      stage == OnboardingStage.needFirstHabit ||
-      stage == OnboardingStage.replayingTutorial;
+    final isRelevant = stage == OnboardingStage.homeIntro ||
+        stage == OnboardingStage.needFirstHabit ||
+        stage == OnboardingStage.replayingTutorial;
 
-  setState(() {
-    _tourActive = isRelevant;
-    _showNextButton = false; 
-  });
-
-  if (!isRelevant) return;
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    final ctx = _showcaseCtx;
-    if (ctx == null) return;
-    try {
-      ShowCaseWidget.of(ctx).startShowCase([
-        OBKeys.addHabit,
-        OBKeys.chartSelector,
-        OBKeys.journalTab,
-        OBKeys.settingsTab,
-      ]);
-    } catch (_) {}
-  });
-
-
-  if (stage == OnboardingStage.replayingTutorial) {
-    _replayAutoNext?.cancel();
-    _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        _slideTo(JournalPage(userName: widget.userName)),
-      );
+    setState(() {
+      _tourActive = isRelevant;
+      _showNextButton = false;
     });
-  }
-}
 
+    if (!isRelevant) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _showcaseCtx;
+      if (ctx == null) return;
+      try {
+        ShowCaseWidget.of(ctx).startShowCase([
+          OBKeys.addHabit,
+          OBKeys.chartSelector,
+          OBKeys.journalTab,
+          OBKeys.settingsTab,
+        ]);
+      } catch (_) {}
+    });
+
+    if (stage == OnboardingStage.replayingTutorial) {
+      _replayAutoNext?.cancel();
+      _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          _slideTo(JournalPage(userName: widget.userName)),
+        );
+      });
+    }
+  }
 
   Future<void> _bootstrap() async {
     final u = _user;
@@ -295,80 +291,75 @@ class _HomePageState extends State<HomePage> {
 
     // --- Trackers live snapshot
     _trackersSub = _db
-    .collection('users')
-    .doc(u.uid)
-    .collection('trackers')
-    .orderBy('sort')
-    .snapshots()
-    .listen((snap) async {
-  final list = snap.docs.map(Tracker.fromDoc).toList();
-  final count = list.length;
+        .collection('users')
+        .doc(u.uid)
+        .collection('trackers')
+        .orderBy('sort')
+        .snapshots()
+        .listen((snap) async {
+      final list = snap.docs.map(Tracker.fromDoc).toList();
+      final count = list.length;
 
-  if (!mounted) return;
-  setState(() {
-    _trackers = list;
-    _selectedForChart
-      ..clear()
-      ..addAll(_trackers.map((t) => t.id));
-  });
-
-  final stage = await Onboarding.getStage();
-
-  // -------- Gated flow (new users) ----------
-  if (stage == OnboardingStage.homeIntro ||
-      stage == OnboardingStage.needFirstHabit) {
-    // Start bubbles on Home while count == 0
-    if (count == 0) {
-      await Onboarding.setStage(OnboardingStage.needFirstHabit);
-      if (mounted) {
-        setState(() {
-          _tourActive = true;
-          _showNextButton = false; // can't continue yet
-        });
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final ctx = _showcaseCtx;
-        if (ctx == null) return;
-        try {
-          ShowCaseWidget.of(ctx).startShowCase([
-            OBKeys.addHabit,
-            OBKeys.chartSelector,
-            OBKeys.journalTab,
-            OBKeys.settingsTab,
-          ]);
-        } catch (_) {}
-      });
-    }
-
-    // Detect 0 -> 1+ transition and auto-advance to Journal
-    final prev = _prevTrackerCount ?? 0;
-    if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
-      await Onboarding.markHabitCreated(); // -> needFirstCommunity
-      _navigatedAfterHabit = true;
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        _slideTo(JournalPage(userName: widget.userName)),
-      );
-      return; // stop further UI updates on this frame
-    }
-  }
-
-  // Remember for next snapshot
-  _prevTrackerCount = count;
-
-  // -------- Replay mode ----------
-  if (stage == OnboardingStage.replayingTutorial) {
-    // Showcase is started in _maybeStartHomeShowcase and timer handles nav.
-    if (mounted) {
       setState(() {
-        _tourActive = true;
-        _showNextButton = false;
+        _trackers = list;
+        _selectedForChart
+          ..clear()
+          ..addAll(_trackers.map((t) => t.id));
       });
-    }
-  }
-});
 
+      final stage = await Onboarding.getStage();
+
+      // -------- Gated flow (new users) ----------
+      if (stage == OnboardingStage.homeIntro ||
+          stage == OnboardingStage.needFirstHabit) {
+        if (count == 0) {
+          await Onboarding.setStage(OnboardingStage.needFirstHabit);
+          if (mounted) {
+            setState(() {
+              _tourActive = true;
+              _showNextButton = false;
+            });
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final ctx = _showcaseCtx;
+            if (ctx == null) return;
+            try {
+              ShowCaseWidget.of(ctx).startShowCase([
+                OBKeys.addHabit,
+                OBKeys.chartSelector,
+                OBKeys.journalTab,
+                OBKeys.settingsTab,
+              ]);
+            } catch (_) {}
+          });
+        }
+
+        // Detect 0 -> 1+ transition and auto-advance to Journal
+        final prev = _prevTrackerCount ?? 0;
+        if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
+          await Onboarding.markHabitCreated(); // -> needFirstCommunity
+          _navigatedAfterHabit = true;
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            _slideTo(JournalPage(userName: widget.userName)),
+          );
+          return;
+        }
+      }
+
+      _prevTrackerCount = count;
+
+      if (stage == OnboardingStage.replayingTutorial) {
+        if (mounted) {
+          setState(() {
+            _tourActive = true;
+            _showNextButton = false;
+          });
+        }
+      }
+    });
 
     // --- Pull last 120 days of logs and keep in memory
     _logsSub = _db
@@ -397,8 +388,9 @@ class _HomePageState extends State<HomePage> {
         map[d.id] = vals.cast<String, double>();
         if (vals.isNotEmpty) daysWithLogs.add(d.id);
 
-        final ts =
-            (m['updatedAt'] is Timestamp) ? (m['updatedAt'] as Timestamp).toDate() : null;
+        final ts = (m['updatedAt'] is Timestamp)
+            ? (m['updatedAt'] as Timestamp).toDate()
+            : null;
         if (ts != null) {
           if (newest == null || ts.isAfter(newest)) newest = ts;
         } else if (vals.isNotEmpty) {
@@ -413,8 +405,9 @@ class _HomePageState extends State<HomePage> {
         }
 
         if (d.id == todayKey) {
-          final f =
-              (m['firstAt'] is Timestamp) ? (m['firstAt'] as Timestamp).toDate() : null;
+          final f = (m['firstAt'] is Timestamp)
+              ? (m['firstAt'] as Timestamp).toDate()
+              : null;
           if (f != null) firstToday = f;
         } else {
           if (ts != null) {
@@ -482,15 +475,12 @@ class _HomePageState extends State<HomePage> {
     final todayKey = _dayKey(now);
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
-    // Decide which day is the active "anchor" for streak counting.
-    // If today's first log is within 24h of the previous day's first/last log,
-    // do NOT count today—anchor on yesterday instead.
     String? anchorKey;
     if (hasToday) {
       bool tooSoonFromYesterday = false;
       if (_firstLogTodayAt != null && _lastLogBeforeTodayAt != null) {
-        final gapHrs = _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
-        // If less than 24h has elapsed, today should not extend the streak.
+        final gapHrs =
+            _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
         if (gapHrs < 24) {
           tooSoonFromYesterday = true;
         }
@@ -501,14 +491,12 @@ class _HomePageState extends State<HomePage> {
         if (_daysWithAnyLog.contains(yKey)) {
           anchorKey = yKey;
         } else {
-          // No valid yesterday anchor -> streak is whatever was before (0)
           return 0;
         }
       } else {
         anchorKey = todayKey;
       }
     } else {
-      // No log today — allow grace if the latest log is within last 24h.
       if (_lastLogAt != null && now.difference(_lastLogAt!).inHours < 24) {
         anchorKey = _dayKey(_lastLogAt!);
       } else {
@@ -516,7 +504,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // Count consecutive calendar days with any log, going backward from anchor.
     int count = 0;
     DateTime d = DateTime.parse(anchorKey!);
     while (true) {
@@ -526,8 +513,6 @@ class _HomePageState extends State<HomePage> {
       d = d.subtract(const Duration(days: 1));
     }
 
-    // Display convention in this UI: do not include "current day in progress".
-    // If count <= 1, show 0; else show (count - 1).
     if (count <= 1) return 0;
     return count - 1;
   }
@@ -746,25 +731,16 @@ class _HomePageState extends State<HomePage> {
           barWidth: 3,
           color: t.color,
           dotData: FlDotData(show: true),
-          belowBarData: BarAreaData(
-            show: true,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [t.color.withOpacity(.25), t.color.withOpacity(.02)],
-            ),
-          ),
+          // Removed gradient fill under lines
+          belowBarData: BarAreaData(show: false),
         ),
       );
     }
 
-    // ==== Compact + centered horizontally without duplicating last label ====
-    // Show symmetric padding around the first/last point.
-    // Keep labels only at whole integers so no repeats (Sun/Week4/Q4).
-    const pad = 0.5; // tweak if you want tighter/looser fit
+    // Compact + centered horizontally
+    const pad = 0.5;
     final double minX = -pad;
     final double maxX = (pointCount - 1) + pad;
-
     bool _isWhole(num v) => v == v.roundToDouble();
 
     return LineChartData(
@@ -857,14 +833,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _goNextFromHome() async {
-  // Dev helper: jump to Journal
-  if (!mounted) return;
-  Navigator.pushReplacement(
-    context,
-    _slideTo(JournalPage(userName: widget.userName)),
-  );
-}
-
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      _slideTo(JournalPage(userName: widget.userName)),
+    );
+  }
 
   // ---- UI
   @override
@@ -894,7 +868,7 @@ class _HomePageState extends State<HomePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // ===== Logo with green glow + green-tinted logo in dark mode =====
+                              // ===== Logo with glow in dark mode =====
                               Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: SizedBox(
@@ -981,7 +955,7 @@ class _HomePageState extends State<HomePage> {
 
                               const SizedBox(height: 18),
 
-                              // ===== Streak pill (dark mode toned down) =====
+                              // ===== Streak pill =====
                               if (streakNow > 0)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -1052,7 +1026,7 @@ class _HomePageState extends State<HomePage> {
 
                               const SizedBox(height: 14),
 
-                              // Trackers list
+                              // ===== Trackers list =====
                               ReorderableListView.builder(
                                 physics: const NeverScrollableScrollPhysics(),
                                 shrinkWrap: true,
@@ -1083,8 +1057,7 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                               child: Text(
                                                 t.label,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.w600,
                                                   fontSize: 13,
@@ -1269,8 +1242,6 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                             ],
                                           ),
-                                          // Removed the trailing drag_indicator icon (reordering dots)
-                                          // const Icon(Icons.drag_indicator, size: 18),
                                         ],
                                       ),
                                     ],
@@ -1279,7 +1250,8 @@ class _HomePageState extends State<HomePage> {
                               ),
 
                               const SizedBox(height: 14),
-                              // Plus under trackers  (Showcase target)
+
+                              // Add tracker (Showcase target)
                               Showcase(
                                 key: OBKeys.addHabit,
                                 description:
@@ -1292,8 +1264,7 @@ class _HomePageState extends State<HomePage> {
                                   tooltip: 'Add tracker',
                                   onPressed: () =>
                                       _createTracker(label: 'add tracker'),
-                                  icon: const Icon(
-                                      Icons.add_circle_outline,
+                                  icon: const Icon(Icons.add_circle_outline,
                                       size: 28),
                                   color: const Color(0xFF0D7C66),
                                 ),
@@ -1301,7 +1272,7 @@ class _HomePageState extends State<HomePage> {
 
                               const SizedBox(height: 24),
 
-                              // View selector (Showcase target for chart selector)
+                              // View selector (Showcase target)
                               Showcase(
                                 key: OBKeys.chartSelector,
                                 description:
@@ -1430,7 +1401,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
 
-                      // Bottom nav contains Showcase targets for Journal/Settings
+                      // Bottom nav
                       _BottomNav(index: 0, userName: widget.userName),
                     ],
                   ),
@@ -1470,7 +1441,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---- Select trackers dialog (clean, obvious selection, searchable)
+  // ---- Select trackers dialog (with bordered checkboxes)
   Future<void> _openSelectDialog() async {
     final chosen = Set<String>.from(_selectedForChart);
 
@@ -1498,13 +1469,10 @@ class _HomePageState extends State<HomePage> {
           ),
           child: StatefulBuilder(
             builder: (context, setSheet) {
-              final filtered =
-                  _trackers
-                      .where(
-                        (t) =>
-                            t.label.toLowerCase().contains(query.toLowerCase()),
-                      )
-                      .toList();
+              final filtered = _trackers
+                  .where((t) =>
+                      t.label.toLowerCase().contains(query.toLowerCase()))
+                  .toList();
 
               void toggle(String id, bool v) {
                 if (v) {
@@ -1614,6 +1582,9 @@ class _HomePageState extends State<HomePage> {
                                   contentPadding: EdgeInsets.zero,
                                   visualDensity:
                                       const VisualDensity(vertical: -4),
+                                  // border so the box is visible even if white is chosen
+                                  side: const BorderSide(
+                                      color: Colors.black26, width: 1),
                                 );
                               },
                             ),
@@ -1676,7 +1647,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---- Color picker bits -------------------------------------------------
+  // ---- Color picker (Recently used row + single Theme colors row)
   Future<void> _openColorPicker(Tracker t) async {
     HSVColor hsv = HSVColor.fromColor(t.color);
 
@@ -1692,7 +1663,35 @@ class _HomePageState extends State<HomePage> {
       return Color(v);
     }
 
+    final prefs = await SharedPreferences.getInstance();
     final hexCtl = TextEditingController(text: '');
+
+    // load/save recently used colors
+    List<Color> recentColors = (prefs.getStringList('recent_colors') ?? [])
+        .map((e) => Color(int.parse(e)))
+        .toList();
+
+    void _saveRecent(Color c) async {
+      // put most-recent first, unique, max 6
+      recentColors.removeWhere((x) => x.value == c.value);
+      recentColors.insert(0, c);
+      if (recentColors.length > 6) {
+        recentColors = recentColors.sublist(0, 6);
+      }
+      await prefs.setStringList(
+        'recent_colors',
+        recentColors.map((c) => c.value.toString()).toList(),
+      );
+    }
+
+    final themeSwatches = <Color>[
+      const Color(0xFF0D7C66),
+      const Color(0xFF41B3A2),
+      const Color(0xFF3E8F84),
+      const Color(0xFFD7C3F1),
+      const Color(0xFFBDA9DB),
+      const Color(0xFF99BBFF),
+    ];
 
     await showModalBottomSheet(
       context: context,
@@ -1722,24 +1721,6 @@ class _HomePageState extends State<HomePage> {
               final c = _fromHex(text);
               setSheet(() => hsv = HSVColor.fromColor(c));
             }
-
-            final presets = <Color>[
-              const Color(0xFF0D7C66),
-              const Color(0xFF41B3A2),
-              const Color(0xFF3E8F84),
-              const Color(0xFFD7C3F1),
-              const Color(0xFFBDA9DB),
-              const Color(0xFF99BBFF),
-            ];
-
-            final themeSwatches = <Color>[
-              const Color(0xFF0D7C66),
-              const Color(0xFF41B3A2),
-              const Color(0xFF3E8F84),
-              const Color(0xFFD7C3F1),
-              const Color(0xFFBDA9DB),
-              const Color(0xFF99BBFF),
-            ];
 
             return Container(
               padding: EdgeInsets.only(
@@ -1772,7 +1753,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Ring + (smaller) SV square inside
+                  // Hue ring + SV square
                   SizedBox(
                     height: 220,
                     width: 220,
@@ -1844,8 +1825,8 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 10),
                       const Text(
                         '#',
-                        style:
-                            TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -1888,16 +1869,26 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
 
-                  // Quick swatches
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
+                  // Recently used (top row)
+                  if (recentColors.isNotEmpty) ...[
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Recently used',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final c in presets)
+                        for (final c in recentColors)
                           GestureDetector(
                             onTap: () =>
                                 setSheet(() => hsv = HSVColor.fromColor(c)),
@@ -1909,67 +1900,49 @@ class _HomePageState extends State<HomePage> {
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                     color: Colors.black26, width: 1),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 2,
-                                  ),
-                                ],
                               ),
                             ),
                           ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 14),
+                  ],
 
-                  const SizedBox(height: 10),
-
-                  // Theme colors
-                  Align(
+                  // Single row: Theme colors
+                  const Align(
                     alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Theme colors',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final c in themeSwatches)
-                              GestureDetector(
-                                onTap: () =>
-                                    setSheet(() => hsv = HSVColor.fromColor(c)),
-                                child: Container(
-                                  width: 26,
-                                  height: 26,
-                                  decoration: BoxDecoration(
-                                    color: c,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.black26, width: 1),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black12,
-                                        blurRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
+                    child: Text(
+                      'Theme colors',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final c in themeSwatches)
+                        GestureDetector(
+                          onTap: () =>
+                              setSheet(() => hsv = HSVColor.fromColor(c)),
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: c,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.black26, width: 1),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
                   Row(
                     children: [
@@ -1983,7 +1956,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          setState(() => t.color = hsv.toColor());
+                          final chosen = hsv.toColor();
+                          setState(() => t.color = chosen);
+                          _saveRecent(chosen); // save to "recently used"
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
@@ -2162,7 +2137,6 @@ class _BottomNav extends StatelessWidget {
       return Colors.white;
     }
 
-    // Wrap Journal/Settings with Showcase so Home can start the cues
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 6),
       child: Row(
