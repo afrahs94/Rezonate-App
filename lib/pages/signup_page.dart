@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 import 'home.dart';
 import 'login_page.dart';
@@ -247,6 +248,7 @@ class _SignUpPageState extends State<SignUpPage> {
     String? errorText,
     String? helperText,
     Widget? suffix,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fill = isDark ? const Color(0xFF123A36) : Colors.white;
@@ -263,6 +265,7 @@ class _SignUpPageState extends State<SignUpPage> {
         onChanged: onChanged,
         style: TextStyle(color: textColor),
         cursorColor: textColor,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: hintColor),
@@ -330,6 +333,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   onChanged: _onUsernameChanged,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
+                    if (RegExp(r'\s').hasMatch(v)) return 'No spaces allowed';
                     if (_usernameAvailable == false) {
                       return 'Username already taken';
                     }
@@ -340,6 +344,8 @@ class _SignUpPageState extends State<SignUpPage> {
                       ? 'Username available'
                       : null,
                   suffix: _availabilitySuffix(_usernameAvailable),
+                  // prevent spaces (typing & paste)
+                  inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
                 ),
                 _buildTextField(
                   'email *',
@@ -635,6 +641,14 @@ Future<void> _handleSignUp() async {
     final usernameLower = username.toLowerCase();
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+
+    // extra safety: ensure no spaces
+    if (RegExp(r'\s').hasMatch(username)) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Username cannot contain spaces.'),
+      ));
+      return;
+    }
 
     if (!_isStrongPassword(password)) {
       messenger.showSnackBar(const SnackBar(
