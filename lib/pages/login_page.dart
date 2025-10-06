@@ -114,7 +114,11 @@ class _LoginPageState extends State<LoginPage> {
       // If it doesn't look like an email, treat input as username
       if (!rawId.contains('@')) {
         final q =
-            await _db.collection('users').where('username', isEqualTo: rawId).limit(1).get();
+            await _db
+                .collection('users')
+                .where('username', isEqualTo: rawId)
+                .limit(1)
+                .get();
         if (q.docs.isEmpty) {
           // Show inline error under password instead of snackbar
           setState(
@@ -139,14 +143,20 @@ class _LoginPageState extends State<LoginPage> {
       // Fill greeting name if needed
       if (helloName.isEmpty) {
         final q =
-            await _db.collection('users').where('email', isEqualTo: email).limit(1).get();
+            await _db
+                .collection('users')
+                .where('email', isEqualTo: email)
+                .limit(1)
+                .get();
         if (q.docs.isNotEmpty) {
-          helloName = (q.docs.first.data()['first_name'] as String?)?.trim() ?? '';
+          helloName =
+              (q.docs.first.data()['first_name'] as String?)?.trim() ?? '';
         }
       }
       helloName =
           helloName.isEmpty
-              ? (cred.user?.displayName ?? email.split('@').first.replaceAll('.', ' '))
+              ? (cred.user?.displayName ??
+                  email.split('@').first.replaceAll('.', ' '))
               : helloName;
 
       if (!mounted) return;
@@ -249,7 +259,9 @@ class _LoginPageState extends State<LoginPage> {
                         TextField(
                           controller: _idCtrl,
                           textInputAction: TextInputAction.next,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                           cursorColor: isDark ? Colors.white : Colors.black87,
                           decoration: _dec(context, 'username/email'),
                         ),
@@ -260,17 +272,23 @@ class _LoginPageState extends State<LoginPage> {
                           controller: _pwCtrl,
                           obscureText: !_showPw,
                           onSubmitted: (_) => _handleLogin(),
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                           cursorColor: isDark ? Colors.white : Colors.black87,
                           decoration: _dec(
                             context,
                             'password',
                             suffix: IconButton(
                               icon: Icon(
-                                _showPw ? Icons.visibility_off : Icons.visibility,
-                                color: isDark ? Colors.white70 : Colors.grey[700],
+                                _showPw
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color:
+                                    isDark ? Colors.white70 : Colors.grey[700],
                               ),
-                              onPressed: () => setState(() => _showPw = !_showPw),
+                              onPressed:
+                                  () => setState(() => _showPw = !_showPw),
                             ),
                           ),
                         ),
@@ -302,9 +320,25 @@ class _LoginPageState extends State<LoginPage> {
                                   scale: 0.8, // make checkbox smaller
                                   child: Checkbox(
                                     value: _rememberMe,
-                                    onChanged: (v) => setState(() => _rememberMe = v ?? false),
-                                    activeColor: const Color(0xFF0D7C66),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    onChanged:
+                                        (v) => setState(
+                                          () => _rememberMe = v ?? false,
+                                        ),
+                                    activeColor: const Color(
+                                      0xFF0D7C66,
+                                    ), // fill when checked
+                                    checkColor: Colors.white, // checkmark color
+                                    side: BorderSide(
+                                      color:
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors
+                                                  .black // border color in dark mode
+                                              : const Color.fromARGB(255, 98, 98, 98), // border color in light mode
+                                      width: 2,
+                                    ),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                                 const SizedBox(width: 0),
@@ -312,7 +346,7 @@ class _LoginPageState extends State<LoginPage> {
                                   "Remember me",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: textOnBg, // black in dark mode per request
+                                    color: textOnBg,
                                   ),
                                 ),
                               ],
@@ -331,7 +365,8 @@ class _LoginPageState extends State<LoginPage> {
                               child: Text(
                                 'forgot password?',
                                 style: TextStyle(
-                                  color: textOnBg, // black in dark mode per request
+                                  color:
+                                      textOnBg, // black in dark mode per request
                                   fontSize: 12.5,
                                   decoration: TextDecoration.underline,
                                 ),
@@ -356,19 +391,23 @@ class _LoginPageState extends State<LoginPage> {
                               elevation: 3,
                               shadowColor: Colors.black26,
                             ),
-                            child: _loading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            child:
+                                _loading
+                                    ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.4,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    )
+                                    : const Text(
+                                      'log in',
+                                      style: TextStyle(fontSize: 18),
                                     ),
-                                  )
-                                : const Text(
-                                    'log in',
-                                    style: TextStyle(fontSize: 18),
-                                  ),
                           ),
                         ),
 
@@ -377,11 +416,17 @@ class _LoginPageState extends State<LoginPage> {
                           children: [
                             const Expanded(child: Divider(thickness: 1)),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
                               child: Text(
                                 'or',
                                 style: TextStyle(
-                                  color: isDark ? Colors.black : Colors.grey, // black in dark mode per request
+                                  color:
+                                      isDark
+                                          ? Colors.black
+                                          : Colors
+                                              .grey, // black in dark mode per request
                                 ),
                               ),
                             ),
