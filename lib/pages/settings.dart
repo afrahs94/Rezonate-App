@@ -497,7 +497,7 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8, offset: Offset(0, 3))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.24), blurRadius: 8, offset: Offset(0, 3))],
         ),
         child: Row(
           children: [
@@ -550,7 +550,7 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8, offset: Offset(0, 3))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.24), blurRadius: 8, offset: Offset(0, 3))],
         ),
         child: const Row(
           children: [
@@ -576,7 +576,7 @@ class _SettingsPageState extends State<SettingsPage> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8, offset: Offset(0, 3))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: Offset(0, 3))],
       ),
       child: Row(
         children: [
@@ -645,7 +645,7 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8, offset: Offset(0, 3))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: Offset(0, 3))],
         ),
         child: const Row(
           children: [
