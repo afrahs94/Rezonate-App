@@ -1002,7 +1002,7 @@ class _JournalPageState extends State<JournalPage>
                                   Expanded(
                                     child: Text(
                                       'If discussing sensitive topics, please add a trigger warning to your post.',
-                                      style: TextStyle(fontSize: 12),
+                                      style: TextStyle(fontSize: 12, color: Colors.black),
                                     ),
                                   ),
                                 ],
