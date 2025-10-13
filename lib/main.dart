@@ -17,6 +17,7 @@ import 'pages/services/user_settings.dart';
 // NEW
 import 'pages/onboarding.dart';
 import 'pages/onboarding_keys';
+import 'pages/landing_page.dart'; // ✅ Added Landing Page import
 
 final FlutterLocalNotificationsPlugin _fln = FlutterLocalNotificationsPlugin();
 const String _kChannelId = 'rezonate_default';
@@ -35,9 +36,7 @@ Future<void> _initLocalNotifs() async {
 
   await _fln.initialize(
     const InitializationSettings(android: android, iOS: ios),
-    onDidReceiveNotificationResponse: (resp) {
-
-    },
+    onDidReceiveNotificationResponse: (resp) {},
   );
 
   await _fln
@@ -93,7 +92,6 @@ class ThemeControllerScope extends InheritedNotifier<ThemeController> {
   }
 }
 
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -145,50 +143,49 @@ class _RezonateAppState extends State<RezonateApp> {
   static final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
   late final Stream<User?> _authStream;
 
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  // Foreground push → show local notification
-  FirebaseMessaging.onMessage.listen((RemoteMessage msg) async {
-    final notification = msg.notification;
-    if (notification != null) {
-      await _fln.show(
-        notification.hashCode,
-        notification.title,
-        notification.body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            _kChannelId,
-            _kChannelName,
-            channelDescription: _kChannelDesc,
-            importance: Importance.high,
-            priority: Priority.high,
+    // Foreground push → show local notification
+    FirebaseMessaging.onMessage.listen((RemoteMessage msg) async {
+      final notification = msg.notification;
+      if (notification != null) {
+        await _fln.show(
+          notification.hashCode,
+          notification.title,
+          notification.body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _kChannelId,
+              _kChannelName,
+              channelDescription: _kChannelDesc,
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
           ),
-          iOS: DarwinNotificationDetails(),
-        ),
-        payload: msg.data['postId'] ?? '',
-      );
-    }
-  });
+          payload: msg.data['postId'] ?? '',
+        );
+      }
+    });
 
-  // Handle when app is opened from a terminated state via notification
-  FirebaseMessaging.instance.getInitialMessage().then((message) {
-    if (message != null) _handleOpenedMessage(message);
-  });
+    // Handle when app is opened from a terminated state via notification
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) _handleOpenedMessage(message);
+    });
 
-  // Handle when app is opened from background via notification
-  FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
+    // Handle when app is opened from background via notification
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
 
-  // Onboarding stage setup when user signs in
-  _authStream = FirebaseAuth.instance.authStateChanges();
-  _authStream.listen((user) {
-    if (user != null) {
-      Onboarding.ensureStageForCurrentUser();
-    }
-  });
-}
-
+    // Onboarding stage setup when user signs in
+    _authStream = FirebaseAuth.instance.authStateChanges();
+    _authStream.listen((user) {
+      if (user != null) {
+        Onboarding.ensureStageForCurrentUser();
+      }
+    });
+  }
 
   void _handleOpenedMessage(RemoteMessage msg) {
     final type = msg.data['type'] ?? '';
@@ -196,17 +193,17 @@ void initState() {
   }
 
   Future<Widget> _getStartPage() async {
-  final prefs = await SharedPreferences.getInstance();
-  final remember = prefs.getBool('remember_me') ?? false;
-  final user = FirebaseAuth.instance.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? false;
+    final user = FirebaseAuth.instance.currentUser;
 
-  if (remember && user != null) {
+    // ✅ Start at the Landing Page first
+    if (!remember || user == null) {
+      return const LandingPage();
+    }
+
     return HomePage(userName: user.displayName ?? user.email!.split('@').first);
-  } else {
-    return const LoginPage();
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -220,13 +217,15 @@ void initState() {
           themeMode: widget.controller.isDark ? ThemeMode.dark : ThemeMode.light,
           theme: _lightTheme,
           darkTheme: _darkTheme,
-
+          routes: {
+            '/login': (context) => const LoginPage(),
+            '/signup': (context) => const SignUpPage(),
+          },
           builder: (context, child) {
             return ShowCaseWidget(
               builder: (showcaseCtx) => child ?? const SizedBox.shrink(),
             );
           },
-
           home: FutureBuilder<Widget>(
             future: _getStartPage(),
             builder: (context, snapshot) {
@@ -235,7 +234,7 @@ void initState() {
                   body: Center(child: CircularProgressIndicator()),
                 );
               }
-              return snapshot.data ?? const SignUpPage();
+              return snapshot.data ?? const LandingPage();
             },
           ),
         );

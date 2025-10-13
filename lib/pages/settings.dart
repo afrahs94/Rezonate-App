@@ -13,6 +13,7 @@ import 'package:new_rezonate/pages/security_privacy.dart';
 import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
 import 'package:new_rezonate/pages/login_page.dart';
+import 'package:new_rezonate/pages/landing_page.dart'; // <-- added
 
 import 'onboarding.dart';
 import 'package:showcaseview/showcaseview.dart';
@@ -114,49 +115,48 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _maybeStartSettingsShowcase(BuildContext ctx) async {
-  if (_startedSearchShowcase) return;
+    if (_startedSearchShowcase) return;
 
-  final stage = await Onboarding.getStage();
-  final shouldShow = stage == OnboardingStage.settingsSearch ||
-      stage == OnboardingStage.replayingTutorial;
-  if (!shouldShow) return;
+    final stage = await Onboarding.getStage();
+    final shouldShow = stage == OnboardingStage.settingsSearch ||
+        stage == OnboardingStage.replayingTutorial;
+    if (!shouldShow) return;
 
-  _startedSearchShowcase = true;
+    _startedSearchShowcase = true;
 
-  if (Onboarding.isFreshSignup) {
-    Onboarding.isFreshSignup = false; // clear the flag after first use
+    if (Onboarding.isFreshSignup) {
+      Onboarding.isFreshSignup = false; // clear the flag after first use
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Welcome! Let’s walk through the Settings briefly.'),
+            ),
+          );
+        }
+      });
+    }
+
+    // Start the showcase
+    await OBShowcase.startWhenReady(ctx, keys: [_settingsSearchKey]);
+
+    // Auto-finish if in replay mode
+    if (Onboarding.isReplayActive || stage == OnboardingStage.replayingTutorial) {
+      final show = ShowCaseWidget.of(ctx);
+      _replayAutoFinishTimer?.cancel();
+      _replayAutoFinishTimer = Timer(const Duration(seconds: 2), () async {
+        try {
+          if (show.mounted) show.dismiss();
+        } catch (_) {}
+        await Onboarding.completeReplay(); // marks done
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Welcome! Let’s walk through the Settings briefly.'),
-          ),
+          const SnackBar(content: Text('Tutorial finished ✨')),
         );
-      }
-    });
+      });
+    }
   }
-
-  // Start the showcase
-  await OBShowcase.startWhenReady(ctx, keys: [_settingsSearchKey]);
-
-  // Auto-finish if in replay mode
-  if (Onboarding.isReplayActive || stage == OnboardingStage.replayingTutorial) {
-    final show = ShowCaseWidget.of(ctx);
-    _replayAutoFinishTimer?.cancel();
-    _replayAutoFinishTimer = Timer(const Duration(seconds: 2), () async {
-      try {
-        if (show.mounted) show.dismiss();
-      } catch (_) {}
-      await Onboarding.completeReplay(); // marks done
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tutorial finished ✨')),
-      );
-    });
-  }
-}
-
 
   // ---------- search helpers ----------
   String _norm(String s) => s.toLowerCase().trim();
@@ -341,12 +341,32 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: SafeArea(
                   child: Column(
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(40, 29, 40, 8),
-                        child: Row(
+                      // Header: black back button (further left), centered title "Settings"
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 29, 16, 8), // moved more to the left
+                        child: Stack(
+                          alignment: Alignment.center,
                           children: [
-                            Expanded(
-                              child: Text('Settings', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700)),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: IconButton(
+                                tooltip: 'Back',
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
+                                onPressed: () => Navigator.pushReplacement(
+                                  context,
+                                  NoTransitionPageRoute(
+                                    builder: (_) => HomePage(userName: widget.userName),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const Center(
+                              child: Text(
+                                'Settings',
+                                style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: Colors.black),
+                              ),
                             ),
                           ],
                         ),
@@ -370,7 +390,6 @@ class _SettingsPageState extends State<SettingsPage> {
                             child: TextField(
                               controller: _searchCtrl,
                               textInputAction: TextInputAction.search,
-                              // CHANGE: pressing Enter just applies the search and closes keyboard (no filters pop-up)
                               onSubmitted: (_) {
                                 _onSearch();
                                 FocusScope.of(context).unfocus();
@@ -438,6 +457,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                       ),
 
+                      // Bottom navigation — match Home page (icons & style)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Row(
@@ -445,7 +465,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             _navIcon(
                               context,
-                              icon: Icons.home_rounded,
+                              icon: Icons.home, // match Home page
                               selected: false,
                               onTap: () => Navigator.pushReplacement(
                                 context,
@@ -456,7 +476,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _navIcon(
                               context,
-                              icon: Icons.menu_book_rounded,
+                              icon: Icons.menu_book, // match Home page
                               selected: false,
                               onTap: () => Navigator.pushReplacement(
                                 context,
@@ -467,7 +487,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             _navIcon(
                               context,
-                              icon: Icons.settings_rounded,
+                              icon: Icons.settings, // match Home page
                               selected: true,
                               onTap: () {},
                             ),
@@ -613,8 +633,8 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         builder: (_) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Log out?', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          content: Text('Are you sure you want to log out?', style: theme.textTheme.bodyMedium),
+          title: const Text('Log out?'),
+          content: const Text('Are you sure you want to log out?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -633,7 +653,12 @@ class _SettingsPageState extends State<SettingsPage> {
         await prefs.remove('user_name');
         await FirebaseAuth.instance.signOut();
         if (!context.mounted) return;
-        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginPage()), (_) => false);
+        // ⬇️ Navigate to LandingPage instead of LoginPage
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LandingPage()),
+          (_) => false,
+        );
       }
     }
 

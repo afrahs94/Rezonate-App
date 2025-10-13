@@ -14,6 +14,8 @@ import 'package:showcaseview/showcaseview.dart';
 import 'package:new_rezonate/main.dart' as app;
 import 'journal.dart';
 import 'settings.dart';
+import 'edit_profile.dart'; // assumes an EditProfilePage exists
+import 'tools.dart'; // <-- added
 
 class Tracker {
   Tracker({
@@ -397,8 +399,8 @@ class _HomePageState extends State<HomePage> {
           final dayInt = (m['day'] as num?)?.toInt();
           if (dayInt != null) {
             final int y = dayInt ~/ 10000;
-            final int mo = (dayInt % 10000) ~/ 100;
-            final int da = dayInt % 100;
+            final int mo = (m['day'] % 10000) ~/ 100;
+            final int da = m['day'] % 100;
             final fallback = DateTime(y, mo, da, 23, 59, 59);
             if (newest == null || fallback.isAfter(newest)) newest = fallback;
           }
@@ -1401,9 +1403,52 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
 
-                      // Bottom nav
-                      _BottomNav(index: 0, userName: widget.userName),
+                      // Bottom nav (explicit transparent background)
+                      Container(
+                        color: Colors.transparent, // transparent background
+                        child: _BottomNav(
+                          index: 0,
+                          userName: widget.userName,
+                        ),
+                      ),
                     ],
+                  ),
+
+                  // ===== UPPER ICONS (bigger + more visible with shadow) =====
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: IconButton(
+                      tooltip: 'Settings',
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      onPressed: () => Navigator.push(
+                        context,
+                        NoTransitionPageRoute(
+                          builder: (_) => SettingsPage(userName: widget.userName),
+                        ),
+                      ),
+                      icon: const _ShadowedIcon(icon: Icons.settings, size: 30),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      tooltip: 'Edit profile',
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      onPressed: () => Navigator.push(
+                        context,
+                        NoTransitionPageRoute(
+                          builder: (_) => EditProfilePage(userName: widget.userName),
+                        ),
+                      ),
+                      icon: const _ShadowedIcon(
+                        icon: Icons.account_circle,
+                        size: 30,
+                      ),
+                    ),
                   ),
 
                   // “Next” button during tour to move to Journal
@@ -2168,17 +2213,49 @@ class _BottomNav extends StatelessWidget {
             onToolTipClick: () {},
             onBarrierClick: () {},
             child: IconButton(
-              icon: Icon(Icons.settings, color: c(2)),
+              icon: Icon(Icons.dashboard, color: c(2)), // dashboard-looking icon
               onPressed: () => Navigator.pushReplacement(
                 context,
                 NoTransitionPageRoute(
-                  builder: (_) => SettingsPage(userName: userName),
+                  builder: (_) => ToolsPage(userName: userName), // <-- changed
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Small helper to render a darker, more opaque white icon with a soft drop shadow.
+/// Used for the top-left Settings and top-right Edit Profile buttons.
+class _ShadowedIcon extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  const _ShadowedIcon({required this.icon, this.size = 24});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // shadow (slight offset)
+        Positioned(
+          left: 1,
+          top: 1,
+          child: Icon(
+            icon,
+            size: size,
+            color: Colors.black.withOpacity(.5),
+          ),
+        ),
+        // main glyph
+        Icon(
+          icon,
+          size: size,
+          color: Colors.white.withOpacity(.95),
+        ),
+      ],
     );
   }
 }

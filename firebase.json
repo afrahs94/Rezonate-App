@@ -1,1 +1,46 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"rezonate-app-ce99b","appId":"1:590573774973:android:d8878b595cd26f075aa914","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"rezonate-app-ce99b","appId":"1:590573774973:ios:da18731cfa61df9b5aa914","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"rezonate-app-ce99b","configurations":{"android":"1:590573774973:android:d8878b595cd26f075aa914","ios":"1:590573774973:ios:da18731cfa61df9b5aa914"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "rezonate-app-ce99b",
+          "appId": "1:590573774973:android:d8878b595cd26f075aa914",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "rezonate-app-ce99b",
+          "appId": "1:590573774973:ios:da18731cfa61df9b5aa914",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "rezonate-app-ce99b",
+          "configurations": {
+            "android": "1:590573774973:android:d8878b595cd26f075aa914",
+            "ios": "1:590573774973:ios:da18731cfa61df9b5aa914"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}
