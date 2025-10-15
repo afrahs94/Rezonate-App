@@ -7,32 +7,40 @@ import 'home.dart';
 import 'journal.dart';
 import 'vision_board.dart';
 import 'habit_tracker.dart';
-
-// These should match the files/classes you already have in the project.
 import 'sleep_tracker.dart';
 import 'meditation.dart';
 import 'tips.dart';
 import 'resources.dart';
-import 'exercises.dart';        // <-- Exercises page (class: ExercisesPage)
-import 'ai_chatbot.dart';      // <-- AI chatbot page (class: AIChatbotPage)
-import 'stress_busters.dart';  // <-- Stress Busters page (class: StressBustersPage)
-import 'affirmations.dart';    // <-- Affirmations page (class: AffirmationsPage)
+import 'exercises.dart';
+import 'ai_chatbot.dart';
+import 'stress_busters.dart';
+import 'affirmations.dart';
 
+/// Page transition with no animation
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
-  NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
+  NoTransitionPageRoute({required WidgetBuilder builder})
+    : super(builder: builder);
+
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> a, Animation<double> b, Widget child) => child;
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> a,
+    Animation<double> b,
+    Widget child,
+  ) => child;
 }
 
+/// Background gradient
 BoxDecoration _bg(BuildContext context) {
   final dark = app.ThemeControllerScope.of(context).isDark;
   return BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     ),
   );
 }
@@ -77,16 +85,11 @@ class _ToolsPageState extends State<ToolsPage> {
     final mq = MediaQuery.of(context);
     final isWide = mq.size.width > 820;
 
-    const double expandedHeight = 96.0; // compact header to move content up
-
     return Scaffold(
-      extendBodyBehindAppBar: false,
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: _bg(context),
         child: SafeArea(
-          top: true,
-          bottom: true, // <-- match Home: include bottom inset so nav isn't too low
           child: Column(
             children: [
               Expanded(
@@ -94,49 +97,34 @@ class _ToolsPageState extends State<ToolsPage> {
                   physics: const BouncingScrollPhysics(),
                   slivers: [
                     SliverAppBar(
+                      automaticallyImplyLeading: false,
                       pinned: true,
-                      floating: false,
-                      snap: false,
-                      expandedHeight: expandedHeight,
                       elevation: 0,
-                      scrolledUnderElevation: 0,
                       backgroundColor: Colors.transparent,
                       surfaceTintColor: Colors.transparent,
-                      centerTitle: false,
-                      automaticallyImplyLeading: false,
-                      title: null, // remove compact top-left title
                       flexibleSpace: LayoutBuilder(
                         builder: (context, constraints) {
-                          final double tRaw = (constraints.biggest.height - kToolbarHeight) /
-                              (expandedHeight - kToolbarHeight);
-                          final double t = tRaw.clamp(0.0, 1.0);
-                          final double size = 24.0 + (26.0 - 24.0) * t;
-
+                          final tRaw =
+                              (constraints.biggest.height - kToolbarHeight) /
+                              (96 - kToolbarHeight);
+                          final t = tRaw.clamp(0.0, 1.0);
+                          final size = 24.0 + (26.0 - 24.0) * t;
                           return FlexibleSpaceBar(
-                            titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 10),
-                            expandedTitleScale: 1.0,
-                            title: IgnorePointer(
-                              child: Opacity(
-                                opacity: t,
-                                child: Text(
-                                  'Tools',
-                                  style: TextStyle(
-                                    fontSize: size,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: .2,
-                                  ),
-                                ),
-                              ),
+                            titlePadding: const EdgeInsetsDirectional.only(
+                              start: 16,
+                              bottom: 10,
                             ),
+                            expandedTitleScale: 1.0,
+                            title: IgnorePointer(child: Opacity(opacity: t)),
                           );
                         },
                       ),
                     ),
 
-                    // Search bar — compact spacing
+                    /// Search bar
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         child: _SearchField(
                           controller: _searchCtrl,
                           focusNode: _searchFocus,
@@ -149,44 +137,35 @@ class _ToolsPageState extends State<ToolsPage> {
                       ),
                     ),
 
-                    // Grid — compact top/bottom padding
+                    /// Tool grid
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 5, 16, 12),
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: isWide ? 4 : 2,
                           childAspectRatio: isWide ? 1.05 : 1.10,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
                         ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, i) {
-                            final t = _filteredItems.elementAt(i);
-                            return _ToolOutlineTile(
-                              label: t.label,
-                              icon: t.icon,
-                              semanticLabel: '${t.label} tool',
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                Navigator.of(context).push(
-                                  NoTransitionPageRoute(builder: (_) => t.page),
-                                );
-                              },
-                            );
-                          },
-                          childCount: _filteredItems.length,
-                        ),
+                        delegate: SliverChildBuilderDelegate((context, i) {
+                          final t = _filteredItems.elementAt(i);
+                          return _ToolTile(
+                            label: t.label,
+                            icon: t.icon,
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).push(
+                                NoTransitionPageRoute(builder: (_) => t.page),
+                              );
+                            },
+                          );
+                        }, childCount: _filteredItems.length),
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // Bottom nav — identical padding/sizing/placement to Home
-              Container(
-                color: Colors.transparent,
-                child: _BottomNav(index: 2, userName: widget.userName),
-              ),
+              _BottomNav(index: 2, userName: widget.userName),
             ],
           ),
         ),
@@ -195,9 +174,9 @@ class _ToolsPageState extends State<ToolsPage> {
   }
 }
 
-// -------------------- Widgets --------------------
+/// -------------------- Search Field --------------------
 
-class _SearchField extends StatelessWidget {
+class _SearchField extends StatefulWidget {
   const _SearchField({
     required this.controller,
     required this.focusNode,
@@ -209,150 +188,58 @@ class _SearchField extends StatelessWidget {
   final VoidCallback onClear;
 
   @override
-  Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final outlineColor = Colors.black.withOpacity(dark ? 0.7 : 1.0);
-
-    return SizedBox(
-      height: 46, // slightly shorter to pull content up
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        textInputAction: TextInputAction.search,
-        style: const TextStyle(fontSize: 16),
-        decoration: InputDecoration(
-          hintText: 'Search tools…',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: controller.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Clear',
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-          filled: true,
-          fillColor: (dark ? Colors.black : Colors.white).withOpacity(0.50),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(color: outlineColor, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(color: outlineColor, width: 1.4),
-          ),
-        ),
-      ),
-    );
-  }
+  State<_SearchField> createState() => _SearchFieldState();
 }
 
-/// Outline-only, tactile tile with hover/focus glow and press depth + haptics on tap.
-class _ToolOutlineTile extends StatefulWidget {
-  const _ToolOutlineTile({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    this.semanticLabel,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? semanticLabel;
-
-  @override
-  State<_ToolOutlineTile> createState() => _ToolOutlineTileState();
-}
-
-class _ToolOutlineTileState extends State<_ToolOutlineTile> {
-  bool _hovering = false;
-  bool _pressed = false;
+class _SearchFieldState extends State<_SearchField> {
   bool _focused = false;
 
-  double get _scale => _pressed ? 0.985 : 1.0;
-
   @override
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
-    final outlineBase = Colors.black.withOpacity(dark ? 0.7 : 1.0);
-    final outlineColor = _focused
-        ? outlineBase.withOpacity(0.95)
-        : (_hovering ? outlineBase.withOpacity(0.9) : outlineBase);
+    final baseColor =
+        (dark
+            ? const Color.fromARGB(134, 0, 0, 0)
+            : const Color.fromARGB(146, 255, 255, 255));
+    final outlineColor = const Color.fromARGB(120, 54, 113, 56);
 
-    final width = MediaQuery.of(context).size.width;
-    final iconSize = width > 820 ? 40.0 : 34.0;
-    final fontSize = width > 820 ? 15.5 : 14.5;
-
-    return FocusableActionDetector(
-      onShowFocusHighlight: (v) => setState(() => _focused = v),
-      mouseCursor: SystemMouseCursors.click,
-      child: Semantics(
-        button: true,
-        label: widget.semanticLabel ?? widget.label,
-        child: Tooltip(
-          message: widget.label,
-          waitDuration: const Duration(milliseconds: 400),
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _hovering = true),
-            onExit: (_) => setState(() => _hovering = false),
-            child: AnimatedScale(
-              scale: _scale,
-              duration: const Duration(milliseconds: 110),
-              curve: Curves.easeOut,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                decoration: ShapeDecoration(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: outlineColor,
-                      width: _focused ? 1.6 : (_hovering ? 1.3 : 1.0),
-                    ),
-                  ),
-                  shadows: _pressed
-                      ? const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))]
-                      : (_hovering || _focused
-                          ? const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))]
-                          : const []),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTapDown: (_) {
-                      setState(() => _pressed = true);
-                      HapticFeedback.selectionClick();
-                    },
-                    onTapCancel: () => setState(() => _pressed = false),
-                    onTapUp: (_) => setState(() => _pressed = false),
-                    onTap: widget.onTap,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 110),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(widget.icon, size: iconSize, color: const Color(0xFF0D7C66)),
-                              const SizedBox(height: 10),
-                              Text(
-                                widget.label,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: fontSize,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+    return AnimatedScale(
+      scale: _focused ? 1.02 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: SizedBox(
+        height: 48,
+        child: Focus(
+          onFocusChange: (v) => setState(() => _focused = v),
+          child: TextField(
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            textInputAction: TextInputAction.search,
+            style: const TextStyle(fontSize: 16),
+            decoration: InputDecoration(
+              hintText: 'Search tools…',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon:
+                  widget.controller.text.isEmpty
+                      ? null
+                      : IconButton(
+                        tooltip: 'Clear',
+                        onPressed: widget.onClear,
+                        icon: const Icon(Icons.close_rounded),
                       ),
-                    ),
-                  ),
-                ),
+              filled: true,
+              fillColor: baseColor,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: outlineColor, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(28),
+                borderSide: BorderSide(color: outlineColor, width: 1.4),
               ),
             ),
           ),
@@ -362,7 +249,88 @@ class _ToolOutlineTileState extends State<_ToolOutlineTile> {
   }
 }
 
-// -------------------- Data --------------------
+/// -------------------- Tool Tile --------------------
+
+class _ToolTile extends StatefulWidget {
+  const _ToolTile({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_ToolTile> createState() => _ToolTileState();
+}
+
+class _ToolTileState extends State<_ToolTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    final color = const Color(0xFF0D7C66);
+    final bg =
+        dark
+            ? Colors.black.withOpacity(0.2)
+            : const Color.fromARGB(213, 255, 255, 255);
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1.0,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color.fromARGB(120, 80, 80, 80), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(widget.icon, size: 38, color: color),
+                  const SizedBox(height: 10),
+                  Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// -------------------- Data --------------------
 
 class _ToolItem {
   final String label;
@@ -372,22 +340,42 @@ class _ToolItem {
 }
 
 final _items = <_ToolItem>[
-  const _ToolItem('Vision Board', Icons.dashboard_customize_rounded, VisionBoardPage()),
-  const _ToolItem('Habit Tracker', Icons.checklist_rtl_rounded, HabitTrackerPage()),
+  const _ToolItem(
+    'Vision Board',
+    Icons.dashboard_customize_rounded,
+    VisionBoardPage(),
+  ),
+  const _ToolItem(
+    'Habit Tracker',
+    Icons.checklist_rtl_rounded,
+    HabitTrackerPage(),
+  ),
   const _ToolItem('Sleep Tracker', Icons.bedtime_rounded, SleepTrackerPage()),
-  const _ToolItem('Meditation', Icons.self_improvement_rounded, MeditationPage()),
+  const _ToolItem(
+    'Meditation',
+    Icons.self_improvement_rounded,
+    MeditationPage(),
+  ),
   const _ToolItem('Tips', Icons.tips_and_updates_rounded, TipsPage()),
   const _ToolItem('Resources', Icons.library_books_rounded, ResourcesPage()),
   const _ToolItem('Exercises', Icons.fitness_center_rounded, ExercisesPage()),
   const _ToolItem('AI Chatbot', Icons.forum_rounded, AIChatbotPage()),
-  const _ToolItem('Stress Busters', Icons.videogame_asset_rounded, StressBustersPage()),
-  const _ToolItem('Affirmations', Icons.auto_awesome_rounded, AffirmationsPage()),
+  const _ToolItem(
+    'Stress Busters',
+    Icons.videogame_asset_rounded,
+    StressBustersPage(),
+  ),
+  const _ToolItem(
+    'Affirmations',
+    Icons.auto_awesome_rounded,
+    AffirmationsPage(),
+  ),
 ];
 
-// -------------------- Bottom Nav (identical to Home) --------------------
+/// -------------------- Bottom Nav --------------------
 
 class _BottomNav extends StatelessWidget {
-  final int index; // 0=home, 1=journal, 2=tools
+  final int index;
   final String userName;
   const _BottomNav({required this.index, required this.userName});
 
@@ -402,7 +390,6 @@ class _BottomNav extends StatelessWidget {
       return Colors.white;
     }
 
-    // Match Home: Padding(bottom: 8, top: 6) + Row(spaceEvenly)
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 6),
       child: Row(
@@ -410,25 +397,31 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed: index == 0
-                ? null
-                : () => Navigator.pushReplacement(
+            onPressed:
+                index == 0
+                    ? null
+                    : () => Navigator.pushReplacement(
                       context,
-                      NoTransitionPageRoute(builder: (_) => HomePage(userName: userName)),
+                      NoTransitionPageRoute(
+                        builder: (_) => HomePage(userName: userName),
+                      ),
                     ),
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed: index == 1
-                ? null
-                : () => Navigator.pushReplacement(
+            onPressed:
+                index == 1
+                    ? null
+                    : () => Navigator.pushReplacement(
                       context,
-                      NoTransitionPageRoute(builder: (_) => JournalPage(userName: userName)),
+                      NoTransitionPageRoute(
+                        builder: (_) => JournalPage(userName: userName),
+                      ),
                     ),
           ),
           IconButton(
             icon: Icon(Icons.dashboard, color: c(2)),
-            onPressed: () {}, // already on Tools
+            onPressed: () {},
           ),
         ],
       ),
