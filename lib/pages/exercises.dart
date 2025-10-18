@@ -1,6 +1,7 @@
 // lib/pages/exercises.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // for HapticFeedback.vibrate()
 import 'package:new_rezonate/main.dart' as app;
 
 /// Mental Health Exercises
@@ -56,11 +57,12 @@ class _ExercisesPageState extends State<ExercisesPage> {
     const green = Color(0xFF0D7C66);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      // Header like Affirmations: opaque, nothing visible behind
+      extendBodyBehindAppBar: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         title: const Text(
@@ -73,7 +75,8 @@ class _ExercisesPageState extends State<ExercisesPage> {
         child: SafeArea(
           top: false,
           child: ListView(
-            padding: EdgeInsets.fromLTRB(16, _topPadding(context), 16, 24),
+            // regular top padding since we no longer draw behind the app bar
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
               // Search + filter row
               Row(
@@ -303,6 +306,8 @@ class _PlayerSheetState extends State<_PlayerSheet> {
               _running = false;
               _remaining = 0;
             });
+            // Vibrate when the entire timer/course is over
+            HapticFeedback.vibrate();
           } else {
             setState(() {
               _i += 1;
@@ -1372,14 +1377,11 @@ final List<_Exercise> _baseExercises = [
 ];
 
 /// === Ensure the final list has exactly 81 items ===
-/// We keep all base exercises above, then add compact practice variants
-/// (e.g., extra Box Breathing / Grounding sets) until we reach 81.
 final List<_Exercise> _exercises = [
   ..._baseExercises,
   ...List<_Exercise>.generate(
     (81 - _baseExercises.length) > 0 ? (81 - _baseExercises.length) : 0,
     (i) {
-      // Rotate a few templates so the practice sets vary slightly
       final templateIndex = i % 4;
       List<_ExStep> steps;
       List<String> tags;
