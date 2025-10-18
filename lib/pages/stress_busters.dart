@@ -366,6 +366,9 @@ class _WordSearchPageState extends State<WordSearchPage> {
   Point<int>? _lastCell;
   bool _dragging = false;
 
+  // Found word paths (for drawing strike-through on the grid)
+  final List<List<Point<int>>> _foundPaths = [];
+
   // Persist unfinished puzzle
   static const _saveKey = 'ws_active';
   static const _saveDiff = 'ws_active_diff';
@@ -433,6 +436,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
     _fillRandom();
     _selCells.clear();
     _lastCell = null;
+    _foundPaths.clear(); // reset lines on new puzzle
     _startTime = DateTime.now();
     _persistActive();
     setState(() {});
@@ -446,6 +450,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
     _fillRandom();
     _selCells.clear();
     _lastCell = null;
+    _foundPaths.clear(); // reset lines on reset
     _startTime = DateTime.now();
     _persistActive();
     setState(() {});
@@ -529,18 +534,27 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final steps = max(dx.abs(), dy.abs());
     if (!(dx == 0 || dy == 0 || dx.abs() == dy.abs())) return; // straight/diagonal only
     dx = dx.sign; dy = dy.sign;
+
+    // build the string and also the path of points
     final buff = StringBuffer();
+    final path = <Point<int>>[];
     int r = a.y, c = a.x;
     for (int i = 0; i <= steps; i++) {
       buff.write(grid[r][c]);
+      path.add(Point(c, r));
       r += dy; c += dx;
     }
     final s = buff.toString();
     final rs = s.split('').reversed.join();
+
     String? found;
-    if (remaining.contains(s)) found = s; else if (remaining.contains(rs)) found = rs;
+    List<Point<int>>? foundPath;
+    if (remaining.contains(s)) { found = s; foundPath = path; }
+    else if (remaining.contains(rs)) { found = rs; foundPath = path.reversed.toList(); }
+
     if (found != null) {
       remaining.remove(found);
+      if (foundPath != null) _foundPaths.add(foundPath); // record for grid strike-through
       await _persistActive();
       setState(() {});
       if (mounted) {
@@ -559,7 +573,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
           builder: (_) => AlertDialog(
             title: Text(isHigh ? 'New High Score!' : 'Puzzle Complete'),
             content: Text(isHigh
-                ? 'Speed: ${score.toStringAsFixed(3)} words/sec'
+                ? 'Speed: ${score.toString().padRight(5, '0') } words/sec'
                 : 'Nice work! Want a fresh grid?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
@@ -645,7 +659,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
                     onPointerMove: (e) => _onPanUpdate(e.localPosition, cons),
                     onPointerUp: (_) => _onPanEnd(),
                     child: CustomPaint(
-                      painter: _WsPainter(grid, _selCells),
+                      painter: _WsPainter(grid, _selCells, _foundPaths),
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -663,7 +677,9 @@ class _WordSearchPageState extends State<WordSearchPage> {
 class _WsPainter extends CustomPainter {
   final List<List<String>> g;
   final Set<Point<int>> sel;
-  _WsPainter(this.g, this.sel);
+  final List<List<Point<int>>> foundPaths;
+  _WsPainter(this.g, this.sel, this.foundPaths);
+
   @override
   void paint(Canvas c, Size s) {
     final n = g.length;
@@ -671,6 +687,8 @@ class _WsPainter extends CustomPainter {
     final border = Paint()..color = _ink.withOpacity(.25)..style = PaintingStyle.stroke;
     final selBg = Paint()..color = const Color(0xFFFFF1A6);
     final txt = TextPainter(textAlign: TextAlign.center, textDirection: TextDirection.ltr);
+
+    // grid + selection
     for (int y = 0; y < n; y++) {
       for (int x = 0; x < n; x++) {
         final r = Rect.fromLTWH(x * cell, y * cell, cell, cell);
@@ -686,9 +704,26 @@ class _WsPainter extends CustomPainter {
         txt.paint(c, Offset(x * cell, y * cell + (cell - txt.height) / 2));
       }
     }
+
+    // strike-through lines for found words
+    final linePaint = Paint()
+      ..color = const Color(0xFF0D7C66).withOpacity(.85)
+      ..strokeWidth = cell * 0.20
+      ..strokeCap = StrokeCap.round;
+
+    for (final path in foundPaths) {
+      if (path.isEmpty) continue;
+      final first = path.first;
+      final last = path.last;
+      final p1 = Offset(first.x * cell + cell / 2, first.y * cell + cell / 2);
+      final p2 = Offset(last.x * cell + cell / 2, last.y * cell + cell / 2);
+      c.drawLine(p1, p2, linePaint);
+    }
   }
+
   @override
-  bool shouldRepaint(covariant _WsPainter old) => old.g != g || old.sel != sel;
+  bool shouldRepaint(covariant _WsPainter old) =>
+      old.g != g || old.sel != sel || old.foundPaths != foundPaths;
 }
 
 /* ─────────────────── 2) Crossword (7×7, clues + hints) ─────────────────── */
@@ -765,6 +800,9 @@ class _CrosswordPageState extends State<CrosswordPage> {
   late List<List<String>> _solution;
   late List<List<String?>> _cells; // null = block, ""/letter = user
 
+  // numbering overlay for grid (across/down starts)
+  late List<List<int?>> _numbers;
+
   late DateTime _startTime;
 
   @override
@@ -787,6 +825,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
             final ch = saved[r * 7 + c];
             return ch.isEmpty ? '' : ch;
           }));
+      _numbers = _computeNumbers(_solution);
       _startTime = DateTime.now();
       setState(() {});
       return;
@@ -821,6 +860,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
           final s = _solution[r][c];
           return s == '#' ? null : '';
         }));
+    _numbers = _computeNumbers(_solution);
     _startTime = DateTime.now();
     _persist();
     setState(() {});
@@ -835,6 +875,26 @@ class _CrosswordPageState extends State<CrosswordPage> {
     _startTime = DateTime.now();
     _persist();
     setState(() {});
+  }
+
+  // compute numbering for across/down starts (matches conventional crossword numbering)
+  List<List<int?>> _computeNumbers(List<List<String>> sol) {
+    int n = 7, counter = 0;
+    final nums = List.generate(n, (_) => List<int?>.filled(n, null));
+    bool isStartAcross(int r, int c) =>
+        sol[r][c] != '#' && (c == 0 || sol[r][c - 1] == '#') && (c + 1 < n && sol[r][c + 1] != '#');
+    bool isStartDown(int r, int c) =>
+        sol[r][c] != '#' && (r == 0 || sol[r - 1][c] == '#') && (r + 1 < n && sol[r + 1][c] != '#');
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (sol[r][c] == '#') continue;
+        if (isStartAcross(r, c) || isStartDown(r, c)) {
+          counter += 1;
+          nums[r][c] = counter;
+        }
+      }
+    }
+    return nums;
   }
 
   bool _complete() {
@@ -919,45 +979,69 @@ class _CrosswordPageState extends State<CrosswordPage> {
                     );
                   }
                   final ok = (_cells[r][c] ?? '').toUpperCase() == _solution[r][c];
-                  return TextField(
-                    controller: TextEditingController(text: _cells[r][c]),
-                    onChanged: (v) async {
-                      _cells[r][c] = v.isEmpty ? '' : v.substring(0, 1).toUpperCase();
-                      await _persist();
-                      setState(() {});
-                      if (_complete()) {
-                        await _clearPersisted();
-                        final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
-                        final score = 1 / secs; // higher is better (faster)
-                        await ScoreStore.instance.add('crossword', score);
-                        final high = await ScoreStore.instance.reportBest('crossword', score);
-                        if (!mounted) return;
-                        await showDialog(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: Text(high ? 'New High Score!' : 'Crossword complete'),
-                            content: Text(high
-                                ? 'Speed: ${(1/score).toStringAsFixed(0)} sec'
-                                : 'Good job! Want another?'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-                              FilledButton(onPressed: () { Navigator.pop(context); _newPuzzle(); }, child: const Text('New')),
-                            ],
+
+                  // Text field with a small number overlay when a clue starts here.
+                  final number = _numbers[r][c];
+
+                  return Stack(
+                    children: [
+                      TextField(
+                        controller: TextEditingController(text: _cells[r][c]),
+                        onChanged: (v) async {
+                          _cells[r][c] = v.isEmpty ? '' : v.substring(0, 1).toUpperCase();
+                          await _persist();
+                          setState(() {});
+                          if (_complete()) {
+                            await _clearPersisted();
+                            final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
+                            final score = 1 / secs; // higher is better (faster)
+                            await ScoreStore.instance.add('crossword', score);
+                            final high = await ScoreStore.instance.reportBest('crossword', score);
+                            if (!mounted) return;
+                            await showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: Text(high ? 'New High Score!' : 'Crossword complete'),
+                                content: Text(high
+                                    ? 'Speed: ${(1/score).toStringAsFixed(0)} sec'
+                                    : 'Good job! Want another?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                                  FilledButton(onPressed: () { Navigator.pop(context); _newPuzzle(); }, child: const Text('New')),
+                                ],
+                              ),
+                            );
+                          }
+                        },
+                        maxLength: 1,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          counterText: '',
+                          filled: true,
+                          fillColor: ok ? const Color(0xFFA7E0C9) : Colors.white,
+                          contentPadding: const EdgeInsets.only(top: 14), // leave room for number
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: _ink),
                           ),
-                        );
-                      }
-                    },
-                    maxLength: 1,
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      counterText: '',
-                      filled: true,
-                      fillColor: ok ? const Color(0xFFA7E0C9) : Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: _ink),
+                        ),
                       ),
-                    ),
+                      if (number != null)
+                        Positioned(
+                          left: 6,
+                          top: 2,
+                          child: IgnorePointer(
+                            child: Text(
+                              '$number',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),
