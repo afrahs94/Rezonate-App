@@ -456,44 +456,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 },
                               ),
                       ),
-
-                      // Bottom navigation — match Home page (icons & style)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _navIcon(
-                              context,
-                              icon: Icons.home, // match Home page
-                              selected: false,
-                              onTap: () => Navigator.pushReplacement(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder: (_) => HomePage(userName: widget.userName),
-                                ),
-                              ),
-                            ),
-                            _navIcon(
-                              context,
-                              icon: Icons.menu_book, // match Home page
-                              selected: false,
-                              onTap: () => Navigator.pushReplacement(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder: (_) => JournalPage(userName: widget.userName),
-                                ),
-                              ),
-                            ),
-                            _navIcon(
-                              context,
-                              icon: Icons.settings, // match Home page
-                              selected: true,
-                              onTap: () {},
-                            ),
-                          ],
-                        ),
-                      ),
+                      // (Bottom navigation bar removed)
                     ],
                   ),
                 ),

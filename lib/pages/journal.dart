@@ -16,6 +16,7 @@ import 'package:new_rezonate/pages/services/biometric_auth.dart';
 
 import 'onboarding.dart';
 import 'package:showcaseview/showcaseview.dart';
+import 'tools.dart'; // <-- Added to navigate to ToolsPage
 
 const _teal = Color(0xFF0D7C66);
 const _headerPurple = Color(0xFFBDA9DB);
@@ -1034,30 +1035,8 @@ class _JournalPageState extends State<JournalPage>
                         else
                           const SizedBox(height: 8),
 
-                        _BottomNavTransparent(
-                          selectedIndex: 1,
-                          onHome:
-                              () => Navigator.pushReplacement(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder:
-                                      (_) => home_page.HomePage(
-                                        userName: widget.userName,
-                                      ),
-                                ),
-                              ),
-                          onJournal: () {},
-                          onSettings:
-                              () => Navigator.pushReplacement(
-                                context,
-                                NoTransitionPageRoute(
-                                  builder:
-                                      (_) => SettingsPage(
-                                        userName: widget.userName,
-                                      ),
-                                ),
-                              ),
-                        ),
+                        // ----- Bottom nav updated to match Tools page -----
+                        _BottomNav(index: 1, userName: widget.userName),
                       ],
                     ),
 
@@ -2902,6 +2881,64 @@ class _RoundIcon extends StatelessWidget {
   }
 }
 
+// ---- Added: Bottom nav matching Tools page ----
+class _BottomNav extends StatelessWidget {
+  final int index; // 0=home, 1=journal, 2=tools
+  final String userName;
+  const _BottomNav({required this.index, required this.userName});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF0D7C66);
+    const darkSelected = Color(0xFFBDA9DB);
+
+    Color c(int i) {
+      final dark = app.ThemeControllerScope.of(context).isDark;
+      if (i == index) return dark ? darkSelected : green;
+      return Colors.white;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          IconButton(
+            icon: Icon(Icons.home, color: c(0)),
+            onPressed:
+                index == 0
+                    ? null
+                    : () => Navigator.pushReplacement(
+                          context,
+                          NoTransitionPageRoute(
+                            builder: (_) =>
+                                home_page.HomePage(userName: userName),
+                          ),
+                        ),
+          ),
+          IconButton(
+            icon: Icon(Icons.menu_book, color: c(1)),
+            onPressed: () {}, // current page
+          ),
+          IconButton(
+            icon: Icon(Icons.dashboard, color: c(2)),
+            onPressed:
+                index == 2
+                    ? null
+                    : () => Navigator.pushReplacement(
+                          context,
+                          NoTransitionPageRoute(
+                            builder: (_) => ToolsPage(userName: userName),
+                          ),
+                        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// (Kept: original transparent bottom nav, now unused)
 class _BottomNavTransparent extends StatelessWidget {
   final int selectedIndex; // 0=home, 1=journal, 2=settings
   final VoidCallback onHome;
