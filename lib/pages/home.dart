@@ -14,8 +14,10 @@ import 'package:showcaseview/showcaseview.dart';
 import 'package:new_rezonate/main.dart' as app;
 import 'journal.dart';
 import 'settings.dart';
-import 'edit_profile.dart'; // assumes an EditProfilePage exists
-import 'tools.dart'; // <-- added
+import 'edit_profile.dart';
+import 'tools.dart';
+// USE THE REAL SUMMARIES PAGE:
+import 'summaries.dart';
 
 class Tracker {
   Tracker({
@@ -1398,6 +1400,32 @@ class _HomePageState extends State<HomePage> {
                                       )
                                     : LineChart(_chartData()),
                               ),
+
+                              // -------- "More insights" button under the graph --------
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  icon: const Icon(Icons.insights_outlined),
+                                  label: const Text(
+                                    'More insights',
+                                    style: TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0D7C66),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      NoTransitionPageRoute(
+                                        builder: (_) =>
+                                            SummariesPage(userName: widget.userName),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              // ----------------------------------------------------------------
                             ],
                           ),
                         ),
@@ -2003,7 +2031,7 @@ class _HomePageState extends State<HomePage> {
                         onPressed: () {
                           final chosen = hsv.toColor();
                           setState(() => t.color = chosen);
-                          _saveRecent(chosen); // save to "recently used"
+                          _saveRecent(chosen);
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
@@ -2213,11 +2241,11 @@ class _BottomNav extends StatelessWidget {
             onToolTipClick: () {},
             onBarrierClick: () {},
             child: IconButton(
-              icon: Icon(Icons.dashboard, color: c(2)), // dashboard-looking icon
+              icon: Icon(Icons.dashboard, color: c(2)),
               onPressed: () => Navigator.pushReplacement(
                 context,
                 NoTransitionPageRoute(
-                  builder: (_) => ToolsPage(userName: userName), // <-- changed
+                  builder: (_) => ToolsPage(userName: userName),
                 ),
               ),
             ),
@@ -2229,7 +2257,6 @@ class _BottomNav extends StatelessWidget {
 }
 
 /// Small helper to render a darker, more opaque white icon with a soft drop shadow.
-/// Used for the top-left Settings and top-right Edit Profile buttons.
 class _ShadowedIcon extends StatelessWidget {
   final IconData icon;
   final double size;
@@ -2239,7 +2266,6 @@ class _ShadowedIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // shadow (slight offset)
         Positioned(
           left: 1,
           top: 1,
@@ -2249,7 +2275,6 @@ class _ShadowedIcon extends StatelessWidget {
             color: Colors.black.withOpacity(.5),
           ),
         ),
-        // main glyph
         Icon(
           icon,
           size: size,

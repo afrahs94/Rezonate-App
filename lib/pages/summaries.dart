@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:new_rezonate/main.dart' as app;
-import 'home.dart';
+// IMPORTANT: do NOT import 'home.dart' to avoid circular import.
+// Back/home actions will just pop this page.
 import 'journal.dart';
 import 'settings.dart';
 
@@ -524,7 +525,7 @@ class _SummariesPageState extends State<SummariesPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header (extra top padding, no date line)
+              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 16, 12, 8),
                 child: Row(
@@ -533,16 +534,8 @@ class _SummariesPageState extends State<SummariesPage> {
                       tooltip: 'Back',
                       icon: const Icon(Icons.arrow_back_ios_new_rounded),
                       color: dark ? Colors.white : const Color(0xFF20312F),
-                      onPressed: () {
-                        if (Navigator.of(context).canPop()) {
-                          Navigator.of(context).pop();
-                        } else {
-                          Navigator.pushReplacement(
-                            context,
-                            NoTransitionPageRoute(builder: (_) => HomePage(userName: widget.userName)),
-                          );
-                        }
-                      },
+                      // JUST POP to avoid importing HomePage
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
                     const Spacer(),
                     const Text(
@@ -1280,8 +1273,10 @@ class _LoggingCalendar extends StatelessWidget {
     final days = List<DateTime>.generate(42, (i) => DateTime(gridStart.year, gridStart.month, gridStart.day + i));
     final isDark = app.ThemeControllerScope.of(context).isDark;
 
+    // FIX: use onSurface instead of textTheme.bodySmall?.color
+    final Color onSurface = theme.colorScheme.onSurface;
     Color loggedColor = const Color(0xFF3E8F84);
-    Color outMonthText = theme.textTheme.bodySmall!.color!.withOpacity(.35);
+    Color outMonthText = onSurface.withOpacity(.35);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1315,7 +1310,7 @@ class _LoggingCalendar extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: theme.textTheme.bodySmall!.color!.withOpacity(.6),
+                      color: onSurface.withOpacity(.6),
                     ),
                   ),
                 ),
@@ -1348,7 +1343,7 @@ class _LoggingCalendar extends StatelessWidget {
                     : (isDark ? Colors.white.withOpacity(.06) : Colors.black12.withOpacity(.08));
                 final border = logged ? null : Border.all(color: Colors.black12, width: 0.6);
                 final textColor = inMonth
-                    ? (logged ? Colors.white : theme.textTheme.bodySmall!.color)
+                    ? (logged ? Colors.white : onSurface)
                     : outMonthText;
 
                 final circle = Center(
@@ -1415,12 +1410,14 @@ class _BottomNav3 extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
+          // HOME: just pop, to avoid importing HomePage and creating a cycle
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(builder: (_) => HomePage(userName: userName)),
-            ),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
