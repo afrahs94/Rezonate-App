@@ -107,11 +107,15 @@ class _HomePageState extends State<HomePage> {
   };
   late Map<int, String> _emojiForTick = Map<int, String>.from(_defaultEmojis);
 
+  // ---- Daily midnight reset timer
+  Timer? _midnightTimer;
+
   @override
   void initState() {
     super.initState();
     _bootstrap().then((_) => _maybeStartHomeShowcase());
     _loadEmojis();
+    _scheduleMidnightReset(); // auto-reset sliders to middle at 12:00 AM
   }
 
   @override
@@ -119,7 +123,27 @@ class _HomePageState extends State<HomePage> {
     _replayAutoNext?.cancel();
     _trackersSub?.cancel();
     _logsSub?.cancel();
+    _midnightTimer?.cancel();
     super.dispose();
+  }
+
+  // ===== Midnight reset (UI-only; does not write a log) =====
+  void _scheduleMidnightReset() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+    final delay = nextMidnight.difference(now);
+    _midnightTimer = Timer(delay, _handleMidnightReset);
+  }
+
+  void _handleMidnightReset() {
+    if (!mounted) return;
+    setState(() {
+      for (final t in _trackers) {
+        t.value = 5; // reset slider to middle
+      }
+    });
+    _scheduleMidnightReset(); // schedule for the following midnight
   }
 
   Future<void> _loadEmojis() async {
@@ -1442,7 +1466,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
 
-                  // ===== UPPER ICONS (bigger + more visible with shadow) =====
+                  // ===== UPPER ICONS (refined styling) =====
                   Positioned(
                     top: 8,
                     left: 8,
@@ -1456,7 +1480,10 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => SettingsPage(userName: widget.userName),
                         ),
                       ),
-                      icon: const _ShadowedIcon(icon: Icons.settings, size: 30),
+                      icon: const _ShadowedIcon(
+                        icon: Icons.settings_outlined,
+                        size: 26, // sleeker size
+                      ),
                     ),
                   ),
                   Positioned(
@@ -1473,8 +1500,8 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       icon: const _ShadowedIcon(
-                        icon: Icons.account_circle,
-                        size: 30,
+                        icon: Icons.person_outline_rounded,
+                        size: 26, // sleeker size
                       ),
                     ),
                   ),
@@ -2256,7 +2283,8 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// Small helper to render a darker, more opaque white icon with a soft drop shadow.
+/// Refined icon: sleek outline style, theme-aware tint, and a soft shadow.
+/// No heavy circles; looks cleaner against the gradient header.
 class _ShadowedIcon extends StatelessWidget {
   final IconData icon;
   final double size;
@@ -2264,23 +2292,30 @@ class _ShadowedIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    final Color tint = dark
+        ? Colors.white.withOpacity(0.92)
+        : const Color(0xFF0D7C66).withOpacity(0.92);
+
     return Stack(
       children: [
+        // Soft, subtle shadow for legibility on bright backgrounds
         Positioned(
-          left: 1,
+          left: 0,
           top: 1,
           child: Icon(
             icon,
             size: size,
-            color: Colors.black.withOpacity(.5),
+            color: Colors.black.withOpacity(0.28),
           ),
         ),
         Icon(
           icon,
           size: size,
-          color: Colors.white.withOpacity(.95),
+          color: tint,
         ),
       ],
     );
   }
 }
+
