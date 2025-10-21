@@ -9,6 +9,7 @@
       "dependencies": [
         "cloud_firestore",
         "cupertino_icons",
+        "custom_refresh_indicator",
         "emoji_picker_flutter",
         "firebase_auth",
         "firebase_core",
@@ -1757,6 +1758,14 @@
       "version": "6.1.0",
       "dependencies": [
         "collection",
+        "meta"
+      ]
+    },
+    {
+      "name": "custom_refresh_indicator",
+      "version": "3.1.2",
+      "dependencies": [
+        "flutter",
         "meta"
       ]
     }

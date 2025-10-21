@@ -1003,7 +1003,10 @@ class _JournalPageState extends State<JournalPage>
                                   Expanded(
                                     child: Text(
                                       'If discussing sensitive topics, please add a trigger warning to your post.',
-                                      style: TextStyle(fontSize: 12, color: Colors.black),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1138,6 +1141,11 @@ class _CommunityFeed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stream = _buildQuery().snapshots();
+
+    Future<void> _handleRefresh() async {
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: stream,
       builder: (context, snap) {
@@ -1178,187 +1186,200 @@ class _CommunityFeed extends StatelessWidget {
         }
 
         if (docs.isEmpty) {
-          return const _EmptyHint(
-            icon: Icons.public,
-            title: 'No posts yet',
-            subtitle: 'Be the first to share something with the community.',
+          return RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 200),
+                _EmptyHint(
+                  icon: Icons.public,
+                  title: 'No posts yet',
+                  subtitle:
+                      'Be the first to share something with the community.',
+                ),
+              ],
+            ),
           );
         }
 
-        return ListView.builder(
-          key: const PageStorageKey<String>('community_feed_list'),
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-          itemCount: docs.length,
-          itemBuilder: (_, i) {
-            final doc = docs[i];
-            final m = doc.data();
-            final ts =
-                (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-            final postUid = (m['uid'] as String?) ?? '';
-            final providedName = (m['username'] as String?)?.trim() ?? '';
-            final storedAnon = (m['isAnonymous'] as bool?) == true;
-            final isSelf = user?.uid == postUid;
-            final displayAnon = isSelf ? selfAnon : storedAnon;
-            final canEdit = user?.uid == postUid;
-            final canBlock = postUid.isNotEmpty && user?.uid != postUid;
+        return RefreshIndicator(
+          onRefresh: _handleRefresh,
+          child: ListView.builder(
+            key: const PageStorageKey<String>('community_feed_list'),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+            itemCount: docs.length,
+            itemBuilder: (_, i) {
+              final doc = docs[i];
+              final m = doc.data();
+              final ts =
+                  (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+              final postUid = (m['uid'] as String?) ?? '';
+              final providedName = (m['username'] as String?)?.trim() ?? '';
+              final storedAnon = (m['isAnonymous'] as bool?) == true;
+              final isSelf = user?.uid == postUid;
+              final displayAnon = isSelf ? selfAnon : storedAnon;
+              final canEdit = user?.uid == postUid;
+              final canBlock = postUid.isNotEmpty && user?.uid != postUid;
 
-            return _Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _AvatarSmart(
-                          uid: postUid,
-                          photoUrlFromPost: m['photoUrl'] as String?,
-                          postAnonymous: displayAnon,
-                          preferFresh: isSelf,
-                          selfFallbackUrl: isSelf ? user?.photoURL : null,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _UsernameTag(
-                                  uid: postUid,
-                                  provided: providedName,
-                                  isAnonymous: displayAnon,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                    color: _textPrimary(context),
+              return _Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _AvatarSmart(
+                            uid: postUid,
+                            photoUrlFromPost: m['photoUrl'] as String?,
+                            postAnonymous: displayAnon,
+                            preferFresh: isSelf,
+                            selfFallbackUrl: isSelf ? user?.photoURL : null,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _UsernameTag(
+                                    uid: postUid,
+                                    provided: providedName,
+                                    isAnonymous: displayAnon,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                      color: _textPrimary(context),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              formatFull(ts),
-                              style: TextStyle(
-                                color: _textSecondary(context),
-                                fontSize: 12,
-                              ),
+                              ],
                             ),
-                            if (m['edited'] == true)
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
                               Text(
-                                'Edited',
+                                formatFull(ts),
                                 style: TextStyle(
                                   color: _textSecondary(context),
-                                  fontSize: 11,
-                                  fontStyle: FontStyle.italic,
+                                  fontSize: 12,
                                 ),
                               ),
-                          ],
-                        ),
-                        const SizedBox(width: 6),
-                        _PostMenu(
-                          canEdit: canEdit,
-                          canDelete: canEdit,
-                          canBlock: canBlock,
-                          onEdit:
-                              () => onEdit(
-                                doc.id,
-                                (m['content'] as String?) ?? '',
-                              ),
-                          onDelete: () => onDelete(doc.id),
-                          onBlock: () => onBlock(postUid),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 7),
-                    // Post text
-                    _ExpandableText(text: (m['content'] as String?) ?? ''),
-                    // Reactions & replies row
-                    StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                      stream:
-                          (user == null)
-                              ? null
-                              : publicCol
-                                  .doc(doc.id)
-                                  .collection('reactions')
-                                  .doc(user!.uid)
-                                  .snapshots(),
-                      builder: (context, rxSnap) {
-                        final myEmoji =
-                            (rxSnap.data?.data()?['emoji'] as String?) ?? '';
-                        return Row(
-                          children: [
-                            _EmojiSelectable(
-                              emoji: '❤️',
-                              count: (m['reactions']?['❤️'] ?? 0) as int,
-                              selected: myEmoji == '❤️',
-                              onTap:
-                                  user == null
-                                      ? null
-                                      : () => onReact(doc.id, '❤️'),
-                            ),
-                            const SizedBox(width: 8),
-                            _EmojiSelectable(
-                              emoji: '👍',
-                              count: (m['reactions']?['👍'] ?? 0) as int,
-                              selected: myEmoji == '👍',
-                              onTap:
-                                  user == null
-                                      ? null
-                                      : () => onReact(doc.id, '👍'),
-                            ),
-                            const SizedBox(width: 8),
-                            _EmojiSelectable(
-                              emoji: '🥲',
-                              count: (m['reactions']?['🥲'] ?? 0) as int,
-                              selected: myEmoji == '🥲',
-                              onTap:
-                                  user == null
-                                      ? null
-                                      : () => onReact(doc.id, '🥲'),
-                            ),
-                            const Spacer(),
-                            _RepliesToggle(
-                              col: publicCol,
-                              postId: doc.id,
-                              open: openReplyFor == doc.id,
-                              onPressed:
-                                  () => setOpenReplyFor(
-                                    openReplyFor == doc.id ? null : doc.id,
+                              if (m['edited'] == true)
+                                Text(
+                                  'Edited',
+                                  style: TextStyle(
+                                    color: _textSecondary(context),
+                                    fontSize: 11,
+                                    fontStyle: FontStyle.italic,
                                   ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-
-                    if (openReplyFor == doc.id) ...[
-                      _ReplyThread(
-                        postId: doc.id,
-                        public: publicCol,
-                        currentUid: user?.uid,
-                        selfAnon: selfAnon,
-                        onReply: onReply,
-                        onBlock: onBlock,
-                        blocked: blocked,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: 6),
+                          _PostMenu(
+                            canEdit: canEdit,
+                            canDelete: canEdit,
+                            canBlock: canBlock,
+                            onEdit:
+                                () => onEdit(
+                                  doc.id,
+                                  (m['content'] as String?) ?? '',
+                                ),
+                            onDelete: () => onDelete(doc.id),
+                            onBlock: () => onBlock(postUid),
+                          ),
+                        ],
                       ),
-                      _InlineReplyComposer(
-                        currentUserName: user?.displayName ?? 'You',
-                        currentUserPhoto: user?.photoURL,
-                        ctl: replyCtlFor(doc.id),
-                        onSend: (txt) async {
-                          await onReply(doc.id, txt);
-                          replyCtlFor(doc.id).clear();
+                      const SizedBox(height: 7),
+                      // Post text
+                      _ExpandableText(text: (m['content'] as String?) ?? ''),
+                      // Reactions & replies row
+                      StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        stream:
+                            (user == null)
+                                ? null
+                                : publicCol
+                                    .doc(doc.id)
+                                    .collection('reactions')
+                                    .doc(user!.uid)
+                                    .snapshots(),
+                        builder: (context, rxSnap) {
+                          final myEmoji =
+                              (rxSnap.data?.data()?['emoji'] as String?) ?? '';
+                          return Row(
+                            children: [
+                              _EmojiSelectable(
+                                emoji: '❤️',
+                                count: (m['reactions']?['❤️'] ?? 0) as int,
+                                selected: myEmoji == '❤️',
+                                onTap:
+                                    user == null
+                                        ? null
+                                        : () => onReact(doc.id, '❤️'),
+                              ),
+                              const SizedBox(width: 8),
+                              _EmojiSelectable(
+                                emoji: '👍',
+                                count: (m['reactions']?['👍'] ?? 0) as int,
+                                selected: myEmoji == '👍',
+                                onTap:
+                                    user == null
+                                        ? null
+                                        : () => onReact(doc.id, '👍'),
+                              ),
+                              const SizedBox(width: 8),
+                              _EmojiSelectable(
+                                emoji: '🥲',
+                                count: (m['reactions']?['🥲'] ?? 0) as int,
+                                selected: myEmoji == '🥲',
+                                onTap:
+                                    user == null
+                                        ? null
+                                        : () => onReact(doc.id, '🥲'),
+                              ),
+                              const Spacer(),
+                              _RepliesToggle(
+                                col: publicCol,
+                                postId: doc.id,
+                                open: openReplyFor == doc.id,
+                                onPressed:
+                                    () => setOpenReplyFor(
+                                      openReplyFor == doc.id ? null : doc.id,
+                                    ),
+                              ),
+                            ],
+                          );
                         },
                       ),
+
+                      if (openReplyFor == doc.id) ...[
+                        _ReplyThread(
+                          postId: doc.id,
+                          public: publicCol,
+                          currentUid: user?.uid,
+                          selfAnon: selfAnon,
+                          onReply: onReply,
+                          onBlock: onBlock,
+                          blocked: blocked,
+                        ),
+                        _InlineReplyComposer(
+                          currentUserName: user?.displayName ?? 'You',
+                          currentUserPhoto: user?.photoURL,
+                          ctl: replyCtlFor(doc.id),
+                          onSend: (txt) async {
+                            await onReply(doc.id, txt);
+                            replyCtlFor(doc.id).clear();
+                          },
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
@@ -2909,12 +2930,11 @@ class _BottomNav extends StatelessWidget {
                 index == 0
                     ? null
                     : () => Navigator.pushReplacement(
-                          context,
-                          NoTransitionPageRoute(
-                            builder: (_) =>
-                                home_page.HomePage(userName: userName),
-                          ),
-                        ),
+                      context,
+                      NoTransitionPageRoute(
+                        builder: (_) => home_page.HomePage(userName: userName),
+                      ),
+                    ),
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
@@ -2926,11 +2946,11 @@ class _BottomNav extends StatelessWidget {
                 index == 2
                     ? null
                     : () => Navigator.pushReplacement(
-                          context,
-                          NoTransitionPageRoute(
-                            builder: (_) => ToolsPage(userName: userName),
-                          ),
-                        ),
+                      context,
+                      NoTransitionPageRoute(
+                        builder: (_) => ToolsPage(userName: userName),
+                      ),
+                    ),
           ),
         ],
       ),
