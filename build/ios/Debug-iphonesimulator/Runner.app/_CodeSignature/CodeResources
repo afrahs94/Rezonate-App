@@ -46,7 +46,7 @@
 		</data>
 		<key>Frameworks/App.framework/App</key>
 		<data>
-		UWc75XtOZLCTlcNMdq7DBWfXhTk=
+		EzvXVJvoWymBZ9WfKnw8UKs23AQ=
 		</data>
 		<key>Frameworks/App.framework/Info.plist</key>
 		<data>
@@ -54,7 +54,7 @@
 		</data>
 		<key>Frameworks/App.framework/_CodeSignature/CodeResources</key>
 		<data>
-		K/avHAnD/tL0rdMI0UoGAMkry5g=
+		wRHUxRjZnGHAmRZPqEPYGii6XWE=
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/AssetManifest.bin</key>
 		<data>
@@ -70,7 +70,7 @@
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/NOTICES.Z</key>
 		<data>
-		dlpIrwCYENB4zE3EarpzyOsJcP0=
+		apVRoINhkT9kcyz2Ox99pZUWsIY=
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/NativeAssetsManifest.json</key>
 		<data>
@@ -94,7 +94,7 @@
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/kernel_blob.bin</key>
 		<data>
-		7rqS1xNdgCKlMT69OhVg5LgcK30=
+		bf1SG42HLD3Mm85HtmTP9Sx1fpw=
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf</key>
 		<data>
@@ -1102,13 +1102,25 @@
 		<data>
 		/LX0ZlwxwIAIhjZaDB8EiH5KpXA=
 		</data>
+		<key>Frameworks/vibration.framework/Info.plist</key>
+		<data>
+		SmOqEEogycVyTqAEcV5GL/1UaAQ=
+		</data>
+		<key>Frameworks/vibration.framework/_CodeSignature/CodeResources</key>
+		<data>
+		e1i7MqVTjoYY+HOa+lnn1GQMu38=
+		</data>
+		<key>Frameworks/vibration.framework/vibration</key>
+		<data>
+		rS2MNCP72rcBbPwirQil2b0ovrQ=
+		</data>
 		<key>GoogleService-Info.plist</key>
 		<data>
 		8M1KA1eF5K4hC/1ZwIEeqqsjrHo=
 		</data>
 		<key>Info.plist</key>
 		<data>
-		tIHsnkLXuhKno59jpaOT2R4DWCI=
+		VAdR7dDB7V26nzWh03fmewmiHsw=
 		</data>
 		<key>PkgInfo</key>
 		<data>
@@ -1116,11 +1128,11 @@
 		</data>
 		<key>Runner.debug.dylib</key>
 		<data>
-		dGB6DSLvldRQri1v5ldhbVfRzp8=
+		2mxuDbV1Vgwp0h6kSv6x4wPvqTE=
 		</data>
 		<key>__preview.dylib</key>
 		<data>
-		pNjFKZclnObIeEcMARxKA/kdkvU=
+		iJG8BN9QZOAehtEqpl3btIO6+xg=
 		</data>
 		<key>firebase_messaging_Privacy.bundle/Info.plist</key>
 		<data>
@@ -1211,7 +1223,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			/FLikQ5eEZXD0Ltly6HVyuy0gWk4EVYsG5jZqx22K18=
+			6KiKTMhAB+0ufDfjbFpyUUycXSLOQX6ErVebUb4b11c=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/Info.plist</key>
@@ -1225,7 +1237,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			8SbxqQaKqC6uzIUr0E++jPkKGAaY4bnXLSBXUGsLVQg=
+			8hPotACGu4L1v9illOCDVUw8oDRNsfGVTdkOZ3bj8rU=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/flutter_assets/AssetManifest.bin</key>
@@ -1253,7 +1265,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			oJdhcbw3JRMYRbUz6m5j6dzUQQVP0wUo2ptl/QIJZcw=
+			tKKd7DMYvO1jdQJoxvmEkPGv4E9whKfY5z6zoVa8Sfg=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/flutter_assets/NativeAssetsManifest.json</key>
@@ -1295,7 +1307,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			/1JFarXFe+lDuBKP2cfTxhzI9s49G/UQrb1H4rhx/N0=
+			pOCvyoPJRpQ0ZY7QcHI+fVb+BaiyavBslOcSt9oMZU0=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf</key>
@@ -2856,6 +2868,27 @@
 			bS2g2NkwIn1CjB2TY7CtbjoS4sm2jFzilxWKdBL8jDE=
 			</data>
 		</dict>
+		<key>Frameworks/vibration.framework/Info.plist</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			snQA5GnTnSWvBvmgk7UaHtdIJJUGiY7tcwksQ4B6Fhc=
+			</data>
+		</dict>
+		<key>Frameworks/vibration.framework/_CodeSignature/CodeResources</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			+LgzmbFCJ6NKX27kBPbMxR8PVz05IoDC/PVI3lyybkU=
+			</data>
+		</dict>
+		<key>Frameworks/vibration.framework/vibration</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			s4Ns+tNvqzve9NNVl/Z140wmZsUSzpotGkYPIjjKk1w=
+			</data>
+		</dict>
 		<key>GoogleService-Info.plist</key>
 		<dict>
 			<key>hash2</key>
@@ -2867,14 +2900,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			fUZqHGgRzKaye6l84j4KX+Rlfa/f1kvvQ+oS088IebA=
+			D6FoZtbKKaz4bdifdDYx8SDOr0FgmKAvawRbiV0ilM8=
 			</data>
 		</dict>
 		<key>__preview.dylib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			xV3eibnogfgMR5bUyViInKxbZLM9dKw5PhB1ZHxnnDU=
+			un2uHPI12r+bFE63cPhFfabR7ODWV70zIWbIILQSfFg=
 			</data>
 		</dict>
 		<key>firebase_messaging_Privacy.bundle/Info.plist</key>

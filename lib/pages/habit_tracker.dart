@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:new_rezonate/main.dart' as app;
 
 class HabitTrackerPage extends StatefulWidget {
   const HabitTrackerPage({super.key});
@@ -17,8 +18,11 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
   final _db = FirebaseFirestore.instance;
 
   DateTime _focusedDay = DateTime.now();
-  DateTime _selectedDay =
-      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime _selectedDay = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
 
   /// If empty => show all
   final Set<String> _visibleHabitIds = {};
@@ -38,10 +42,23 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
   String _docId(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
   Future<void> _toggleHabit(String habitId, DateTime day, bool value) async {
-    await _logDocFor(day).set(
-      {habitId: value, '_ts': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
+    final today = DateTime.now();
+    final isFuture = day.isAfter(DateTime(today.year, today.month, today.day));
+
+    if (isFuture) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("You can’t log habits for future dates."),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    await _logDocFor(day).set({
+      habitId: value,
+      '_ts': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   String _dowShort(int i) {
@@ -54,114 +71,133 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     Color picked = _randomColor();
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New Habit'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: 10),
-            Row(
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('New Habit'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Color'),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () async {
-                    final c = await showDialog<Color>(
-                      context: context,
-                      builder: (_) => _ColorPickerDialog(initial: picked),
-                    );
-                    if (c != null) setState(() => picked = c);
-                  },
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: picked,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black12),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Text('Color'),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () async {
+                        final c = await showDialog<Color>(
+                          context: context,
+                          builder: (_) => _ColorPickerDialog(initial: picked),
+                        );
+                        if (c != null) setState(() => picked = c);
+                      },
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: picked,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black12),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              await _habitsCol.add({
-                'name': name,
-                'color': picked.value,
-                'createdAt': FieldValue.serverTimestamp(),
-                'active': true,
-              });
-              if (context.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final name = nameCtrl.text.trim();
+                  if (name.isEmpty) return;
+                  await _habitsCol.add({
+                    'name': name,
+                    'color': picked.value,
+                    'createdAt': FieldValue.serverTimestamp(),
+                    'active': true,
+                  });
+                  if (context.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
-  Future<void> _editHabit(BuildContext context, String id, String name, Color color) async {
+  Future<void> _editHabit(
+    BuildContext context,
+    String id,
+    String name,
+    Color color,
+  ) async {
     final nameCtrl = TextEditingController(text: name);
     Color picked = color;
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Habit'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
-            const SizedBox(height: 10),
-            Row(
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Edit Habit'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Color'),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () async {
-                    final c = await showDialog<Color>(
-                      context: context,
-                      builder: (_) => _ColorPickerDialog(initial: picked),
-                    );
-                    if (c != null) setState(() => picked = c);
-                  },
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: picked,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black12),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Text('Color'),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () async {
+                        final c = await showDialog<Color>(
+                          context: context,
+                          builder: (_) => _ColorPickerDialog(initial: picked),
+                        );
+                        if (c != null) setState(() => picked = c);
+                      },
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: picked,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black12),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              final newName = nameCtrl.text.trim();
-              if (newName.isEmpty) return;
-              await _habitsCol.doc(id).update({'name': newName, 'color': picked.value});
-              if (context.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final newName = nameCtrl.text.trim();
+                  if (newName.isEmpty) return;
+                  await _habitsCol.doc(id).update({
+                    'name': newName,
+                    'color': picked.value,
+                  });
+                  if (context.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -171,22 +207,29 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
 
   Color _randomColor() {
     final rnd = Random();
-    final hues = [Colors.amber, Colors.teal, Colors.indigo, Colors.pink, Colors.orange, Colors.cyan];
+    final hues = [
+      Colors.amber,
+      Colors.teal,
+      Colors.indigo,
+      Colors.pink,
+      Colors.orange,
+      Colors.cyan,
+    ];
     return hues[rnd.nextInt(hues.length)];
   }
 
   // ===== EXACT Tools page gradient (multi-stop) =====
-  static const LinearGradient kToolsBackgroundGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFFFDFBFF), // near-white
-      Color(0xFFEAD7FF), // lavender
-      Color(0xFFC7DDEA), // misty blue
-      Color(0xFF57C4B3), // teal
-    ],
-    stops: [0.00, 0.32, 0.66, 1.00],
-  );
+  LinearGradient _bg(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors:
+          dark
+              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+    );
+  }
 
   // Slight darken utility for today's cell
   Color _darken(Color c, [double amount = .10]) {
@@ -213,9 +256,10 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     final docs = snap.docs;
     if (docs.isEmpty) return;
 
-    final local = _visibleHabitIds.isEmpty
-        ? docs.map((d) => d.id).toSet()
-        : _visibleHabitIds.toSet();
+    final local =
+        _visibleHabitIds.isEmpty
+            ? docs.map((d) => d.id).toSet()
+            : _visibleHabitIds.toSet();
 
     await showModalBottomSheet(
       context: context,
@@ -243,56 +287,84 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
-                            color: Colors.black26, borderRadius: BorderRadius.circular(2),
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
-                      const Text('Filter trackers on calendar',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      const Text(
+                        'Filter trackers on calendar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: docs.map((h) {
-                          final id = h.id;
-                          final name = (h['name'] as String?) ?? 'Habit';
-                          final color = Color((h['color'] as int?) ?? Colors.amber.value);
-                          final selected = local.contains(id);
-                          return FilterChip(
-                            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                            avatar: Container(
-                              width: 10, height: 10,
-                              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                            ),
-                            label: Text(name, style: const TextStyle(fontSize: 13)),
-                            selected: selected,
-                            onSelected: (val) {
-                              setLocal(() {
-                                if (val) {
-                                  local.add(id);
-                                } else {
-                                  local.remove(id);
-                                }
-                              });
-                            },
-                            shape: const StadiumBorder(),
-                            selectedColor: Colors.white,
-                            checkmarkColor: Colors.black,
-                            backgroundColor: Colors.white.withOpacity(0.55),
-                            side: BorderSide(color: Colors.black.withOpacity(0.08)),
-                          );
-                        }).toList(),
+                        children:
+                            docs.map((h) {
+                              final id = h.id;
+                              final name = (h['name'] as String?) ?? 'Habit';
+                              final color = Color(
+                                (h['color'] as int?) ?? Colors.amber.value,
+                              );
+                              final selected = local.contains(id);
+                              return FilterChip(
+                                labelPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                avatar: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                label: Text(
+                                  name,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                selected: selected,
+                                onSelected: (val) {
+                                  setLocal(() {
+                                    if (val) {
+                                      local.add(id);
+                                    } else {
+                                      local.remove(id);
+                                    }
+                                  });
+                                },
+                                shape: const StadiumBorder(),
+                                selectedColor: Colors.white,
+                                checkmarkColor: Colors.black,
+                                backgroundColor: Colors.white.withOpacity(0.55),
+                                side: BorderSide(
+                                  color: Colors.black.withOpacity(0.08),
+                                ),
+                              );
+                            }).toList(),
                       ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
                           TextButton(
-                            onPressed: () => setLocal((local..clear()..addAll(docs.map((d) => d.id))) as VoidCallback),
+                            onPressed:
+                                () => setLocal(
+                                  (local
+                                        ..clear()
+                                        ..addAll(docs.map((d) => d.id)))
+                                      as VoidCallback,
+                                ),
                             child: const Text('Select all'),
                           ),
                           const SizedBox(width: 6),
                           TextButton(
-                            onPressed: () => setLocal((local..clear()) as VoidCallback),
+                            onPressed:
+                                () =>
+                                    setLocal((local..clear()) as VoidCallback),
                             child: const Text('Clear all'),
                           ),
                           const Spacer(),
@@ -339,8 +411,11 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
         centerTitle: true,
         title: const Text(
           'Habit Tracker',
-          // Keep the title strong and not smaller.
-          style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black, fontSize: 28),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            fontSize: 28,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
@@ -348,13 +423,43 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.add_rounded), onPressed: () => _createHabit(context)),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  final today = DateTime.now();
+                  _focusedDay = today;
+                  _selectedDay = DateTime(today.year, today.month, today.day);
+                });
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.6),
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+              ),
+              child: const Text(
+                'Today',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
+
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: DecoratedBox(decoration: BoxDecoration(gradient: kToolsBackgroundGradient)),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: _bg(context)),
+            ),
           ),
           SafeArea(
             child: CustomScrollView(
@@ -365,12 +470,22 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   sliver: SliverToBoxAdapter(
                     child: _MonthHeader(
                       focusedDay: _focusedDay,
-                      onPrev: () => setState(() {
-                        _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-                      }),
-                      onNext: () => setState(() {
-                        _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
-                      }),
+                      onPrev:
+                          () => setState(() {
+                            _focusedDay = DateTime(
+                              _focusedDay.year,
+                              _focusedDay.month - 1,
+                              1,
+                            );
+                          }),
+                      onNext:
+                          () => setState(() {
+                            _focusedDay = DateTime(
+                              _focusedDay.year,
+                              _focusedDay.month + 1,
+                              1,
+                            );
+                          }),
                     ),
                   ),
                 ),
@@ -384,11 +499,19 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                       child: OutlinedButton.icon(
                         onPressed: _openFilters,
                         icon: const Icon(Icons.filter_list_rounded, size: 16),
-                        label: const Text('Filters', style: TextStyle(fontSize: 13)),
+                        label: const Text(
+                          'Filters',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         style: OutlinedButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          side: BorderSide(color: Colors.black.withOpacity(0.12)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          side: BorderSide(
+                            color: Colors.black.withOpacity(0.12),
+                          ),
                           shape: const StadiumBorder(),
                           backgroundColor: Colors.white.withOpacity(0.6),
                         ),
@@ -399,21 +522,39 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
 
                 // Weekdays row (today highlighted)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
+                  padding: const EdgeInsets.fromLTRB(
+                    10,
+                    6,
+                    10,
+                    0,
+                  ), // match calendar padding
                   sliver: SliverToBoxAdapter(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(7, (i) {
-                        final isToday = i == todayIndex;
-                        return Text(
-                          _dowShort(i),
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: isToday ? const Color(0xFF0D7C66) : Colors.black87,
-                          ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columnWidth = constraints.maxWidth / 7;
+                        final todayIndex = DateTime.now().weekday % 7;
+                        return Row(
+                          children: List.generate(7, (i) {
+                            final isToday = i == todayIndex;
+                            return SizedBox(
+                              width: columnWidth,
+                              child: Center(
+                                child: Text(
+                                  _dowShort(i),
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color:
+                                        isToday
+                                            ? const Color(0xFF0D7C66)
+                                            : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
                         );
-                      }),
+                      },
                     ),
                   ),
                 ),
@@ -431,7 +572,9 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                       }
                       final habitColor = <String, Color>{};
                       for (final d in habitsSnap.data!.docs) {
-                        habitColor[d.id] = Color((d['color'] as int?) ?? Colors.amber.value);
+                        habitColor[d.id] = Color(
+                          (d['color'] as int?) ?? Colors.amber.value,
+                        );
                       }
 
                       return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -445,8 +588,11 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                               data.forEach((key, value) {
                                 if (key == '_ts') return;
                                 final passesFilter =
-                                    _visibleHabitIds.isEmpty || _visibleHabitIds.contains(key);
-                                if (passesFilter && value == true && habitColor.containsKey(key)) {
+                                    _visibleHabitIds.isEmpty ||
+                                    _visibleHabitIds.contains(key);
+                                if (passesFilter &&
+                                    value == true &&
+                                    habitColor.containsKey(key)) {
                                   colors.add(habitColor[key]!);
                                 }
                               });
@@ -464,14 +610,20 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                               focusedDay: _focusedDay,
                               headerVisible: false,
                               daysOfWeekVisible: false,
-                              selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
+                              selectedDayPredicate:
+                                  (d) => isSameDay(d, _selectedDay),
                               onDaySelected: (sel, foc) {
                                 setState(() {
-                                  _selectedDay = DateTime(sel.year, sel.month, sel.day);
+                                  _selectedDay = DateTime(
+                                    sel.year,
+                                    sel.month,
+                                    sel.day,
+                                  );
                                   _focusedDay = foc;
                                 });
                               },
-                              onPageChanged: (f) => setState(() => _focusedDay = f),
+                              onPageChanged:
+                                  (f) => setState(() => _focusedDay = f),
                               startingDayOfWeek: StartingDayOfWeek.sunday,
 
                               // Make the calendar less squished: taller rows
@@ -479,17 +631,24 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                               rowHeight: 78,
 
                               calendarStyle: const CalendarStyle(
-                                cellPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                                cellPadding: EdgeInsets.symmetric(
+                                  vertical: 6,
+                                  horizontal: 6,
+                                ),
                                 outsideDaysVisible: false,
                               ),
                               calendarBuilders: CalendarBuilders(
-                                defaultBuilder: (context, day, _) => _DayCell(
-                                  day: day,
-                                  dotColors: markers[_docId(day)] ?? const [],
-                                ),
+                                defaultBuilder:
+                                    (context, day, _) => _DayCell(
+                                      day: day,
+                                      dotColors:
+                                          markers[_docId(day)] ?? const [],
+                                    ),
                                 todayBuilder: (context, day, _) {
                                   // Use darker shade of base surface for today
-                                  final base = Theme.of(context).colorScheme.surface.withOpacity(0.80);
+                                  final base = Theme.of(
+                                    context,
+                                  ).colorScheme.surface.withOpacity(0.80);
                                   return _DayCell(
                                     day: day,
                                     isToday: true,
@@ -497,11 +656,13 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                     dotColors: markers[_docId(day)] ?? const [],
                                   );
                                 },
-                                selectedBuilder: (context, day, _) => _DayCell(
-                                  day: day,
-                                  isSelected: true,
-                                  dotColors: markers[_docId(day)] ?? const [],
-                                ),
+                                selectedBuilder:
+                                    (context, day, _) => _DayCell(
+                                      day: day,
+                                      isSelected: true,
+                                      dotColors:
+                                          markers[_docId(day)] ?? const [],
+                                    ),
                               ),
                             ),
                           );
@@ -519,12 +680,21 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                       children: [
                         const Text(
                           'Habits',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.black),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                          ),
                         ),
                         const Spacer(),
-                        Text(
-                          _formatDate(_selectedDay),
-                          style: const TextStyle(fontSize: 13, color: Colors.black54),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.add_rounded,
+                            color: Color.fromARGB(255, 0, 0, 0),
+                            size: 28,
+                          ),
+                          onPressed: () => _createHabit(context),
+                          tooltip: 'Add habit',
                         ),
                       ],
                     ),
@@ -536,7 +706,10 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
                   sliver: SliverToBoxAdapter(
                     child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: _habitsCol.orderBy('createdAt', descending: false).snapshots(),
+                      stream:
+                          _habitsCol
+                              .orderBy('createdAt', descending: false)
+                              .snapshots(),
                       builder: (context, snapshotHabits) {
                         if (!snapshotHabits.hasData) {
                           return const Padding(
@@ -545,19 +718,30 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                           );
                         }
                         final docs = snapshotHabits.data!.docs;
-                        if (docs.isEmpty) return _EmptyState(onAdd: () => _createHabit(context));
+                        if (docs.isEmpty)
+                          return _EmptyState(
+                            onAdd: () => _createHabit(context),
+                          );
 
-                        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        return StreamBuilder<
+                          DocumentSnapshot<Map<String, dynamic>>
+                        >(
                           stream: _logDocFor(_selectedDay).snapshots(),
                           builder: (context, snapshotLog) {
-                            final log = snapshotLog.data?.data() ?? <String, dynamic>{};
+                            final log =
+                                snapshotLog.data?.data() ?? <String, dynamic>{};
                             return Column(
                               children: List.generate(docs.length, (i) {
                                 final h = docs[i];
                                 final id = h.id;
                                 final name = (h['name'] as String?) ?? 'Habit';
-                                final color = Color((h['color'] as int?) ?? Colors.amber.value);
+                                final color = Color(
+                                  (h['color'] as int?) ?? Colors.amber.value,
+                                );
                                 final logged = (log[id] as bool?) ?? false;
+                                final isFuture = _selectedDay.isAfter(
+                                  DateTime.now(),
+                                );
 
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
@@ -565,10 +749,18 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                     name: name,
                                     color: color,
                                     logged: logged,
-                                    onToggle: (val) => _toggleHabit(id, _selectedDay, val),
+                                    isFuture: isFuture,
+                                    onToggle:
+                                        (val) =>
+                                            _toggleHabit(id, _selectedDay, val),
                                     onMenuSelected: (value) async {
                                       if (value == 'edit') {
-                                        await _editHabit(context, id, name, color);
+                                        await _editHabit(
+                                          context,
+                                          id,
+                                          name,
+                                          color,
+                                        );
                                       } else if (value == 'delete') {
                                         await _deleteHabit(id);
                                       }
@@ -584,7 +776,10 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   ),
                 ),
 
-                const SliverFillRemaining(hasScrollBody: false, child: SizedBox()),
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: SizedBox(),
+                ),
               ],
             ),
           ),
@@ -597,7 +792,11 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
 // ===================== Small UI parts =====================
 
 class _MonthHeader extends StatelessWidget {
-  const _MonthHeader({required this.focusedDay, required this.onPrev, required this.onNext});
+  const _MonthHeader({
+    required this.focusedDay,
+    required this.onPrev,
+    required this.onNext,
+  });
   final DateTime focusedDay;
   final VoidCallback onPrev;
   final VoidCallback onNext;
@@ -607,14 +806,32 @@ class _MonthHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(icon: const Icon(Icons.chevron_left_rounded, color: Colors.black, size: 22), onPressed: onPrev),
+        IconButton(
+          icon: const Icon(
+            Icons.chevron_left_rounded,
+            color: Colors.black,
+            size: 22,
+          ),
+          onPressed: onPrev,
+        ),
         const SizedBox(width: 6),
         Text(
           DateFormat('MMMM yyyy').format(focusedDay), // "October 2025"
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
         ),
         const SizedBox(width: 6),
-        IconButton(icon: const Icon(Icons.chevron_right_rounded, color: Colors.black, size: 22), onPressed: onNext),
+        IconButton(
+          icon: const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.black,
+            size: 22,
+          ),
+          onPressed: onNext,
+        ),
       ],
     );
   }
@@ -650,18 +867,22 @@ class _DayCell extends StatelessWidget {
       spacing: 2,
       runSpacing: 2,
       alignment: WrapAlignment.center,
-      children: dotColors
-          .map((c) => Container(
-                width: 5.5,
-                height: 5.5,
-                decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-              ))
-          .toList(),
+      children:
+          dotColors
+              .map(
+                (c) => Container(
+                  width: 5.5,
+                  height: 5.5,
+                  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                ),
+              )
+              .toList(),
     );
 
     final baseColor = Theme.of(context).colorScheme.surface.withOpacity(0.80);
-    final bgColor = overrideBackground ??
-        (isSelected ? const Color(0xFFF0F0F2) : baseColor);
+    final bgColor =
+        overrideBackground ??
+        (isSelected ? const Color.fromARGB(255, 219, 219, 219) : baseColor);
 
     return Container(
       margin: const EdgeInsets.all(6),
@@ -699,6 +920,7 @@ class _HabitCard extends StatelessWidget {
     required this.name,
     required this.color,
     required this.logged,
+    required this.isFuture,
     required this.onToggle,
     required this.onMenuSelected,
   });
@@ -706,6 +928,8 @@ class _HabitCard extends StatelessWidget {
   final String name;
   final Color color;
   final bool logged;
+  final bool isFuture;
+
   final ValueChanged<bool> onToggle;
   final ValueChanged<String> onMenuSelected;
 
@@ -716,7 +940,13 @@ class _HabitCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 7, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 7,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -733,33 +963,58 @@ class _HabitCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: Colors.black)),
-                const SizedBox(height: 1),
-                Text(
-                  logged ? 'Logged' : 'Not logged',
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ]),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                ],
+              ),
             ),
             PopupMenuButton<String>(
               onSelected: onMenuSelected,
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Edit')),
-                PopupMenuItem(value: 'delete', child: Text('Delete')),
-              ],
+              itemBuilder:
+                  (context) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
               child: const Padding(
                 padding: EdgeInsets.only(right: 4.0),
-                child: Icon(Icons.more_vert_rounded, color: Colors.black87, size: 20),
+                child: Icon(
+                  Icons.more_vert_rounded,
+                  color: Colors.black87,
+                  size: 20,
+                ),
               ),
             ),
             Checkbox(
               value: logged,
-              onChanged: (v) => onToggle(v ?? false),
+              onChanged: isFuture ? null : (v) => onToggle(v ?? false),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
-              side: const BorderSide(width: 1),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(6)),
+              ),
+              side: BorderSide(
+                color:
+                    isFuture
+                        ? Colors.grey.withOpacity(
+                          0.5,
+                        ) // light gray border when future
+                        : color, // normal border color
+                width: 1,
+              ),
+              fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                if (states.contains(WidgetState.selected)) return color;
+                return Colors.transparent;
+              }),
             ),
           ],
         ),
@@ -781,8 +1036,14 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text('No habits yet',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black)),
+          const Text(
+            'No habits yet',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+          ),
           const SizedBox(height: 6),
           const Text(
             'Create your first habit to start tracking.',
@@ -820,6 +1081,24 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     Color(0xFF8BC34A),
     Color(0xFF9C27B0),
     Color(0xFF795548),
+    Color(0xFFFFD54F), 
+    Color(0xFF00796B), 
+    Color(0xFF303F9F), 
+    Color(0xFFD81B60), 
+    Color(0xFFFF8A65), 
+    Color(0xFF00ACC1), 
+    Color(0xFF7CB342), 
+    Color(0xFF8E24AA), 
+    Color(0xFF6D4C41), 
+    Color(0xFFFFEB3B), 
+    Color(0xFF009688),
+    Color(0xFF5C6BC0),
+    Color(0xFFF06292),
+    Color(0xFFFFA726),
+    Color.fromARGB(255, 0, 225, 255), 
+    Color.fromARGB(255, 135, 233, 22), 
+    Color.fromARGB(255, 201, 29, 231),
+    Color.fromARGB(255, 0, 0, 0), 
   ];
   @override
   void initState() {
@@ -834,27 +1113,39 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
       content: Wrap(
         spacing: 9,
         runSpacing: 9,
-        children: _palette
-            .map((c) => GestureDetector(
-                  onTap: () => setState(() => _selected = c),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _selected == c ? Theme.of(context).colorScheme.primary : Colors.black26,
-                        width: _selected == c ? 2.2 : 1,
+        children:
+            _palette
+                .map(
+                  (c) => GestureDetector(
+                    onTap: () => setState(() => _selected = c),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              _selected == c
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.black26,
+                          width: _selected == c ? 2.2 : 1,
+                        ),
                       ),
                     ),
                   ),
-                ))
-            .toList(),
+                )
+                .toList(),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, _selected), child: const Text('Select')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _selected),
+          child: const Text('Select'),
+        ),
       ],
     );
   }

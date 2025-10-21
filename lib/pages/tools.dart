@@ -275,7 +275,7 @@ class _ToolTileState extends State<_ToolTile> {
     final color = const Color(0xFF0D7C66);
     final bg =
         dark
-            ? Colors.black.withOpacity(0.2)
+            ? const Color.fromARGB(186, 0, 0, 0)
             : const Color.fromARGB(213, 255, 255, 255);
 
     return AnimatedScale(
