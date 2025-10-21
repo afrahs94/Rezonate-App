@@ -32,7 +32,8 @@
         "sqflite",
         "table_calendar",
         "url_launcher",
-        "uuid"
+        "uuid",
+        "vibration"
       ],
       "devDependencies": [
         "build_runner",
@@ -136,6 +137,14 @@
       "version": "4.0.1",
       "dependencies": [
         "flutter"
+      ]
+    },
+    {
+      "name": "custom_refresh_indicator",
+      "version": "3.1.2",
+      "dependencies": [
+        "flutter",
+        "meta"
       ]
     },
     {
@@ -1762,11 +1771,20 @@
       ]
     },
     {
-      "name": "custom_refresh_indicator",
-      "version": "3.1.2",
+      "name": "vibration",
+      "version": "1.9.0",
       "dependencies": [
         "flutter",
-        "meta"
+        "vibration_platform_interface"
+      ]
+    },
+    {
+      "name": "vibration_platform_interface",
+      "version": "0.0.3",
+      "dependencies": [
+        "device_info_plus",
+        "flutter",
+        "plugin_platform_interface"
       ]
     }
   ],
