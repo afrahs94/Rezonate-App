@@ -140,6 +140,14 @@
       ]
     },
     {
+      "name": "vibration",
+      "version": "1.9.0",
+      "dependencies": [
+        "flutter",
+        "vibration_platform_interface"
+      ]
+    },
+    {
       "name": "custom_refresh_indicator",
       "version": "3.1.2",
       "dependencies": [
@@ -791,6 +799,15 @@
         "flutter_plugin_android_lifecycle",
         "intl",
         "local_auth_platform_interface"
+      ]
+    },
+    {
+      "name": "vibration_platform_interface",
+      "version": "0.0.3",
+      "dependencies": [
+        "device_info_plus",
+        "flutter",
+        "plugin_platform_interface"
       ]
     },
     {
@@ -1768,23 +1785,6 @@
       "dependencies": [
         "collection",
         "meta"
-      ]
-    },
-    {
-      "name": "vibration",
-      "version": "1.9.0",
-      "dependencies": [
-        "flutter",
-        "vibration_platform_interface"
-      ]
-    },
-    {
-      "name": "vibration_platform_interface",
-      "version": "0.0.3",
-      "dependencies": [
-        "device_info_plus",
-        "flutter",
-        "plugin_platform_interface"
       ]
     }
   ],
