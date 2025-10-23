@@ -1,4 +1,3 @@
-// lib/pages/vision_board.dart
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -23,8 +22,9 @@ class BoardImage {
   String storagePath;
   String? url;
   String? localPath; // runtime-only
-  Offset pos;
-  double scale;
+  Offset pos;        // center (canvas coords)
+  double scaleX;     // free resize (independent axes)
+  double scaleY;
   double rotation;
   BoardShape shape;
   double baseW;
@@ -40,7 +40,8 @@ class BoardImage {
     required this.pos,
     required this.baseW,
     required this.baseH,
-    this.scale = 1,
+    this.scaleX = 1,
+    this.scaleY = 1,
     this.rotation = 0,
     this.shape = BoardShape.rounded,
   });
@@ -50,28 +51,34 @@ class BoardImage {
         'storagePath': storagePath,
         'url': url,
         'pos': _offset(pos),
-        'scale': scale,
+        'scaleX': scaleX,
+        'scaleY': scaleY,
+        'scale': (scaleX + scaleY) / 2, // legacy compatibility
         'rotation': rotation,
         'shape': shape.name,
         'baseW': baseW,
         'baseH': baseH,
       };
 
-  static BoardImage fromMap(Map<String, dynamic> m) => BoardImage(
-        id: m['id'],
-        storagePath: (m['storagePath'] ?? '') as String,
-        url: (m['url'] as String?),
-        localPath: null,
-        pos: _toOffset(Map<String, dynamic>.from(m['pos'])),
-        scale: (m['scale'] as num?)?.toDouble() ?? 1,
-        rotation: (m['rotation'] as num?)?.toDouble() ?? 0,
-        shape: BoardShape.values.firstWhere(
-          (e) => e.name == (m['shape'] ?? 'rounded'),
-          orElse: () => BoardShape.rounded,
-        ),
-        baseW: (m['baseW'] as num?)?.toDouble() ?? 160,
-        baseH: (m['baseH'] as num?)?.toDouble() ?? 160,
-      );
+  static BoardImage fromMap(Map<String, dynamic> m) {
+    final legacy = (m['scale'] as num?)?.toDouble() ?? 1.0;
+    return BoardImage(
+      id: m['id'],
+      storagePath: (m['storagePath'] ?? '') as String,
+      url: (m['url'] as String?),
+      localPath: null,
+      pos: _toOffset(Map<String, dynamic>.from(m['pos'])),
+      scaleX: (m['scaleX'] as num?)?.toDouble() ?? legacy,
+      scaleY: (m['scaleY'] as num?)?.toDouble() ?? legacy,
+      rotation: (m['rotation'] as num?)?.toDouble() ?? 0,
+      shape: BoardShape.values.firstWhere(
+        (e) => e.name == (m['shape'] ?? 'rounded'),
+        orElse: () => BoardShape.rounded,
+      ),
+      baseW: (m['baseW'] as num?)?.toDouble() ?? 160,
+      baseH: (m['baseH'] as num?)?.toDouble() ?? 160,
+    );
+  }
 }
 
 class BoardText {
@@ -157,15 +164,16 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
   int? _selectedImage;
   int? _selectedText;
 
-  // Default: black
   Color _penColor = Colors.black;
   double _penWidth = 5;
 
   Offset _startPos = Offset.zero;
   Offset _startFocal = Offset.zero;
-  double _startScale = 1.0;
+  double _startScale = 1.0; // text only
   double _startRotation = 0;
-  double? _handleStartScale;
+
+  double _startScaleX = 1.0; // image
+  double _startScaleY = 1.0;
 
   bool _loading = true;
   bool _saving = false;
@@ -204,7 +212,6 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     );
   }
 
-  // Prefetch an image URL to verify it actually resolves.
   Future<bool> _prefetchUrl(String url) async {
     final completer = Completer<bool>();
     final img = NetworkImage(url);
@@ -251,12 +258,9 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
           .map((e) => DrawStroke.fromMap(Map<String, dynamic>.from(e)))
           .toList();
 
-      // Resolve URLs: if missing OR invalid, fetch fresh from storagePath.
       bool changed = false;
       for (int i = 0; i < imgs.length; i++) {
         final it = imgs[i];
-
-        // If no URL but we have a storagePath, fetch it.
         Future<void> _refreshFromStorage() async {
           if (it.storagePath.isEmpty) return;
           try {
@@ -269,7 +273,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
               pos: it.pos,
               baseW: it.baseW,
               baseH: it.baseH,
-              scale: it.scale,
+              scaleX: it.scaleX,
+              scaleY: it.scaleY,
               rotation: it.rotation,
               shape: it.shape,
             );
@@ -280,7 +285,6 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
         if (it.url == null || it.url!.isEmpty) {
           await _refreshFromStorage();
         } else {
-          // Prefetch to detect broken/expired links; refresh if needed.
           final ok = await _prefetchUrl(it.url!);
           if (!ok) await _refreshFromStorage();
         }
@@ -305,10 +309,7 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
         _loading = false;
       });
 
-      if (changed) {
-        // Persist refreshed URLs so future loads are instant.
-        await _saveBoard();
-      }
+      if (changed) await _saveBoard();
     }, onError: (_) => setState(() => _loading = false));
   }
 
@@ -328,7 +329,7 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     }
   }
 
-  // ---------- Safe areas (keep content out from under header & bottom toolbar) ----------
+  // ---------- keep content clear of header/footer ----------
   double _topBarrierPx(BuildContext context) {
     final mq = MediaQuery.of(context);
     return mq.padding.top + kToolbarHeight + 8;
@@ -342,14 +343,15 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
   Offset _clampPosForBox({
     required Offset pos,
     required Size baseSize,
-    required double scale,
+    required double scaleX,
+    required double scaleY,
   }) {
     final size = MediaQuery.sizeOf(context);
     final canvas = Size(size.width, size.height);
     final center = _visibleCenter(canvas, context);
 
-    final halfW = (baseSize.width * scale) / 2;
-    final halfH = (baseSize.height * scale) / 2;
+    final halfW = (baseSize.width * scaleX) / 2;
+    final halfH = (baseSize.height * scaleY) / 2;
 
     final leftMin = -center.dx + halfW + 8;
     final rightMax = size.width - center.dx - halfW - 8;
@@ -369,7 +371,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       it.pos = _clampPosForBox(
         pos: it.pos,
         baseSize: Size(it.baseW, it.baseH),
-        scale: it.scale,
+        scaleX: it.scaleX,
+        scaleY: it.scaleY,
       );
     } else if (_selectedText != null) {
       final t = _texts[_selectedText!];
@@ -377,7 +380,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       t.pos = _clampPosForBox(
         pos: t.pos,
         baseSize: base,
-        scale: t.scale,
+        scaleX: t.scale,
+        scaleY: t.scale,
       );
     }
   }
@@ -406,12 +410,13 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       for (final f in files) {
         final id =
             'img_${DateTime.now().microsecondsSinceEpoch}_${_rnd.nextInt(9999)}';
-        final path = 'vision_board/$_uid/$id.jpg'; // reserve path upfront
+        final path = 'vision_board/$_uid/$id.jpg';
         final sz = await _naturalLogicalSize(f.path);
         final initial = _clampPosForBox(
           pos: const Offset(0, 0),
           baseSize: sz,
-          scale: 1,
+          scaleX: 1,
+          scaleY: 1,
         );
         placeholders.add(
           BoardImage(
@@ -422,7 +427,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
             pos: initial,
             baseW: sz.width,
             baseH: sz.height,
-            scale: 1,
+            scaleX: 1,
+            scaleY: 1,
             rotation: 0,
             shape: BoardShape.rounded,
           ),
@@ -430,9 +436,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       }
 
       setState(() => _images.addAll(placeholders));
-      await _saveBoard(); // persist placeholders immediately
+      await _saveBoard();
 
-      // Upload and patch URLs
       for (final ph in placeholders) {
         try {
           final ref = _storage.ref(ph.storagePath);
@@ -450,21 +455,21 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
               pos: cur.pos,
               baseW: cur.baseW,
               baseH: cur.baseH,
-              scale: cur.scale,
+              scaleX: cur.scaleX,
+              scaleY: cur.scaleY,
               rotation: cur.rotation,
               shape: cur.shape,
             );
             _images[idx].pos = _clampPosForBox(
               pos: _images[idx].pos,
               baseSize: Size(_images[idx].baseW, _images[idx].baseH),
-              scale: _images[idx].scale,
+              scaleX: _images[idx].scaleX,
+              scaleY: _images[idx].scaleY,
             );
           }
           await _saveBoard();
           if (mounted) setState(() {});
-        } catch (_) {
-          // leave placeholder; it will resolve next load
-        }
+        } catch (_) {}
       }
     } catch (_) {}
   }
@@ -473,7 +478,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     if (isImage && _selectedImage != null) {
       final it = _images[_selectedImage!];
       _startPos = it.pos;
-      _startScale = it.scale;
+      _startScaleX = it.scaleX;
+      _startScaleY = it.scaleY;
       _startRotation = it.rotation;
     } else if (!isImage && _selectedText != null) {
       final it = _texts[_selectedText!];
@@ -489,22 +495,25 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       if (isImage && _selectedImage != null) {
         final it = _images[_selectedImage!];
         it.pos = _startPos + (d.focalPoint - _startFocal);
-        it.scale = (_startScale * d.scale).clamp(.3, 4.0);
+        it.scaleX = (_startScaleX * d.scale).clamp(.15, 8.0);
+        it.scaleY = (_startScaleY * d.scale).clamp(.15, 8.0);
         it.rotation = _startRotation + d.rotation;
         it.pos = _clampPosForBox(
           pos: it.pos,
           baseSize: Size(it.baseW, it.baseH),
-          scale: it.scale,
+          scaleX: it.scaleX,
+          scaleY: it.scaleY,
         );
       } else if (!isImage && _selectedText != null) {
         final it = _texts[_selectedText!];
         it.pos = _startPos + (d.focalPoint - _startFocal);
-        it.scale = (_startScale * d.scale).clamp(.4, 5.0);
+        it.scale = (_startScale * d.scale).clamp(.3, 6.0);
         it.rotation = _startRotation + d.rotation;
         it.pos = _clampPosForBox(
           pos: it.pos,
           baseSize: const Size(160, 48),
-          scale: it.scale,
+          scaleX: it.scale,
+          scaleY: it.scale,
         );
       }
     });
@@ -515,6 +524,7 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     _saveBoard();
   }
 
+  // drawing on background (unchanged)
   void _onPanStart(DragStartDetails d, Size canvas) {
     if (_mode != EditMode.draw) return;
     final localY = d.localPosition.dy;
@@ -572,7 +582,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
                 final safePos = _clampPosForBox(
                   pos: const Offset(0, 0),
                   baseSize: const Size(160, 48),
-                  scale: 1.2,
+                  scaleX: 1.2,
+                  scaleY: 1.2,
                 );
                 _texts.add(BoardText(
                   id: 'txt_${DateTime.now().microsecondsSinceEpoch}',
@@ -655,6 +666,38 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     );
   }
 
+  Future<void> _confirmStartOver() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Start over?'),
+        content: const Text(
+          'This will clear all photos, text, and drawings from your board. '
+          'Your images in storage will remain. Continue?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D7C66),
+              foregroundColor: Colors.white),
+            child: const Text('Start over'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      setState(() {
+        _images.clear();
+        _texts.clear();
+        _strokes.clear();
+        _selectedImage = null;
+        _selectedText = null;
+      });
+      await _saveBoard();
+    }
+  }
+
   void _clearSelection() => setState(() {
         _selectedImage = null;
         _selectedText = null;
@@ -685,6 +728,11 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
         leading: const BackButton(),
         actions: [
           IconButton(
+            tooltip: 'Start over',
+            icon: const Icon(Icons.restart_alt_rounded),
+            onPressed: _confirmStartOver,
+          ),
+          IconButton(
             tooltip: 'Add Photos',
             icon: const Icon(Icons.add_rounded),
             onPressed: _addPhotos,
@@ -714,7 +762,7 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
 
             return Stack(
               children: [
-                // Background detector: clears selection, handles drawing
+                // background hit detector
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
@@ -726,23 +774,26 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
                   ),
                 ),
 
-                // IMAGES (clamped to safe area)
+                // IMAGES
                 ...List.generate(_images.length, (i) {
                   final it = _images[i];
                   final clampedPos = _clampPosForBox(
                     pos: it.pos,
                     baseSize: Size(it.baseW, it.baseH),
-                    scale: it.scale,
+                    scaleX: it.scaleX,
+                    scaleY: it.scaleY,
                   );
                   if (clampedPos != it.pos) it.pos = clampedPos;
 
                   return _Transformable(
                     key: ValueKey('img_$i'),
-                    center: center,
+                    canvasCenter: center,
                     pos: it.pos,
-                    scale: it.scale,
+                    scaleX: it.scaleX,
+                    scaleY: it.scaleY,
                     rotation: it.rotation,
                     baseSize: Size(it.baseW, it.baseH),
+                    selected: _selectedImage == i,
                     onTap: () {
                       setState(() {
                         _selectedImage = i;
@@ -752,26 +803,54 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
                     onStart: (focal) {
                       _selectedImage = i;
                       _selectedText = null;
-                      _handleStartScale = null;
                       _startTransform(focal, isImage: true);
                     },
                     onUpdate: (d) => _updateTransform(d, isImage: true),
                     onEnd: _finishTransform,
-                    showResizeHandles: _selectedImage == i,
-                    onHandleStart: () => _handleStartScale = it.scale,
-                    onHandleDrag: (delta) {
-                      final start = _handleStartScale ?? it.scale;
-                      final next = (start + delta.distance / 140).clamp(.3, 4.0);
-                      it.scale = next;
+                    onCornerStart: () {
+                      _startScaleX = it.scaleX;
+                      _startScaleY = it.scaleY;
+                    },
+                    onCornerDragLocal: (sign, deltaLocal) {
+                      // current size in *screen* pixels
+                      final w = it.baseW * it.scaleX;
+                      final h = it.baseH * it.scaleY;
+
+                      // Since handles are inverse-transformed, deltaLocal is in the unrotated,
+                      // unscaled box space -> operate directly on w/h.
+                      final dw = sign.dx * deltaLocal.dx;
+                      final dh = sign.dy * deltaLocal.dy;
+
+                      const minW = 40.0, minH = 40.0;
+                      final newW = max(minW, w + dw);
+                      final newH = max(minH, h + dh);
+
+                      // keep opposite corner fixed -> move center by half the delta
+                      final shiftLocal = Offset(
+                        sign.dx * (newW - w) / 2,
+                        sign.dy * (newH - h) / 2,
+                      );
+
+                      // convert that local shift to screen using rotation only
+                      final a = it.rotation;
+                      final shiftScreen = Offset(
+                        shiftLocal.dx * cos(a) - shiftLocal.dy * sin(a),
+                        shiftLocal.dx * sin(a) + shiftLocal.dy * cos(a),
+                      );
+
+                      it.scaleX = (newW / it.baseW).clamp(.15, 8.0);
+                      it.scaleY = (newH / it.baseH).clamp(.15, 8.0);
+
                       it.pos = _clampPosForBox(
-                        pos: it.pos,
+                        pos: it.pos + shiftScreen,
                         baseSize: Size(it.baseW, it.baseH),
-                        scale: it.scale,
+                        scaleX: it.scaleX,
+                        scaleY: it.scaleY,
                       );
                       setState(() {});
                     },
-                    onHandleEnd: _saveBoard,
-                    child: _ImageShape(it: it, selected: _selectedImage == i),
+                    onCornerEnd: _saveBoard,
+                    child: _ImageShape(it: it),
                   );
                 }),
 
@@ -782,17 +861,19 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
                   final clampedPos = _clampPosForBox(
                     pos: t.pos,
                     baseSize: base,
-                    scale: t.scale,
+                    scaleX: t.scale,
+                    scaleY: t.scale,
                   );
                   if (clampedPos != t.pos) t.pos = clampedPos;
 
-                  return _Transformable(
+                  return _TransformableText(
                     key: ValueKey('txt_$i'),
-                    center: center,
+                    canvasCenter: center,
                     pos: t.pos,
                     scale: t.scale,
                     rotation: t.rotation,
                     baseSize: base,
+                    selected: _selectedText == i,
                     onTap: () {
                       setState(() {
                         _selectedText = i;
@@ -802,25 +883,10 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
                     onStart: (focal) {
                       _selectedText = i;
                       _selectedImage = null;
-                      _handleStartScale = null;
                       _startTransform(focal, isImage: false);
                     },
                     onUpdate: (d) => _updateTransform(d, isImage: false),
                     onEnd: _finishTransform,
-                    showResizeHandles: _selectedText == i,
-                    onHandleStart: () => _handleStartScale = t.scale,
-                    onHandleDrag: (delta) {
-                      final start = _handleStartScale ?? t.scale;
-                      final next = (start + delta.distance / 140).clamp(.4, 5.0);
-                      t.scale = next;
-                      t.pos = _clampPosForBox(
-                        pos: t.pos,
-                        baseSize: base,
-                        scale: t.scale,
-                      );
-                      setState(() {});
-                    },
-                    onHandleEnd: _saveBoard,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -940,74 +1006,93 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
   }
 }
 
-/// Only the item’s visual bounds are hit-testable (NOT the whole screen).
+/// ======== TRANSFORMABLE WITH IN-IMAGE CORNER HANDLES ========
 class _Transformable extends StatelessWidget {
-  final Offset center;
-  final Offset pos;
-  final double scale;
-  final double rotation;
-  final Widget child;
-  final Size baseSize;
+  final Offset canvasCenter;
 
+  final Offset pos;          // center (canvas coords)
+  final double scaleX;
+  final double scaleY;
+  final double rotation;
+  final Size baseSize;
+  final Widget child;
+
+  final bool selected;
   final VoidCallback? onTap;
   final void Function(Offset focal) onStart;
   final void Function(ScaleUpdateDetails d) onUpdate;
   final VoidCallback onEnd;
 
-  final bool showResizeHandles;
-  final VoidCallback? onHandleStart;
-  final void Function(Offset delta)? onHandleDrag;
-  final VoidCallback? onHandleEnd;
+  final VoidCallback? onCornerStart;
+  final void Function(Offset sign, Offset deltaLocal)? onCornerDragLocal;
+  final VoidCallback? onCornerEnd;
 
   const _Transformable({
     super.key,
-    required this.center,
+    required this.canvasCenter,
     required this.pos,
-    required this.scale,
+    required this.scaleX,
+    required this.scaleY,
     required this.rotation,
-    required this.child,
     required this.baseSize,
+    required this.child,
     required this.onStart,
     required this.onUpdate,
     required this.onEnd,
+    this.selected = false,
     this.onTap,
-    this.showResizeHandles = false,
-    this.onHandleStart,
-    this.onHandleDrag,
-    this.onHandleEnd,
+    this.onCornerStart,
+    this.onCornerDragLocal,
+    this.onCornerEnd,
   });
 
   @override
   Widget build(BuildContext context) {
     final w = baseSize.width;
     final h = baseSize.height;
+    final worldCenter = canvasCenter + pos;
 
     return Positioned.fill(
       child: Transform(
         transform: Matrix4.identity()
-          ..translate(center.dx + pos.dx, center.dy + pos.dy)
+          ..translate(worldCenter.dx, worldCenter.dy)
           ..rotateZ(rotation)
-          ..scale(scale),
+          ..scale(scaleX, scaleY),
         origin: Offset.zero,
         child: FractionalTranslation(
           translation: const Offset(-0.5, -0.5),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
+              // content & move/rotate/scale gesture
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onTap,
                 onScaleStart: (d) => onStart(d.focalPoint),
                 onScaleUpdate: onUpdate,
                 onScaleEnd: (_) => onEnd(),
-                child: SizedBox(width: w, height: h, child: child),
+                child: Stack(
+                  children: [
+                    SizedBox(width: w, height: h, child: child),
+                    if (selected)
+                      IgnorePointer(
+                        ignoring: true,
+                        child: CustomPaint(
+                          size: Size(w, h),
+                          painter: _SelectionOverlayPainter(
+                            borderColor: const Color(0xFF7E57C2),
+                            gridColor: const Color(0xFF7E57C2).withOpacity(.35),
+                            scaleX: scaleX,
+                            scaleY: scaleY,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              if (showResizeHandles) ...[
-                _cornerHandle(Alignment.topLeft),
-                _cornerHandle(Alignment.topRight),
-                _cornerHandle(Alignment.bottomLeft),
-                _cornerHandle(Alignment.bottomRight),
-              ],
+
+              // CORNER HANDLES (inside image, inverse-transformed)
+              if (selected) ..._cornerHandles(w, h),
             ],
           ),
         ),
@@ -1015,21 +1100,102 @@ class _Transformable extends StatelessWidget {
     );
   }
 
-  Widget _cornerHandle(Alignment align) {
-    return Align(
-      alignment: align,
-      child: GestureDetector(
-        onPanStart: (_) => onHandleStart?.call(),
-        onPanUpdate: (d) => onHandleDrag?.call(d.delta),
-        onPanEnd: (_) => onHandleEnd?.call(),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black54),
-            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+  List<Widget> _cornerHandles(double w, double h) {
+    const double s = 16;
+
+    Widget corner({
+      required Alignment alignment,
+      required Offset sign,
+    }) {
+      return Align(
+        alignment: alignment,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..rotateZ(-rotation) // cancel rotation
+            ..scale(1 / max(scaleX, 1e-6), 1 / max(scaleY, 1e-6)), // cancel scale
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => onCornerStart?.call(),
+            onPanUpdate: (d) => onCornerDragLocal?.call(sign, d.delta),
+            onPanEnd: (_) => onCornerEnd?.call(),
+            child: Container(
+              width: s,
+              height: s,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFF7E57C2), width: 2),
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return [
+      corner(alignment: Alignment.topLeft,     sign: const Offset(-1, -1)),
+      corner(alignment: Alignment.topRight,    sign: const Offset( 1, -1)),
+      corner(alignment: Alignment.bottomRight, sign: const Offset( 1,  1)),
+      corner(alignment: Alignment.bottomLeft,  sign: const Offset(-1,  1)),
+    ];
+  }
+}
+
+/// Text transformable (no resize handles)
+class _TransformableText extends StatelessWidget {
+  final Offset canvasCenter;
+
+  final Offset pos;
+  final double scale;
+  final double rotation;
+  final Size baseSize;
+  final Widget child;
+
+  final bool selected;
+  final VoidCallback? onTap;
+  final void Function(Offset focal) onStart;
+  final void Function(ScaleUpdateDetails d) onUpdate;
+  final VoidCallback onEnd;
+
+  const _TransformableText({
+    super.key,
+    required this.canvasCenter,
+    required this.pos,
+    required this.scale,
+    required this.rotation,
+    required this.baseSize,
+    required this.child,
+    required this.onStart,
+    required this.onUpdate,
+    required this.onEnd,
+    this.selected = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final w = baseSize.width;
+    final h = baseSize.height;
+    final worldCenter = canvasCenter + pos;
+
+    return Positioned.fill(
+      child: Transform(
+        transform: Matrix4.identity()
+          ..translate(worldCenter.dx, worldCenter.dy)
+          ..rotateZ(rotation)
+          ..scale(scale),
+        origin: Offset.zero,
+        child: FractionalTranslation(
+          translation: const Offset(-0.5, -0.5),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            onScaleStart: (d) => onStart(d.focalPoint),
+            onScaleUpdate: onUpdate,
+            onScaleEnd: (_) => onEnd(),
+            child: SizedBox(width: w, height: h, child: child),
           ),
         ),
       ),
@@ -1037,17 +1203,57 @@ class _Transformable extends StatelessWidget {
   }
 }
 
+class _SelectionOverlayPainter extends CustomPainter {
+  final Color borderColor;
+  final Color gridColor;
+  final double scaleX;
+  final double scaleY;
+
+  const _SelectionOverlayPainter({
+    required this.borderColor,
+    required this.gridColor,
+    required this.scaleX,
+    required this.scaleY,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final k = (scaleX + scaleY) / 2;
+    final border = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 / max(k, 0.0001)
+      ..color = borderColor;
+
+    final grid = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1 / max(k, 0.0001)
+      ..color = gridColor;
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRect(rect, border);
+
+    final dx = size.width / 3;
+    final dy = size.height / 3;
+    for (int i = 1; i <= 2; i++) {
+      canvas.drawLine(Offset(dx * i, 0), Offset(dx * i, size.height), grid);
+      canvas.drawLine(Offset(0, dy * i), Offset(size.width, dy * i), grid);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SelectionOverlayPainter old) =>
+      old.borderColor != borderColor ||
+      old.gridColor != gridColor ||
+      old.scaleX != scaleX ||
+      old.scaleY != scaleY;
+}
+
 class _ImageShape extends StatelessWidget {
   final BoardImage it;
-  final bool selected;
-  const _ImageShape({required this.it, required this.selected});
+  const _ImageShape({required this.it});
 
   @override
   Widget build(BuildContext context) {
-    final border = Border.all(
-      color: selected ? const Color(0xFF0D7C66) : Colors.transparent,
-      width: 2,
-    );
     final radius = it.shape == BoardShape.rounded ? 18.0 : 0.0;
 
     Widget content;
@@ -1060,7 +1266,9 @@ class _ImageShape extends StatelessWidget {
         gaplessPlayback: true,
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
-          return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+          return const Center(
+            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          );
         },
         errorBuilder: (context, error, stack) {
           return const Center(child: Icon(Icons.broken_image_outlined));
@@ -1073,10 +1281,9 @@ class _ImageShape extends StatelessWidget {
     if (it.shape == BoardShape.circle) {
       content = ClipOval(child: content);
       return Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          border: border,
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
         ),
         clipBehavior: Clip.antiAlias,
         child: content,
@@ -1086,7 +1293,6 @@ class _ImageShape extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(.85),
           borderRadius: BorderRadius.circular(radius),
-          border: border,
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
         ),
         clipBehavior: Clip.antiAlias,
@@ -1094,41 +1300,6 @@ class _ImageShape extends StatelessWidget {
       );
     }
   }
-}
-
-class _DrawPainter extends CustomPainter {
-  final List<DrawStroke> strokes;
-  final DrawStroke? active;
-  final Offset center;
-
-  _DrawPainter({required this.strokes, required this.active, required this.center});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-
-    for (final s in [...strokes, if (active != null) active!]) {
-      final p = Paint()
-        ..color = Color(s.color)
-        ..strokeWidth = s.width
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      if (s.points.isEmpty) continue;
-      final path = Path()..moveTo(s.points.first.dx, s.points.first.dy);
-      for (int i = 1; i < s.points.length; i++) {
-        path.lineTo(s.points[i].dx, s.points[i].dy);
-      }
-      canvas.drawPath(path, p);
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _DrawPainter old) =>
-      old.strokes != strokes || old.active != active || old.center != center;
 }
 
 class _ModeIcon extends StatelessWidget {
