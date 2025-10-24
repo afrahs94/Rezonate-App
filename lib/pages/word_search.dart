@@ -1,29 +1,76 @@
 // lib/pages/word_search.dart
+//
+// Word Search with persistent strike-through lines.
+// - Saves: difficulty, words, grid, remaining words, and the exact paths
+//   for found words. When you come back, the crossed-off lines reappear.
+// - If an older save (pre-paths) is loaded, it reconstructs paths by
+//   searching the grid for each already-found word.
+//
+
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_rezonate/main.dart' as app;
 
-/* Shared look & scaffold (same as original) */
+/* ─────────────────── Shared look (same as Stress Busters) ─────────────────── */
+
 BoxDecoration _bg(BuildContext context) {
   final dark = app.ThemeControllerScope.of(context).isDark;
   return BoxDecoration(
     gradient: LinearGradient(
-      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
       colors: dark
           ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
           : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF6FD6C1)],
     ),
   );
 }
+
 const _ink = Colors.black;
+
+/* ─────────── Score storage (shared key style) ─────────── */
+
+class ScoreStore {
+  ScoreStore._();
+  static final instance = ScoreStore._();
+
+  Future<void> add(String gameKey, double v) async {
+    final prefs = await SharedPreferences.getInstance();
+    final k = 'sbp_$gameKey';
+    final cur = prefs.getStringList(k) ?? [];
+    cur.add(v.toString());
+    await prefs.setStringList(k, cur);
+  }
+
+  Future<bool> reportBest(String gameKey, double score) async {
+    final prefs = await SharedPreferences.getInstance();
+    final bestKey = 'sbp_best_$gameKey';
+    final prev = prefs.getDouble(bestKey) ?? double.negativeInfinity;
+    if (score > prev) {
+      await prefs.setDouble(bestKey, score);
+      return true;
+    }
+    return false;
+  }
+}
+
+/* ─────────────────── Game wrapper used elsewhere ─────────────────── */
 
 class _GameScaffold extends StatelessWidget {
   final String title;
   final String rule;
   final Widget child;
   final Widget? topBar;
-  const _GameScaffold({required this.title, required this.rule, required this.child, this.topBar});
+  final Widget? bottom;
+  const _GameScaffold({
+    required this.title,
+    required this.rule,
+    required this.child,
+    this.topBar,
+    this.bottom,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +104,7 @@ class _GameScaffold extends StatelessWidget {
                 if (topBar != null) ...[const SizedBox(height: 8), topBar!],
                 const SizedBox(height: 10),
                 Expanded(child: child),
+                if (bottom != null) ...[const SizedBox(height: 8), bottom!],
               ],
             ),
           ),
@@ -66,28 +114,7 @@ class _GameScaffold extends StatelessWidget {
   }
 }
 
-/* Score storage (same behavior/keys as original) */
-class ScoreStore {
-  ScoreStore._();
-  static final instance = ScoreStore._();
-  Future<void> add(String gameKey, double v) async {
-    final prefs = await SharedPreferences.getInstance();
-    final k = 'sbp_$gameKey';
-    final cur = prefs.getStringList(k) ?? [];
-    cur.add(v.toString());
-    await prefs.setStringList(k, cur);
-  }
-  Future<bool> reportBest(String gameKey, double score) async {
-    final prefs = await SharedPreferences.getInstance();
-    final bestKey = 'sbp_best_$gameKey';
-    final prev = prefs.getDouble(bestKey) ?? double.negativeInfinity;
-    if (score > prev) {
-      await prefs.setDouble(bestKey, score);
-      return true;
-    }
-    return false;
-  }
-}
+/* ─────────────────── Word Search ─────────────────── */
 
 enum _WsDifficulty { easy, medium, hard }
 
@@ -98,6 +125,7 @@ class WordSearchPage extends StatefulWidget {
 }
 
 class _WordSearchPageState extends State<WordSearchPage> {
+  // Word pools (unchanged content; trimmed for brevity here)
   static const Map<_WsDifficulty, List<List<String>>> _pools = {
     _WsDifficulty.easy: [
       ['CALM', 'BREATHE', 'FOCUS', 'PAUSE', 'SMILE'],
@@ -117,44 +145,57 @@ class _WordSearchPageState extends State<WordSearchPage> {
   };
 
   _WsDifficulty difficulty = _WsDifficulty.easy;
+
+  // Board
   late int size;
   late List<List<String>> grid;
   late List<String> words;
   late Set<String> remaining;
 
+  // Selection & found paths
   final _selCells = <Point<int>>{};
   Point<int>? _lastCell;
   bool _dragging = false;
 
+  /// Persistent strike-throughs (each is an ordered list of points).
   final List<List<Point<int>>> _foundPaths = [];
 
+  // Persistence keys (added ws_paths)
   static const _saveKey = 'ws_active';
   static const _saveDiff = 'ws_active_diff';
   static const _saveWords = 'ws_active_words';
   static const _saveGrid = 'ws_active_grid';
+  static const _savePaths = 'ws_active_paths'; // NEW: List<String> of serialized paths
+
+  // Timer (score)
   late DateTime _startTime;
 
   final rnd = Random();
 
   @override
-  void initState() { super.initState(); _tryRestoreOrNew(); }
+  void initState() {
+    super.initState();
+    _tryRestoreOrNew();
+  }
 
-  Future<void> _tryRestoreOrNew() async {
-    final p = await SharedPreferences.getInstance();
-    final diffIdx = p.getInt(_saveDiff);
-    final wordsSaved = p.getStringList(_saveWords);
-    final gridSaved = p.getStringList(_saveGrid);
-    if (diffIdx != null && wordsSaved != null && gridSaved != null) {
-      difficulty = _WsDifficulty.values[diffIdx];
-      size = sqrt(gridSaved.length).round();
-      grid = List.generate(size, (r) => List.generate(size, (c) => gridSaved[r * size + c]));
-      words = List.from(wordsSaved);
-      remaining = p.getStringList(_saveKey)?.toSet() ?? words.toSet();
-      _startTime = DateTime.now();
-      setState(() {});
-      return;
+  /* ─────────── Persistence helpers ─────────── */
+
+  // Serialize a path: "x0,y0|x1,y1|..."
+  String _encodePath(List<Point<int>> p) =>
+      p.map((pt) => '${pt.x},${pt.y}').join('|');
+
+  List<Point<int>> _decodePath(String s) {
+    final out = <Point<int>>[];
+    for (final seg in s.split('|')) {
+      if (seg.isEmpty) continue;
+      final parts = seg.split(',');
+      if (parts.length == 2) {
+        final x = int.tryParse(parts[0]);
+        final y = int.tryParse(parts[1]);
+        if (x != null && y != null) out.add(Point(x, y));
+      }
     }
-    _newPuzzle(resetDifficulty: false);
+    return out;
   }
 
   Future<void> _persistActive() async {
@@ -165,6 +206,9 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final flat = <String>[];
     for (final r in grid) { flat.addAll(r); }
     await p.setStringList(_saveGrid, flat);
+    // Save found paths
+    final enc = _foundPaths.map(_encodePath).toList();
+    await p.setStringList(_savePaths, enc);
   }
 
   Future<void> _clearPersisted() async {
@@ -173,7 +217,46 @@ class _WordSearchPageState extends State<WordSearchPage> {
     await p.remove(_saveWords);
     await p.remove(_saveKey);
     await p.remove(_saveGrid);
+    await p.remove(_savePaths);
   }
+
+  Future<void> _tryRestoreOrNew() async {
+    final p = await SharedPreferences.getInstance();
+    final diffIdx = p.getInt(_saveDiff);
+    final wordsSaved = p.getStringList(_saveWords);
+    final gridSaved = p.getStringList(_saveGrid);
+    final pathsSaved = p.getStringList(_savePaths);
+    if (diffIdx != null && wordsSaved != null && gridSaved != null) {
+      difficulty = _WsDifficulty.values[diffIdx];
+      size = sqrt(gridSaved.length).round();
+      grid = List.generate(size, (r) => List.generate(size, (c) => gridSaved[r * size + c]));
+      words = List.from(wordsSaved);
+      remaining = p.getStringList(_saveKey)?.toSet() ?? words.toSet();
+      _foundPaths.clear();
+      if (pathsSaved != null && pathsSaved.isNotEmpty) {
+        // New save format: restore exact lines
+        for (final s in pathsSaved) {
+          final path = _decodePath(s);
+          if (path.isNotEmpty) _foundPaths.add(path);
+        }
+      } else {
+        // Old save format: reconstruct lines from found words
+        final foundWords = words.where((w) => !remaining.contains(w)).toList();
+        for (final w in foundWords) {
+          final path = _findWordPath(w);
+          if (path != null) _foundPaths.add(path);
+        }
+        // Persist forward so we won’t need to reconstruct next time.
+        await _persistActive();
+      }
+      _startTime = DateTime.now();
+      setState(() {});
+      return;
+    }
+    _newPuzzle(resetDifficulty: false);
+  }
+
+  /* ─────────── Build / reset ─────────── */
 
   void _newPuzzle({bool resetDifficulty = false}) {
     if (resetDifficulty) difficulty = _WsDifficulty.easy;
@@ -196,6 +279,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
   }
 
   void _resetCurrent() {
+    // Rebuild same words on a fresh grid
     grid = List.generate(size, (_) => List.filled(size, ''));
     remaining = words.toSet();
     _placeWords();
@@ -207,6 +291,8 @@ class _WordSearchPageState extends State<WordSearchPage> {
     _persistActive();
     setState(() {});
   }
+
+  /* ─────────── Grid gen ─────────── */
 
   void _placeWords() {
     final dirs = [
@@ -244,6 +330,40 @@ class _WordSearchPageState extends State<WordSearchPage> {
     }
   }
 
+  /* ─────────── Restore helper for old saves ─────────── */
+
+  /// Find the unique path for [word] in the current grid (either direction).
+  /// Returns null if not found.
+  List<Point<int>>? _findWordPath(String word) {
+    final dirs = [
+      const Point(1,0), const Point(0,1), const Point(1,1), const Point(-1,1),
+      const Point(-1,0), const Point(0,-1), const Point(-1,-1), const Point(1,-1),
+    ];
+    bool inBounds(int r, int c) => r >= 0 && r < size && c >= 0 && c < size;
+
+    // try both normal and reversed
+    for (final target in [word, String.fromCharCodes(word.runes.toList().reversed)]) {
+      for (int r0 = 0; r0 < size; r0++) {
+        for (int c0 = 0; c0 < size; c0++) {
+          for (final d in dirs) {
+            int r = r0, c = c0;
+            bool ok = true;
+            final path = <Point<int>>[];
+            for (int i = 0; i < target.length; i++) {
+              if (!inBounds(r, c) || grid[r][c] != target[i]) { ok = false; break; }
+              path.add(Point(c, r));
+              r += d.y; c += d.x;
+            }
+            if (ok) return path;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /* ─────────── Gesture → selection ─────────── */
+
   void _onPanStart(Offset pos, BoxConstraints cons) {
     _dragging = true;
     _selCells.clear();
@@ -277,13 +397,13 @@ class _WordSearchPageState extends State<WordSearchPage> {
     }
   }
 
-  void _checkSelection() async {
+  Future<void> _checkSelection() async {
     if (_selCells.length < 2) return;
     final a = _selCells.first;
     final b = _selCells.last;
     int dx = b.x - a.x, dy = b.y - a.y;
     final steps = max(dx.abs(), dy.abs());
-    if (!(dx == 0 || dy == 0 || dx.abs() == dy.abs())) return;
+    if (!(dx == 0 || dy == 0 || dx.abs() == dy.abs())) return; // straight/diag only
     dx = dx.sign; dy = dy.sign;
 
     final buff = StringBuffer();
@@ -304,8 +424,8 @@ class _WordSearchPageState extends State<WordSearchPage> {
 
     if (found != null) {
       remaining.remove(found);
-      if (foundPath != null) _foundPaths.add(foundPath);
-      await _persistActive();
+      if (foundPath != null) _foundPaths.add(foundPath);      // record for strike-through
+      await _persistActive();                                  // persist paths immediately
       setState(() {});
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -314,7 +434,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
       if (remaining.isEmpty) {
         await _clearPersisted();
         final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
-        final score = words.length / secs;
+        final score = words.length / secs; // words per second
         await ScoreStore.instance.add('wordsearch', score);
         final isHigh = await ScoreStore.instance.reportBest('wordsearch', score);
         if (!mounted) return;
@@ -323,7 +443,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
           builder: (_) => AlertDialog(
             title: Text(isHigh ? 'New High Score!' : 'Puzzle Complete'),
             content: Text(isHigh
-                ? 'Speed: ${score.toString().padRight(5, '0') } words/sec'
+                ? 'Speed: ${score.toStringAsFixed(3)} words/sec'
                 : 'Nice work! Want a fresh grid?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
@@ -334,6 +454,8 @@ class _WordSearchPageState extends State<WordSearchPage> {
       }
     }
   }
+
+  /* ─────────── UI ─────────── */
 
   @override
   Widget build(BuildContext context) {
@@ -424,6 +546,8 @@ class _WordSearchPageState extends State<WordSearchPage> {
   }
 }
 
+/* ─────────── Painter ─────────── */
+
 class _WsPainter extends CustomPainter {
   final List<List<String>> g;
   final Set<Point<int>> sel;
@@ -438,6 +562,7 @@ class _WsPainter extends CustomPainter {
     final selBg = Paint()..color = const Color(0xFFFFF1A6);
     final txt = TextPainter(textAlign: TextAlign.center, textDirection: TextDirection.ltr);
 
+    // grid + selection
     for (int y = 0; y < n; y++) {
       for (int x = 0; x < n; x++) {
         final r = Rect.fromLTWH(x * cell, y * cell, cell, cell);
@@ -454,6 +579,7 @@ class _WsPainter extends CustomPainter {
       }
     }
 
+    // strike-through lines for found words (persisted)
     final linePaint = Paint()
       ..color = const Color(0xFF0D7C66).withOpacity(.85)
       ..strokeWidth = cell * 0.20
