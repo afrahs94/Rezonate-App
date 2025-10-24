@@ -240,12 +240,12 @@ const List<_Resource> _resources = [
     name: 'Emergency Services',
     regionLabel: 'Global',
     tags: ['Global'],
-    description: 'If you or someone else is in immediate danger, call your local emergency number (e.g., 911/999/112).',
+    description: 'If you or someone else is in immediate danger, call your emergency number (e.g., 911/999/112).',
   ),
   _Resource(
     name: 'Crisis Text Line (US/CA/UK/IE)',
-    regionLabel: 'Global',
-    tags: ['Global', 'Youth'],
+    regionLabel: 'Global', 
+    tags: ['Global', 'Youth', 'US', 'Canada', 'UK/IE'],
     description: 'Free, 24/7 text support for people in crisis.',
     text: '741741', // US/CA (use 85258 UK, 50808 IE)
     textBody: 'HOME',
@@ -266,7 +266,7 @@ const List<_Resource> _resources = [
     name: 'Veterans Crisis Line',
     regionLabel: 'US',
     tags: ['US', 'Veterans'],
-    description: '24/7 confidential support for Veterans, service members, and their families.',
+    description: '24/7 confidential support for Veterans, service members, and their families. Call 988, then press 1.',
     phone: '988', // press 1 after connecting
     text: '838255',
     url: 'https://www.veteranscrisisline.net/',
@@ -313,8 +313,8 @@ const List<_Resource> _resources = [
     regionLabel: 'Canada',
     tags: ['Canada', 'Youth'],
     description: '24/7 crisis and suicide support across Canada.',
-    phone: '1-833-456-4566',
-    text: '45645',
+    phone: '988',
+    text: '988',
     url: 'https://talksuicide.ca/',
   ),
 
@@ -328,10 +328,10 @@ const List<_Resource> _resources = [
     url: 'https://www.samaritans.org/',
   ),
   _Resource(
-    name: 'Shout (UK) / 50808 (Ireland) – Text Support',
+    name: 'Shout (UK) / Ireland – Mental Health Text Services',
     regionLabel: 'UK/IE',
     tags: ['UK/IE', 'Youth'],
-    description: 'Free, 24/7 text support. UK: text SHOUT to 85258. Ireland: text HELLO to 50808.',
+    description: 'Free, 24/7 mental health text service. UK: text SHOUT to 85258. Ireland: text HELLO to 50808.',
     url: 'https://giveusashout.org/',
   ),
 
@@ -356,11 +356,11 @@ const List<_Resource> _resources = [
 
   // --- India ---
   _Resource(
-    name: 'Kiran Mental Health Helpline',
+    name: '1Life Crisis Support and Suicide Prevention',
     regionLabel: 'India',
     tags: ['India', 'Youth'],
-    description: '24/7 national mental health helpline (MoHFW/Govt. of India).',
-    phone: '1800-599-0019',
-    url: 'https://www.mohfw.gov.in/',
+    description: '24/7 national helpline for crisis support and suicide prevention services.',
+    phone: '7893078930',
+    url: 'https://1life.org.in/',
   ),
 ];
