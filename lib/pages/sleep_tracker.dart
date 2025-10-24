@@ -81,6 +81,7 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
                 }
                 final docs = snap.data!.docs;
 
+                // Stats (last 7 days)
                 final now = DateTime.now();
                 final sevenDaysAgo = now.subtract(const Duration(days: 7));
                 int totalMin = 0, nights = 0;
@@ -257,6 +258,8 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
   }
 }
 
+/* =====================  HEADER (Stats + Moon)  ===================== */
+
 class _StatsCard extends StatelessWidget {
   const _StatsCard({required this.nights, required this.avgStr, required this.totalStr});
   final int nights;
@@ -265,36 +268,44 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Spaced-out, visually balanced header with dynamic moon
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: Colors.white.withOpacity(0.78),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
-          const Icon(Icons.nightlight_round, color: Color(0xFF0D7C66)),
-          const Spacer(),
-          _StatChip(label: 'This week', value: '$nights nights'),
-          const SizedBox(width: 8),
-          _StatChip(label: 'Avg', value: avgStr),
-          const SizedBox(width: 8),
-          _StatChip(label: 'Total', value: totalStr),
+          _MoonProgress(nights: nights),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _StatBlock(label: 'This week', value: '$nights nights')),
+                const SizedBox(width: 10),
+                Expanded(child: _StatBlock(label: 'Avg', value: avgStr)),
+                const SizedBox(width: 10),
+                Expanded(child: _StatBlock(label: 'Total', value: totalStr)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value});
+class _StatBlock extends StatelessWidget {
+  const _StatBlock({required this.label, required this.value});
   final String label;
   final String value;
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -305,12 +316,85 @@ class _StatChip extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         ],
       ),
     );
   }
 }
+
+/// Draws a waxing moon that grows *in size* and *illumination* with the number
+/// of nights logged in the last 7 days:
+/// - 1 night → small crescent
+/// - 7 nights → large full moon
+class _MoonProgress extends StatelessWidget {
+  const _MoonProgress({required this.nights});
+  final int nights;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = nights.clamp(0, 7);
+    final phase = n / 7.0; // 0..1
+    // Size grows noticeably from ~18 → ~46 px.
+    final size = ui.lerpDouble(18, 46, phase)!;
+    return CustomPaint(
+      painter: _MoonPainter(phase: phase),
+      size: Size.square(size),
+    );
+  }
+}
+
+class _MoonPainter extends CustomPainter {
+  _MoonPainter({required this.phase});
+  final double phase; // 0..1
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final r = size.width / 2;
+
+    // Soft background glow
+    final glow = Paint()
+      ..color = const Color(0xFFFFF8E1).withOpacity(.25)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(center, r * 0.92, glow);
+
+    // Border ring
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = const Color(0xFF37474F).withOpacity(.9);
+
+    // Lit base disk (full moon)
+    final lit = Paint()..color = const Color(0xFFFFF8E1);
+    canvas.drawCircle(center, r * 0.92, lit);
+
+    // Apply shadow mask to create crescent/gibbous unless phase is full
+    if (phase < 0.999) {
+      // Move the shadow circle from far right (small crescent) toward the left
+      // as phase increases. Slight radius growth keeps the edge pleasing.
+      final maskRadius = r * ui.lerpDouble(0.90, 1.02, phase)!;
+      final offsetX = ui.lerpDouble(r * 0.95, -r * 0.95, phase)!;
+
+      // Cut the overlapping area out of the lit disk.
+      final layerBounds = Rect.fromCircle(center: center, radius: r);
+      canvas.saveLayer(layerBounds, Paint());
+      canvas.drawCircle(center, r * 0.92, lit); // re-draw lit on layer
+      final mask = Paint()..blendMode = BlendMode.dstOut;
+      canvas.drawCircle(Offset(center.dx + offsetX, center.dy), maskRadius, mask);
+      canvas.restore();
+    }
+
+    // Draw the ring last so it’s crisp.
+    canvas.drawCircle(center, r * 0.92, ring);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MoonPainter oldDelegate) =>
+      oldDelegate.phase != phase;
+}
+
+/* =====================  TREND CARD + CHART  ===================== */
 
 class _TrendCard extends StatelessWidget {
   const _TrendCard({
@@ -328,8 +412,9 @@ class _TrendCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: Colors.white.withOpacity(0.78),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
@@ -349,8 +434,11 @@ class _TrendCard extends StatelessWidget {
               _RangeChip(label: 'All', selected: range == RangeOption.all, onTap: () => onRangeChanged(RangeOption.all)),
             ],
           ),
-          const SizedBox(height: 10),
-          SizedBox(height: 200, child: _SleepChart(points: points)),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 260,
+            child: _SleepChart(points: points),
+          ),
         ],
       ),
     );
@@ -393,8 +481,20 @@ class _Point {
 class _SleepChart extends StatelessWidget {
   const _SleepChart({required this.points});
   final List<_Point> points;
+
   @override
-  Widget build(BuildContext context) => CustomPaint(painter: _ChartPainter(points));
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox.expand(
+          child: CustomPaint(
+            size: Size(constraints.maxWidth, constraints.maxHeight),
+            painter: _ChartPainter(points),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _ChartPainter extends CustomPainter {
@@ -403,8 +503,15 @@ class _ChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final frame = RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(12));
-    canvas.drawRRect(frame, Paint()..color = Colors.white);
+    final bgRRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(12));
+    final bgPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        const Offset(0, 0),
+        Offset(0, size.height),
+        [Colors.white, const Color(0xFFF8FFFD)],
+      );
+    canvas.drawRRect(bgRRect, bgPaint);
 
     if (points.isEmpty) {
       final tp = TextPainter(
@@ -415,94 +522,126 @@ class _ChartPainter extends CustomPainter {
       return;
     }
 
-    final left = 38.0, right = 10.0, top = 12.0, bottom = 26.0;
+    final left = 52.0, right = 18.0, top = 16.0, bottom = 34.0;
     final chart = Rect.fromLTWH(left, top, size.width - left - right, size.height - top - bottom);
 
     double maxMin = points.fold<double>(0, (m, p) => math.max(m, p.minutes));
-    maxMin = math.max(480, maxMin);
-    const yStep = 120.0;
+    maxMin = math.max(480, maxMin); // ensure at least 8h scale
+    const yStep = 120.0; // 2h steps
 
     final grid = Paint()
-      ..color = const Color(0xFF0D7C66).withOpacity(.09)
+      ..color = const Color(0xFF0D7C66).withOpacity(.10)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (double m = 0; m <= maxMin; m += yStep) {
       final y = chart.bottom - (m / maxMin) * chart.height;
       canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
+
       final label = TextPainter(
-        text: TextSpan(text: '${(m ~/ 60)}h', style: const TextStyle(fontSize: 10, color: Colors.black54)),
+        text: TextSpan(
+            text: '${(m ~/ 60)}h',
+            style: const TextStyle(fontSize: 12, color: Colors.black54)),
         textDirection: ui.TextDirection.ltr,
-      )..layout(maxWidth: left - 6);
-      label.paint(canvas, Offset(4, y - label.height / 2));
+      )..layout(maxWidth: left - 10);
+      label.paint(canvas, Offset(8, y - label.height / 2));
     }
 
-    final first = points.first.day;
-    final last = points.last.day;
-    final spanDays = math.max(1, last.difference(first).inDays);
+    final count = points.length;
+    final stepX = count > 1 ? chart.width / (count - 1) : 0;
+
+    Offset pt(int i) {
+      final x = chart.left + stepX * i;
+      final y = chart.bottom - (points[i].minutes / maxMin) * chart.height;
+      return Offset(x, y);
+    }
 
     final path = Path();
     final area = Path();
-    for (int i = 0; i < points.length; i++) {
-      final p = points[i];
-      final xd = p.day.difference(first).inDays.toDouble();
-      final x = chart.left + (xd / spanDays) * chart.width;
-      final y = chart.bottom - (p.minutes / maxMin) * chart.height;
-      if (i == 0) {
-        path.moveTo(x, y);
-        area.moveTo(x, chart.bottom);
-        area.lineTo(x, y);
-      } else {
-        path.lineTo(x, y);
-        area.lineTo(x, y);
-      }
-      canvas.drawCircle(Offset(x, y), 2.2, Paint()..color = const Color(0xFF0D7C66));
+
+    final first = pt(0);
+    path.moveTo(first.dx, first.dy);
+    area.moveTo(chart.left, chart.bottom);
+    area.lineTo(first.dx, first.dy);
+
+    for (int i = 1; i < count; i++) {
+      final p0 = pt(i - 1);
+      final p1 = pt(i);
+      final mid = Offset((p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
+      path.quadraticBezierTo(p0.dx, p0.dy, mid.dx, mid.dy);
+      area.quadraticBezierTo(p0.dx, p0.dy, mid.dx, mid.dy);
     }
+    final last = pt(count - 1);
+    path.lineTo(last.dx, last.dy);
+    area.lineTo(last.dx, last.dy);
     area.lineTo(chart.right, chart.bottom);
     area.close();
-
-    canvas.drawPath(
-      area,
-      Paint()
-        ..color = const Color(0xFF0D7C66).withOpacity(.10)
-        ..style = PaintingStyle.fill,
-    );
 
     final mean = points.fold<double>(0, (s, p) => s + p.minutes) / points.length;
     final meanY = chart.bottom - (mean / maxMin) * chart.height;
     final dash = Paint()
-      ..color = const Color(0xFF0D7C66).withOpacity(.5)
+      ..color = const Color(0xFF0D7C66).withOpacity(.45)
       ..strokeWidth = 1.2;
     const dashW = 6.0, gap = 4.0;
     for (double x = chart.left; x < chart.right; x += dashW + gap) {
       canvas.drawLine(Offset(x, meanY), Offset(math.min(x + dashW, chart.right), meanY), dash);
     }
 
+    final areaPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(chart.left, chart.top),
+        Offset(chart.left, chart.bottom),
+        [const Color(0xFF0D7C66).withOpacity(.18), const Color(0xFF0D7C66).withOpacity(.06)],
+      );
+    canvas.drawPath(area, areaPaint);
+
     canvas.drawPath(
       path,
       Paint()
         ..color = const Color(0xFF0D7C66)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
+        ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
 
+    final dotPaint = Paint()..color = const Color(0xFF0D7C66);
+    for (int i = 0; i < count; i++) {
+      final p = pt(i);
+      canvas.drawCircle(p, 3.2, dotPaint);
+    }
+
     final fmt = DateFormat('MM/dd');
     final startLab = TextPainter(
-      text: TextSpan(text: fmt.format(first), style: const TextStyle(fontSize: 10, color: Colors.black54)),
+      text: TextSpan(text: fmt.format(points.first.day), style: const TextStyle(fontSize: 12, color: Colors.black54)),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    final midIdx = (count - 1) ~/ 2;
+    final midLab = TextPainter(
+      text: TextSpan(text: fmt.format(points[midIdx].day), style: const TextStyle(fontSize: 12, color: Colors.black45)),
       textDirection: ui.TextDirection.ltr,
     )..layout();
     final endLab = TextPainter(
-      text: TextSpan(text: fmt.format(last), style: const TextStyle(fontSize: 10, color: Colors.black54)),
+      text: TextSpan(text: fmt.format(points.last.day), style: const TextStyle(fontSize: 12, color: Colors.black54)),
       textDirection: ui.TextDirection.ltr,
     )..layout();
-    startLab.paint(canvas, Offset(chart.left, chart.bottom + 4));
-    endLab.paint(canvas, Offset(chart.right - endLab.width, chart.bottom + 4));
+    startLab.paint(canvas, Offset(chart.left, chart.bottom + 8));
+    midLab.paint(canvas, Offset(chart.left + chart.width / 2 - midLab.width / 2, chart.bottom + 8));
+    endLab.paint(canvas, Offset(chart.right - endLab.width, chart.bottom + 8));
+
+    canvas.drawLine(
+      Offset(chart.left, chart.bottom),
+      Offset(chart.right, chart.bottom),
+      Paint()
+        ..color = Colors.black12
+        ..strokeWidth = 1,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _ChartPainter old) => old.points != points;
 }
+
+/* =====================  SLEEP LOG CARDS  ===================== */
 
 class _SleepCard extends StatefulWidget {
   const _SleepCard({
@@ -621,15 +760,16 @@ class _SleepCardState extends State<_SleepCard> {
 
               const SizedBox(height: 10),
 
+              // Smaller "other options" row
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 child: Row(
                   children: [
                     _ViewPill(icon: Icons.coffee_rounded, label: 'Caffeine', value: widget.caffeine ? 'Yes' : 'No'),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _ViewPill(icon: Icons.local_bar_rounded, label: 'Alcohol', value: widget.alcohol ? 'Yes' : 'No'),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _ViewPill(icon: Icons.fitness_center_rounded, label: 'Exercise', value: widget.exercise ? 'Yes' : 'No'),
                   ],
                 ),
@@ -653,8 +793,8 @@ class _SleepCardState extends State<_SleepCard> {
                 firstChild: Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       _ViewValue(icon: Icons.bed_rounded, label: 'Awakenings', value: '${widget.awakenings}'),
                       _ViewValue(icon: Icons.airline_seat_individual_suite_rounded, label: 'Naps', value: '${widget.napMin}m'),
@@ -707,21 +847,21 @@ class _ViewPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.black12),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.black87),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(width: 6),
-          Text(value, style: const TextStyle(color: Colors.black54)),
+          Icon(icon, size: 14, color: Colors.black87),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          const SizedBox(width: 5),
+          Text(value, style: const TextStyle(color: Colors.black54, fontSize: 12)),
         ],
       ),
     );
@@ -736,20 +876,20 @@ class _ViewValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.black12),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.black87),
-          const SizedBox(width: 6),
-          Text('$label: ', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Icon(icon, size: 14, color: Colors.black87),
+          const SizedBox(width: 5),
+          Text('$label: ', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
         ],
       ),
     );
