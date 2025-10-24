@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:new_rezonate/main.dart' as app;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home.dart';
 import 'journal.dart';
@@ -18,8 +19,7 @@ import 'affirmations.dart';
 
 /// Page transition with no animation
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
-  NoTransitionPageRoute({required WidgetBuilder builder})
-    : super(builder: builder);
+  NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
 
   @override
   Widget buildTransitions(
@@ -27,7 +27,8 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
     Animation<double> a,
     Animation<double> b,
     Widget child,
-  ) => child;
+  ) =>
+      child;
 }
 
 /// Background gradient
@@ -37,10 +38,9 @@ BoxDecoration _bg(BuildContext context) {
     gradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors:
-          dark
-              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors: dark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     ),
   );
 }
@@ -54,17 +54,38 @@ class ToolsPage extends StatefulWidget {
 }
 
 class _ToolsPageState extends State<ToolsPage> {
+  static const _recentPrefsKey = 'recent_tools_v1';
+
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   String _query = '';
 
+  List<String> _recentIds = const []; // list of tool labels, most-recent first
+
   @override
   void initState() {
     super.initState();
+    _loadRecents();
     _searchCtrl.addListener(() {
       final q = _searchCtrl.text.trim();
       if (q != _query) setState(() => _query = q);
     });
+  }
+
+  Future<void> _loadRecents() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _recentIds = prefs.getStringList(_recentPrefsKey) ?? const [];
+    });
+  }
+
+  Future<void> _rememberTool(String label) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = [..._recentIds]..remove(label)..insert(0, label);
+    // keep it short
+    if (list.length > 8) list.removeRange(8, list.length);
+    setState(() => _recentIds = list);
+    await prefs.setStringList(_recentPrefsKey, list);
   }
 
   @override
@@ -80,10 +101,24 @@ class _ToolsPageState extends State<ToolsPage> {
     return _items.where((t) => t.label.toLowerCase().contains(q));
   }
 
+  Iterable<_ToolItem> get _recentItems sync* {
+    for (final id in _recentIds) {
+      final match = _items.where((t) => t.label == id);
+      if (match.isNotEmpty) yield match.first;
+    }
+  }
+
+  void _openTool(_ToolItem t) {
+    HapticFeedback.lightImpact();
+    _rememberTool(t.label);
+    Navigator.of(context).push(NoTransitionPageRoute(builder: (_) => t.page));
+  }
+
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final isWide = mq.size.width > 820;
+    final recent = _recentItems.toList();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -106,13 +141,12 @@ class _ToolsPageState extends State<ToolsPage> {
                         builder: (context, constraints) {
                           final tRaw =
                               (constraints.biggest.height - kToolbarHeight) /
-                              (96 - kToolbarHeight);
+                                  (96 - kToolbarHeight);
                           final t = tRaw.clamp(0.0, 1.0);
-                          final size = 24.0 + (26.0 - 24.0) * t;
                           return FlexibleSpaceBar(
                             titlePadding: const EdgeInsetsDirectional.only(
                               start: 16,
-                              bottom: 10,
+                              bottom: 8,
                             ),
                             expandedTitleScale: 1.0,
                             title: IgnorePointer(child: Opacity(opacity: t)),
@@ -137,27 +171,61 @@ class _ToolsPageState extends State<ToolsPage> {
                       ),
                     ),
 
+                    /// Recently used section (persistent)
+                    if (recent.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Recently used',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 64,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: recent.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 8),
+                                  itemBuilder: (context, i) {
+                                    final t = recent[i];
+                                    return _RecentToolChip(
+                                      label: t.label,
+                                      icon: t.icon,
+                                      onTap: () => _openTool(t),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     /// Tool grid
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 5, 16, 12),
+                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: isWide ? 4 : 2,
-                          childAspectRatio: isWide ? 1.05 : 1.10,
-                          crossAxisSpacing: 14,
-                          mainAxisSpacing: 14,
+                          childAspectRatio: isWide ? 1.0 : 1.05,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
                         ),
                         delegate: SliverChildBuilderDelegate((context, i) {
                           final t = _filteredItems.elementAt(i);
                           return _ToolTile(
                             label: t.label,
                             icon: t.icon,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.of(context).push(
-                                NoTransitionPageRoute(builder: (_) => t.page),
-                              );
-                            },
+                            onTap: () => _openTool(t),
                           );
                         }, childCount: _filteredItems.length),
                       ),
@@ -197,51 +265,104 @@ class _SearchFieldState extends State<_SearchField> {
   @override
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
-    final baseColor =
-        (dark
-            ? const Color.fromARGB(134, 0, 0, 0)
-            : const Color.fromARGB(146, 255, 255, 255));
-    final outlineColor = const Color.fromARGB(120, 54, 113, 56);
+
+    // Slightly less transparent than before for readability
+    final fillColor = dark
+        ? const Color(0x40000000) // 25% black
+        : const Color(0x40FFFFFF); // 25% white
+    final borderColor = Colors.black.withOpacity(dark ? 0.28 : 0.22);
 
     return AnimatedScale(
-      scale: _focused ? 1.02 : 1.0,
-      duration: const Duration(milliseconds: 200),
+      scale: _focused ? 1.01 : 1.0,
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       child: SizedBox(
-        height: 48,
+        height: 44,
         child: Focus(
           onFocusChange: (v) => setState(() => _focused = v),
           child: TextField(
             controller: widget.controller,
             focusNode: widget.focusNode,
             textInputAction: TextInputAction.search,
-            style: const TextStyle(fontSize: 16),
+            style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Search tools…',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon:
-                  widget.controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                        tooltip: 'Clear',
-                        onPressed: widget.onClear,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
+              hintStyle: const TextStyle(fontSize: 14),
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: widget.controller.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear',
+                      onPressed: widget.onClear,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                    ),
               filled: true,
-              fillColor: baseColor,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
+              fillColor: fillColor,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(28),
-                borderSide: BorderSide(color: outlineColor, width: 1),
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: borderColor, width: 0.9),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(28),
-                borderSide: BorderSide(color: outlineColor, width: 1.4),
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: borderColor, width: 1.2),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// -------------------- Recent Tool Chip --------------------
+
+class _RecentToolChip extends StatelessWidget {
+  const _RecentToolChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    final bg = dark ? const Color(0x40FFFFFF) : const Color(0x40FFFFFF); // 25% white
+    final border = (dark ? Colors.white : Colors.black).withOpacity(0.16);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border, width: 0.9),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF0D7C66)),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
         ),
       ),
@@ -272,15 +393,14 @@ class _ToolTileState extends State<_ToolTile> {
   @override
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
-    final color = const Color(0xFF0D7C66);
-    final bg =
-        dark
-            ? const Color.fromARGB(186, 0, 0, 0)
-            : const Color.fromARGB(213, 255, 255, 255);
+
+    // Less transparent than earlier for readability, still airy
+    final bg = dark ? const Color(0x33FFFFFF) : const Color(0x33FFFFFF); // 20% white
+    final border = (dark ? Colors.white : Colors.black).withOpacity(0.14);
 
     return AnimatedScale(
-      scale: _pressed ? 0.97 : 1.0,
-      duration: const Duration(milliseconds: 120),
+      scale: _pressed ? 0.98 : 1.0,
+      duration: const Duration(milliseconds: 110),
       curve: Curves.easeOut,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _pressed = true),
@@ -290,34 +410,34 @@ class _ToolTileState extends State<_ToolTile> {
         },
         onTapCancel: () => setState(() => _pressed = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 160),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color.fromARGB(120, 80, 80, 80), width: 1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border, width: 0.9),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(widget.icon, size: 38, color: color),
-                  const SizedBox(height: 10),
+                  Icon(widget.icon, size: 30, color: const Color(0xFF0D7C66)),
+                  const SizedBox(height: 8),
                   Text(
                     widget.label,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      height: 1.2,
+                      fontSize: 13,
+                      height: 1.15,
                     ),
                   ),
                 ],
@@ -396,11 +516,10 @@ class _BottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            icon: Icon(Icons.home, color: c(0)),
-            onPressed:
-                index == 0
-                    ? null
-                    : () => Navigator.pushReplacement(
+            icon: Icon(Icons.home, color: c(0), size: 22),
+            onPressed: index == 0
+                ? null
+                : () => Navigator.pushReplacement(
                       context,
                       NoTransitionPageRoute(
                         builder: (_) => HomePage(userName: userName),
@@ -408,11 +527,10 @@ class _BottomNav extends StatelessWidget {
                     ),
           ),
           IconButton(
-            icon: Icon(Icons.menu_book, color: c(1)),
-            onPressed:
-                index == 1
-                    ? null
-                    : () => Navigator.pushReplacement(
+            icon: Icon(Icons.menu_book, color: c(1), size: 22),
+            onPressed: index == 1
+                ? null
+                : () => Navigator.pushReplacement(
                       context,
                       NoTransitionPageRoute(
                         builder: (_) => JournalPage(userName: userName),
@@ -420,7 +538,7 @@ class _BottomNav extends StatelessWidget {
                     ),
           ),
           IconButton(
-            icon: Icon(Icons.dashboard, color: c(2)),
+            icon: Icon(Icons.dashboard, color: c(2), size: 22),
             onPressed: () {},
           ),
         ],
