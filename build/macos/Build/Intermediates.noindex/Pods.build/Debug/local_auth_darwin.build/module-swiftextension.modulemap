@@ -1,0 +1,5 @@
+
+module local_auth_darwin.Swift {
+  header "local_auth_darwin-Swift.h"
+  requires objc
+}

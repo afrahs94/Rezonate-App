@@ -1,0 +1,48 @@
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/User/UserProfileChangeRequest.swift":
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileChangeRequest.dia"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileChangeRequest.swiftconstvalues"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileChangeRequest.o"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileChangeRequest.d"
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileChangeRequest.swiftdeps"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/Backend/RPC/VerifyAssertionRequest.swift":
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionRequest.dia"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionRequest.swiftconstvalues"
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionRequest.swiftdeps"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionRequest.d"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionRequest.o"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/Backend/VerifyClientResponse.swift":
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientResponse.d"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientResponse.o"
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientResponse.swiftdeps"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientResponse.swiftconstvalues"
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientResponse.dia"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/Backend/VerifyClientRequest.swift":
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientRequest.o"
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientRequest.swiftdeps"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientRequest.swiftconstvalues"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientRequest.d"
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyClientRequest.dia"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/User/UserProfileUpdate.swift":
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileUpdate.swiftconstvalues"
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileUpdate.dia"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileUpdate.d"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileUpdate.o"
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserProfileUpdate.swiftdeps"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/Backend/RPC/VerifyAssertionResponse.swift":
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionResponse.dia"
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionResponse.swiftdeps"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionResponse.d"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionResponse.o"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/VerifyAssertionResponse.swiftconstvalues"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/User/UserInfoImpl.swift":
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserInfoImpl.swiftdeps"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserInfoImpl.o"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserInfoImpl.swiftconstvalues"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserInfoImpl.d"
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserInfoImpl.dia"
+"/Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseAuth/FirebaseAuth/Sources/Swift/User/UserMetadata.swift":
+  swift-dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserMetadata.swiftdeps"
+  dependencies: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserMetadata.d"
+  diagnostics: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserMetadata.dia"
+  object: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserMetadata.o"
+  const-values: "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/FirebaseAuth.build/Objects-normal/x86_64/UserMetadata.swiftconstvalues"

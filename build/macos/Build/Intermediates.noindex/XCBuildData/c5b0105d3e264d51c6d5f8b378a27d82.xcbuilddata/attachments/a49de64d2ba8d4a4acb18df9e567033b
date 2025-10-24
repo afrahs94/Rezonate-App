@@ -1,0 +1,38 @@
+{
+  "" : {
+    "diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/local_auth_darwin-master.dia",
+    "emit-module-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/local_auth_darwin-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/local_auth_darwin-master-emit-module.dia",
+    "swift-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/local_auth_darwin-master.swiftdeps"
+  },
+  "/Users/saniaahmad/.pub-cache/hosted/pub.dev/local_auth_darwin-1.6.0/darwin/local_auth_darwin/Sources/local_auth_darwin/LocalAuthPlugin.swift" : {
+    "const-values" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.swiftconstvalues",
+    "dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.d",
+    "diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.dia",
+    "index-unit-output-path" : "/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.o",
+    "llvm-bc" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.bc",
+    "object" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.o",
+    "swift-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin.swiftdeps",
+    "swiftmodule" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/LocalAuthPlugin~partial.swiftmodule"
+  },
+  "/Users/saniaahmad/.pub-cache/hosted/pub.dev/local_auth_darwin-1.6.0/darwin/local_auth_darwin/Sources/local_auth_darwin/SystemWrappers.swift" : {
+    "const-values" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.swiftconstvalues",
+    "dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.d",
+    "diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.dia",
+    "index-unit-output-path" : "/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.o",
+    "llvm-bc" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.bc",
+    "object" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.o",
+    "swift-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers.swiftdeps",
+    "swiftmodule" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/SystemWrappers~partial.swiftmodule"
+  },
+  "/Users/saniaahmad/.pub-cache/hosted/pub.dev/local_auth_darwin-1.6.0/darwin/local_auth_darwin/Sources/local_auth_darwin/messages.g.swift" : {
+    "const-values" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.swiftconstvalues",
+    "dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.d",
+    "diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.dia",
+    "index-unit-output-path" : "/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.o",
+    "llvm-bc" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.bc",
+    "object" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.o",
+    "swift-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g.swiftdeps",
+    "swiftmodule" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/local_auth_darwin.build/Objects-normal/x86_64/messages.g~partial.swiftmodule"
+  }
+}

@@ -1,0 +1,38 @@
+dependencies: \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/bind.cc \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/Target\ Support\ Files/abseil/abseil-prefix.pch \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/bind.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/config.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/options.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/policy_checks.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/container/inlined_vector.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/algorithm/algorithm.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/internal/throw_delegate.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/macros.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/attributes.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/optimization.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/port.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/container/internal/inlined_vector.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/internal/identity.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/container/internal/compressed_tuple.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/utility/utility.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/internal/inline_variable.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/internal/invoke.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/meta/type_traits.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/memory/memory.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/types/span.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/nullability.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/internal/nullability_impl.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/types/internal/span.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/arg.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/numeric/int128.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/types/compare.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/numeric/int128_have_intrinsic.inc \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/has_absl_stringify.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/string_view.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/extension.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/output.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/checker.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/constexpr_parser.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/base/const_init.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/abseil/absl/strings/internal/str_format/parser.h

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // for HapticFeedback.vibrate()
 import 'package:new_rezonate/main.dart' as app;
+import 'package:shared_preferences/shared_preferences.dart'; // ⚠️ Add shared_preferences to pubspec.yaml
 
 /// Mental Health Exercises
 /// - 81 guided exercises total
@@ -20,6 +21,50 @@ class _ExercisesPageState extends State<ExercisesPage> {
   String _filter = 'All';
   String _query = '';
 
+  // persistent "recently used" list (most recent first)
+  final List<_Exercise> _recent = [];
+  static const int _recentMax = 8;
+  static const String _recentKey = 'recent_exercises_v1';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecent();
+  }
+
+  Future<void> _loadRecent() async {
+    final prefs = await SharedPreferences.getInstance();
+    final titles = prefs.getStringList(_recentKey) ?? const [];
+    // Map saved titles back to exercise objects, preserving order and skipping missing
+    final mapped = <_Exercise>[];
+    for (final t in titles) {
+      final match = _exercises.where((e) => e.title == t);
+      if (match.isNotEmpty) mapped.add(match.first);
+    }
+    if (mounted) {
+      setState(() {
+        _recent
+          ..clear()
+          ..addAll(mapped.take(_recentMax));
+      });
+    }
+  }
+
+  Future<void> _persistRecent() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_recentKey, _recent.map((e) => e.title).toList());
+  }
+
+  void _markRecent(_Exercise e) {
+    _recent.removeWhere((x) => x.title == e.title);
+    _recent.insert(0, e);
+    if (_recent.length > _recentMax) {
+      _recent.removeRange(_recentMax, _recent.length);
+    }
+    setState(() {}); // reflect UI immediately
+    _persistRecent(); // persist in the background
+  }
+
   BoxDecoration _bg(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
     return BoxDecoration(
@@ -31,13 +76,6 @@ class _ExercisesPageState extends State<ExercisesPage> {
             : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
       ),
     );
-  }
-
-  double _topPadding(BuildContext context) {
-    final status = MediaQuery.of(context).padding.top;
-    const appBar = kToolbarHeight;
-    const extra = 24.0;
-    return status + appBar + extra;
   }
 
   List<_Exercise> get _filtered {
@@ -57,7 +95,6 @@ class _ExercisesPageState extends State<ExercisesPage> {
     const green = Color(0xFF0D7C66);
 
     return Scaffold(
-      // Header like Affirmations: opaque, nothing visible behind
       extendBodyBehindAppBar: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -73,62 +110,63 @@ class _ExercisesPageState extends State<ExercisesPage> {
       body: Container(
         decoration: _bg(context),
         child: SafeArea(
-          top: false,
           child: ListView(
-            // regular top padding since we no longer draw behind the app bar
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
-              // Search + filter row
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.78),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.black12),
-                      ),
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          icon: Icon(Icons.search_rounded),
-                          hintText: 'Search exercises or conditions',
-                          border: InputBorder.none,
-                        ),
-                        onChanged: (v) => setState(() => _query = v),
-                      ),
-                    ),
+              // Search
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.78),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    icon: Icon(Icons.search_rounded),
+                    hintText: 'Search exercises or conditions',
+                    border: InputBorder.none,
                   ),
-                  const SizedBox(width: 10),
-                  PopupMenuButton<String>(
-                    tooltip: 'Filter',
-                    onSelected: (v) => setState(() => _filter = v),
-                    itemBuilder: (c) => _tags
-                        .map((t) => PopupMenuItem<String>(value: t, child: Text(t)))
-                        .toList(),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.78),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.black12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.filter_alt_rounded),
-                          const SizedBox(width: 6),
-                          Text(_filter, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.arrow_drop_down_rounded),
-                        ],
-                      ),
-                    ),
-                  )
-                ],
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Professional filter bar (horizontal chips) — NO ICONS
+              _FilterChipsBar(
+                tags: _tags,
+                selected: _filter,
+                onSelected: (v) => setState(() => _filter = v),
               ),
 
               const SizedBox(height: 12),
+
+              // Recently used quick access (persists across visits)
+              if (_recent.isNotEmpty) ...[
+                const Text(
+                  'Recently used',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 88,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _recent.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      final ex = _recent[i];
+                      return _RecentPill(
+                        title: ex.title,
+                        minutes: ex.minutes,
+                        onTap: () => _openFromRecent(ex),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Count
               Text(
@@ -140,13 +178,21 @@ class _ExercisesPageState extends State<ExercisesPage> {
               // Cards
               ..._filtered.map((e) => _ExerciseCard(
                     exercise: e,
-                    onPlay: () => _openPlayer(e),
+                    onPlay: () {
+                      _markRecent(e);
+                      _openPlayer(e);
+                    },
                   )),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _openFromRecent(_Exercise e) {
+    _markRecent(e); // keep at front
+    _openPlayer(e);
   }
 
   Future<void> _openPlayer(_Exercise e) async {
@@ -157,6 +203,127 @@ class _ExercisesPageState extends State<ExercisesPage> {
       builder: (ctx) {
         return _PlayerSheet(exercise: e);
       },
+    );
+  }
+}
+
+/* ---------- filter chips without icons ---------- */
+class _FilterChipsBar extends StatelessWidget {
+  const _FilterChipsBar({
+    required this.tags,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> tags;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          for (final t in tags) ...[
+            _ChipButton(
+              label: t,
+              selected: t == selected,
+              onTap: () => onSelected(t),
+            ),
+            const SizedBox(width: 8),
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+class _ChipButton extends StatelessWidget {
+  const _ChipButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? const Color(0xFF0D7C66) : Colors.white.withOpacity(.78);
+    final fg = selected ? Colors.white : Colors.black87;
+    return Material(
+      color: bg,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/* ---------- recent pills ---------- */
+class _RecentPill extends StatelessWidget {
+  const _RecentPill({
+    required this.title,
+    required this.minutes,
+    required this.onTap,
+  });
+
+  final String title;
+  final int minutes;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF0D7C66);
+    return Container(
+      width: 220,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            label: Text('${minutes}m'),
+            style: FilledButton.styleFrom(
+              backgroundColor: green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              shape: const StadiumBorder(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

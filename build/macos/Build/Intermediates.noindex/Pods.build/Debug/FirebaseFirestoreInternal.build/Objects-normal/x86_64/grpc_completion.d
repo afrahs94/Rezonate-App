@@ -1,0 +1,32 @@
+dependencies: \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseFirestoreInternal/Firestore/core/src/remote/grpc_completion.cc \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseFirestoreInternal/Firestore/core/src/remote/grpc_completion.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseFirestoreInternal/Firestore/core/src/util/async_queue.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseFirestoreInternal/Firestore/core/src/util/executor.h \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/FirebaseFirestoreInternal/Firestore/core/src/util/status_fwd.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/support/byte_buffer.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/byte_buffer.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/impl/grpc_types.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/impl/channel_arg_names.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/impl/compression_types.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/port_platform.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/slice.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/impl/slice_type.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/sync.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/time.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/sync_generic.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/atm.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/atm_gcc_atomic.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/support/sync_posix.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/status.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/slice_buffer.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/grpc.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/impl/connectivity_state.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-Core/grpc.framework/Headers/impl/propagation_bits.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/impl/serialization_traits.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/support/config.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/support/slice.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/support/string_ref.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/support/status.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/impl/status.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/gRPC-C++/grpcpp.framework/Headers/support/status_code_enum.h

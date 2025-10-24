@@ -1,0 +1,18 @@
+{
+  "" : {
+    "diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/pasteboard-master.dia",
+    "emit-module-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/pasteboard-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/pasteboard-master-emit-module.dia",
+    "swift-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/pasteboard-master.swiftdeps"
+  },
+  "/Users/saniaahmad/.pub-cache/hosted/pub.dev/pasteboard-0.2.0/macos/Classes/PasteboardPlugin.swift" : {
+    "const-values" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.swiftconstvalues",
+    "dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.d",
+    "diagnostics" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.dia",
+    "index-unit-output-path" : "/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.o",
+    "llvm-bc" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.bc",
+    "object" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.o",
+    "swift-dependencies" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin.swiftdeps",
+    "swiftmodule" : "/Users/saniaahmad/Rezonate-App/build/macos/Build/Intermediates.noindex/Pods.build/Debug/pasteboard.build/Objects-normal/x86_64/PasteboardPlugin~partial.swiftmodule"
+  }
+}

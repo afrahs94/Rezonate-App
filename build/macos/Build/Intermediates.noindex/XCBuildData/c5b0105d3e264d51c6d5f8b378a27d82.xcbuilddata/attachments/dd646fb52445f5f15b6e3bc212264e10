@@ -1,0 +1,5 @@
+
+module pasteboard.Swift {
+  header "pasteboard-Swift.h"
+  requires objc
+}

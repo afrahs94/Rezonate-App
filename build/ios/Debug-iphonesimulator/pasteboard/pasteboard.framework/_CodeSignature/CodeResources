@@ -10,7 +10,7 @@
 		</data>
 		<key>Headers/pasteboard-Swift.h</key>
 		<data>
-		bzlcdP19RwmxZJRwl/an8eULczk=
+		IdJVtmDGq/pe9NhgzTAWuI1DPes=
 		</data>
 		<key>Headers/pasteboard-umbrella.h</key>
 		<data>
@@ -18,7 +18,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		GPBBBLNyQjfweJN0dA5YAOEVmuI=
+		MVyG6Sw+zDul8/UcQyj0MP5SIBA=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -26,11 +26,11 @@
 		</data>
 		<key>Modules/pasteboard.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		X6Of90rybUblFptM4fV/dniL+5s=
+		SsuTrevuNxfRuCotHT/FZPZeij0=
 		</data>
 		<key>Modules/pasteboard.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		E1MkhYPqKbUDWPcyHSKHgeI2cCI=
+		KS0Cm06S1mm/VW/r34Zdeg+j+Jc=
 		</data>
 		<key>Modules/pasteboard.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -38,11 +38,11 @@
 		</data>
 		<key>Modules/pasteboard.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		X0gEAJMTqTgbgXksmZ+1PCIqO2Q=
+		0AXgNaqD4NMoksiTlwMoO0OdH0A=
 		</data>
 		<key>Modules/pasteboard.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		Po8xvz5VUjL0zsVM9RQBb/BiBkc=
+		WPA40dskBgK7S8WcD6wavQjamEo=
 		</data>
 		<key>Modules/pasteboard.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -50,11 +50,11 @@
 		</data>
 		<key>Modules/pasteboard.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		lIRK0uLxBZlSE3m4VzSXEvR7C1E=
+		eLQuhHMvERGLBlFAFeqGkuK0oHk=
 		</data>
 		<key>Modules/pasteboard.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		yLhmEcE5hagtlBZWyMpEE4/qiWk=
+		oK26ArSJL4HnabFHJE2Xem73sW4=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -70,7 +70,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			G3iFE6sUNhkFMZghkTSC8hsrm1rSev8FuGqXuLcggAo=
+			0yrhGcvkarpAMycT3JFtpePOfsfUTPPEawmW8RkIH/Y=
 			</data>
 		</dict>
 		<key>Headers/pasteboard-umbrella.h</key>
@@ -91,14 +91,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			8jD1bXhTXZpzPuX/tKXXVrGo8qgffjkhpqAbFhpC+/Y=
+			L7e3HUBB4K7JdzkhTR4RqYeOymZtyuNQwz0qp7JQk0I=
 			</data>
 		</dict>
 		<key>Modules/pasteboard.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			/gvIQUlUpYO5j8sc8UP9Q/4zlxhUJefkvuW1Q7ucUlk=
+			t4wQ7hTk5W0klMbAZ5oWl+60KWl3iSOfRm8r17L0swo=
 			</data>
 		</dict>
 		<key>Modules/pasteboard.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -112,14 +112,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			G0dOT0n4+iZe8mVrEMwSCK2YLIsuhLcTZS6XGUXiWws=
+			1Ej3Pvt5j2e6in/mGVz+xHMGdoVzMBTr7GBr0i6Q44k=
 			</data>
 		</dict>
 		<key>Modules/pasteboard.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			0KTXfFnYuUCXo/1DBeXmsFMWMGDWodDkLHQoMTbKta0=
+			aZfS73ZrD5q1/vxK93S9s+PBcvANeBqY3AeiiQ26HzA=
 			</data>
 		</dict>
 		<key>Modules/pasteboard.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -133,14 +133,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			px7YWAfIwjvAauNAmaNN3N8ljec0ug1I0NGZu3JCMt8=
+			WIB/ZgbXbrP58QqHWEXOWBNTlCmEdzMg31dQkDw+fUY=
 			</data>
 		</dict>
 		<key>Modules/pasteboard.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			rlcBxPboEfQaMb1IXZ8ymxzbfPp/yzIvRoEWmtSTqB4=
+			us8Zf5jrAxjN++PbrOEZIdPDXpssy7dsrxwyZO7ww1g=
 			</data>
 		</dict>
 	</dict>

@@ -22,7 +22,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		bXZh+cbAmfXfRA+EBo8W7cOrZFE=
+		ufaIeadRVN6rbZ/ZgOIjIsaNWIE=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -49,6 +49,10 @@
 	<dict>
 		<key>Headers/CustomPigeonHeader.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			d4/VNhd7yth6ZCWQj0GLU8Q/3sM=
+			</data>
 			<key>hash2</key>
 			<data>
 			IHb0SdLqv/C+ZDyGJL9KQ3TEfjvT1YCWNluCTrUYxyE=
@@ -56,6 +60,10 @@
 		</dict>
 		<key>Headers/FLTFirebaseAuthPlugin.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			vm3cDa9d4L0i+wyMJ+zH0XdvK8I=
+			</data>
 			<key>hash2</key>
 			<data>
 			TOolMc0zFCERh7zKKBTTlHg6CFPDdfxl2d5TzQ8ZGG4=
@@ -63,6 +71,10 @@
 		</dict>
 		<key>Headers/firebase_auth-umbrella.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			fZ/hp9ezkChbwkik6kBcujhX0tg=
+			</data>
 			<key>hash2</key>
 			<data>
 			SF+N7yVkVMm+72Qlxs5rFKlTL4VCBNXBhF7GsI802DI=
@@ -70,6 +82,10 @@
 		</dict>
 		<key>Headers/firebase_auth_messages.g.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			HZQzTtIWc+77ZHVMcAHcK3NinIs=
+			</data>
 			<key>hash2</key>
 			<data>
 			5qzSi/sM5Byyw7NoVeM5PJOA7pNi6Z32C5BYLo5gAtQ=
@@ -77,6 +93,10 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			VF2hxpeww9SFTDbHkpBrdtFvSa8=
+			</data>
 			<key>hash2</key>
 			<data>
 			5nxJPQVpp0nzKk91AXY0jfwD3E1NQnFS7o+M/vrxx1E=
@@ -84,6 +104,10 @@
 		</dict>
 		<key>PrivateHeaders/FLTAuthStateChannelStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			MSiZU03comj6fR+MKqYd1My2wrk=
+			</data>
 			<key>hash2</key>
 			<data>
 			Or90Q2VpS3kkJ9sLg5nIg6az5B3yy+qYhPS6vE2cMjY=
@@ -91,6 +115,10 @@
 		</dict>
 		<key>PrivateHeaders/FLTIdTokenChannelStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			2+L/xMnQPeQdrW13PYFs0nx8urM=
+			</data>
 			<key>hash2</key>
 			<data>
 			j+g05CX5jFAay+qASlVDu0/Nz8CjDVhiyaikt73Sr3g=
@@ -98,6 +126,10 @@
 		</dict>
 		<key>PrivateHeaders/FLTPhoneNumberVerificationStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			SDzCmTu3s/+w3bOJ1WKZQ/ftM64=
+			</data>
 			<key>hash2</key>
 			<data>
 			+bP+DtY3tNlm/m0GRPqMJolMB0apZ4IqsSYY13z83TU=
@@ -105,6 +137,10 @@
 		</dict>
 		<key>PrivateHeaders/PigeonParser.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			T5YFIKI6Y4QtSZLvVQTqblWx90M=
+			</data>
 			<key>hash2</key>
 			<data>
 			wx+WRlC4Dqc6daA17mt96jSzcy9wAnrGbK7IUeZfzq8=

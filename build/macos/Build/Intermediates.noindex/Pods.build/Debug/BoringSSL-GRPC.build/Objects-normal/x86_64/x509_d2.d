@@ -1,0 +1,47 @@
+dependencies: \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Modules/module.modulemap \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/BoringSSL-GRPC/src/crypto/x509/x509_d2.c \
+  /Users/saniaahmad/Rezonate-App/macos/Pods/Target\ Support\ Files/BoringSSL-GRPC/BoringSSL-GRPC-prefix.pch \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/err.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c_standard_library.modulemap \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include/module.modulemap \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/DarwinBasic.modulemap \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/base.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/TargetConditionals.modulemap \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/is_boringssl.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/opensslconf.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/target.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/boringssl_prefix_symbols.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/x509.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/asn1.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/bio.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/buffer.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/buf.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/ex_data.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/stack.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/thread.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/bn.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/cipher.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/conf.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/lhash.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/dh.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/dsa.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/ec.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/ec_key.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/engine.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/ecdh.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/ecdsa.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/evp.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/evp_errors.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/aead.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/base64.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/digest.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/nid.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/obj.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/bytestring.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/span.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/pkcs7.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/pool.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/rsa.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/sha.h \
+  /Users/saniaahmad/Rezonate-App/build/macos/Build/Products/Debug/BoringSSL-GRPC/openssl_grpc.framework/Headers/x509v3_errors.h

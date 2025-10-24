@@ -1,0 +1,5 @@
+
+module emoji_picker_flutter.Swift {
+  header "emoji_picker_flutter-Swift.h"
+  requires objc
+}

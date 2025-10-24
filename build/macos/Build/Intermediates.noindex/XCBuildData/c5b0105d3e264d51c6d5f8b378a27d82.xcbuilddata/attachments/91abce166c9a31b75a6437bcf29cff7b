@@ -1,0 +1,4 @@
+
+module local_auth_darwin.__Swift {
+  exclude header "local_auth_darwin-Swift.h"
+}

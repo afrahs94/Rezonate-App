@@ -1,0 +1,60 @@
+{
+  "main_library": {
+    "exported_symbols": [
+      {
+        "data": {
+          "global": [
+            "_$s10pasteboard16PasteboardPluginCACycfc",
+            "_$s10pasteboard16PasteboardPluginCACycfC",
+            "_$s10pasteboard16PasteboardPluginCN",
+            "_pasteboardVersionNumber",
+            "_$sSo7NSImageC10pasteboardE3png10Foundation4DataVSgvg",
+            "_pasteboardVersionString",
+            "_$s10pasteboard16PasteboardPluginC6handle_6resultySo17FlutterMethodCallC_yypSgctF",
+            "_$s10pasteboard16PasteboardPluginC5files33_EF6AE26FFA719A82B9CD7C4AC7238769LL6resultyyypSgXE_tF",
+            "_$s10pasteboard16PasteboardPluginC6handle_6resultySo17FlutterMethodCallC_yypSgctFTq",
+            "_$s10Foundation4DataV10pasteboardE6bitmapSo16NSBitmapImageRepCSgvpMV",
+            "_$s10pasteboard16PasteboardPluginCMa",
+            "_$s10pasteboard16PasteboardPluginCMn",
+            "_$s10pasteboard16PasteboardPluginC5image33_EF6AE26FFA719A82B9CD7C4AC7238769LL6resultyyypSgXE_tF",
+            "_$s10pasteboard16PasteboardPluginCfD",
+            "_$s10pasteboard16PasteboardPluginC8register4withySo07FlutterC9Registrar_p_tFZ",
+            "_$s10Foundation4DataV10pasteboardE6bitmapSo16NSBitmapImageRepCSgvg",
+            "_$s10pasteboard16PasteboardPluginC10writeFiles33_EF6AE26FFA719A82B9CD7C4AC7238769LL_6resultySaySSG_yypSgXEtF",
+            "_$sSo16NSBitmapImageRepC10pasteboardE3png10Foundation4DataVSgvg",
+            "_$sSo16NSBitmapImageRepC10pasteboardE3png10Foundation4DataVSgvpMV",
+            "_$sSo7NSImageC10pasteboardE3png10Foundation4DataVSgvpMV"
+          ],
+          "objc_class": [
+            "_TtC10pasteboard16PasteboardPlugin",
+            "PodsDummy_pasteboard"
+          ]
+        }
+      }
+    ],
+    "flags": [
+      {
+        "attributes": [
+          "not_app_extension_safe"
+        ]
+      }
+    ],
+    "install_names": [
+      {
+        "name": "@rpath/pasteboard.framework/Versions/A/pasteboard"
+      }
+    ],
+    "swift_abi": [
+      {
+        "abi": 7
+      }
+    ],
+    "target_info": [
+      {
+        "min_deployment": "10.15",
+        "target": "x86_64-macos"
+      }
+    ]
+  },
+  "tapi_tbd_version": 5
+}
