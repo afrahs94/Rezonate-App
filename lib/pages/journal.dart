@@ -485,7 +485,7 @@ class _JournalPageState extends State<JournalPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Error: Your reply contains inappropriate language.',
+            'Error: Your post contains inappropriate language.',
             style: const TextStyle(fontSize: 15),
           ),
           backgroundColor: Colors.redAccent,
@@ -2300,52 +2300,39 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
                         ),
               ),
               const SizedBox(width: 8),
+
               Expanded(
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 10,
-                      ),
-                      child: RichText(
-                        text: TextSpan(
-                          children: _highlightSpans(
-                            widget.controller.text,
-                            TextStyle(color: _textPrimary(context)),
-                          ),
-                        ),
-                      ),
+                child: Padding(
+                  padding: padding,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    enableSuggestions: true,
+                    autocorrect: true,
+                    textInputAction:
+                        widget.compact
+                            ? TextInputAction.send
+                            : TextInputAction.newline,
+                    onSubmitted: (_) => widget.onSubmit(),
+                    cursorColor: _teal,
+                    style: TextStyle(
+                      color: _textPrimary(context),
+                      fontSize: 14,
+                      height: 1.2,
                     ),
-                    TextField(
-                      controller: widget.controller,
-                      focusNode: widget.focusNode,
-                      keyboardType: TextInputType.multiline,
-                      minLines: 1,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      enableSuggestions: true,
-                      autocorrect: true,
-                      onSubmitted: (_) => widget.onSubmit(),
-                      cursorColor: _teal,
-                      style: const TextStyle(
-                        color: Colors.transparent,
-                        height: 1.2,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Write a reply…',
-                        border: InputBorder.none,
-                        isDense: true,
-                        filled: false,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 10,
-                        ),
-                      ),
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      border: InputBorder.none,
+                      isDense: true,
+                      filled: false,
+                      contentPadding: padding,
                     ),
-                  ],
+                  ),
                 ),
               ),
+
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: widget.onSubmit,
@@ -2390,46 +2377,33 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
           child: Row(
             children: [
               Expanded(
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: padding,
-                      child: RichText(
-                        text: TextSpan(
-                          children: _highlightSpans(
-                            widget.controller.text,
-                            TextStyle(color: _textPrimary(context)),
-                          ),
-                        ),
-                      ),
+                child: Padding(
+                  padding: padding,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    enableSuggestions: true,
+                    autocorrect: true,
+                    textInputAction:
+                        widget.compact
+                            ? TextInputAction.send
+                            : TextInputAction.newline,
+                    onSubmitted: (_) => widget.onSubmit(),
+                    cursorColor: _teal,
+                    style: TextStyle(color: _textPrimary(context), height: 1.2),
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      border: InputBorder.none,
+                      isDense: true,
+                      filled: false,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     ),
-                    TextField(
-                      controller: widget.controller,
-                      focusNode: widget.focusNode,
-                      keyboardType: TextInputType.multiline,
-                      minLines: 1,
-                      maxLines: 8,
-                      textCapitalization: TextCapitalization.sentences,
-                      enableSuggestions: true,
-                      autocorrect: true,
-                      textInputAction: TextInputAction.newline,
-                      onSubmitted: (_) => widget.onSubmit(),
-                      cursorColor: _teal,
-                      style: const TextStyle(
-                        color: Colors.transparent,
-                        height: 1.2,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: widget.hintText,
-                        border: InputBorder.none,
-                        isDense: true,
-                        filled: false,
-                        contentPadding: padding,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+
               Theme(
                 data: Theme.of(context).copyWith(
                   splashColor: Colors.white.withOpacity(.12),
@@ -2657,21 +2631,44 @@ class _ReplyThreadState extends State<_ReplyThread> {
                                     );
                                   }
                                   if (v == 'delete-reply') {
-                                    await widget.public
-                                        .doc(widget.postId)
-                                        .collection('replies')
-                                        .doc(r.id)
-                                        .delete();
+                                    final postRef = widget.public.doc(
+                                      widget.postId,
+                                    );
+                                    final repliesCol = postRef.collection(
+                                      'replies',
+                                    );
+
+                                    // Find all nested replies under this one
+                                    final nested =
+                                        await repliesCol
+                                            .where('parentId', isEqualTo: r.id)
+                                            .get();
+
+                                    WriteBatch batch =
+                                        FirebaseFirestore.instance.batch();
+
+                                    // Delete the parent reply
+                                    batch.delete(repliesCol.doc(r.id));
+
+                                    // Delete all children (nested replies)
+                                    for (final child in nested.docs) {
+                                      batch.delete(repliesCol.doc(child.id));
+                                    }
+
+                                    // Commit all deletes
+                                    await batch.commit();
+
+                                    // Decrement replyCount by the total number deleted
+                                    final totalDeleted = 1 + nested.docs.length;
                                     try {
-                                      await widget.public
-                                          .doc(widget.postId)
-                                          .update({
-                                            'replyCount': FieldValue.increment(
-                                              -1,
-                                            ),
-                                          });
+                                      await postRef.update({
+                                        'replyCount': FieldValue.increment(
+                                          -totalDeleted,
+                                        ),
+                                      });
                                     } catch (_) {}
                                   }
+
                                   if (v == 'block-user') {
                                     await widget.onBlock(replyUid);
                                   }
