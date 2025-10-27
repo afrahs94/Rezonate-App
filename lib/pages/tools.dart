@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home.dart';
 import 'journal.dart';
-import 'vision_board.dart';
+import 'sounds.dart';
 import 'habit_tracker.dart';
 import 'sleep_tracker.dart';
 import 'meditation.dart';
@@ -463,7 +463,7 @@ final _items = <_ToolItem>[
   const _ToolItem(
     'Sounds',
     Icons.music_note_rounded,
-    VisionBoardPage(),
+    SoundsPage(),
   ),
   const _ToolItem(
     'Habit Tracker',

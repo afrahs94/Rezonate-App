@@ -46,7 +46,7 @@
 		</data>
 		<key>Frameworks/App.framework/App</key>
 		<data>
-		vik78StFBOu9vUSQgTBRSNKUjmo=
+		VLZKxE3cD4b9ZsWpZqPka9vBZjE=
 		</data>
 		<key>Frameworks/App.framework/Info.plist</key>
 		<data>
@@ -54,7 +54,7 @@
 		</data>
 		<key>Frameworks/App.framework/_CodeSignature/CodeResources</key>
 		<data>
-		ustaYqOKgbEn+HgmGQ5x8Ahcgzo=
+		spJvFq0/GnytD6GRkTpupBteV0g=
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/AssetManifest.bin</key>
 		<data>
@@ -70,7 +70,7 @@
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/NOTICES.Z</key>
 		<data>
-		apVRoINhkT9kcyz2Ox99pZUWsIY=
+		Q6ZpNSDDiYgiDUJL2WVpx6AFhwQ=
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/NativeAssetsManifest.json</key>
 		<data>
@@ -94,7 +94,7 @@
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/kernel_blob.bin</key>
 		<data>
-		hSXeBN7y/JSLW5THDY53D1a6Fb8=
+		oYAjUEzH8gaalBOj0lFxYHC5ZUI=
 		</data>
 		<key>Frameworks/App.framework/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf</key>
 		<data>
@@ -814,6 +814,18 @@
 		<data>
 		1GKSpq20OoFIxAuJBtHAw+vMZO8=
 		</data>
+		<key>Frameworks/audioplayers_darwin.framework/Info.plist</key>
+		<data>
+		4cezP/lCjrpS27t4f9SgLafOqbE=
+		</data>
+		<key>Frameworks/audioplayers_darwin.framework/_CodeSignature/CodeResources</key>
+		<data>
+		f/X8LpnA7gNrsis9nd5Ni2v7i4s=
+		</data>
+		<key>Frameworks/audioplayers_darwin.framework/audioplayers_darwin</key>
+		<data>
+		NYZ9r/wBeqCWPLPer0N1DGVu7Xg=
+		</data>
 		<key>Frameworks/device_info_plus.framework/Info.plist</key>
 		<data>
 		WEHHxCsHEZWHSe9rbofuHaVU68k=
@@ -1042,6 +1054,26 @@
 		<data>
 		qow+YRsFKTe2PWwqF++rNeILMMw=
 		</data>
+		<key>Frameworks/path_provider_foundation.framework/Info.plist</key>
+		<data>
+		zwANwg0K5mOVX2jt8f+cdHpr7JM=
+		</data>
+		<key>Frameworks/path_provider_foundation.framework/_CodeSignature/CodeResources</key>
+		<data>
+		jqHx0yJAieyizVl2MIwwEiulTBQ=
+		</data>
+		<key>Frameworks/path_provider_foundation.framework/path_provider_foundation</key>
+		<data>
+		7lyMtwaWBQ3+ns3ApEIlv7BjJ/k=
+		</data>
+		<key>Frameworks/path_provider_foundation.framework/path_provider_foundation_privacy.bundle/Info.plist</key>
+		<data>
+		pvvwH75KYbk4vXrkCkx8qNfzkBg=
+		</data>
+		<key>Frameworks/path_provider_foundation.framework/path_provider_foundation_privacy.bundle/PrivacyInfo.xcprivacy</key>
+		<data>
+		/LX0ZlwxwIAIhjZaDB8EiH5KpXA=
+		</data>
 		<key>Frameworks/shared_preferences_foundation.framework/Info.plist</key>
 		<data>
 		pE4cD4Wweb7pL062m35/B4+m/ps=
@@ -1128,11 +1160,11 @@
 		</data>
 		<key>Runner.debug.dylib</key>
 		<data>
-		r0EZGqSjseBHvFeO2Y9ZoiPkC6Y=
+		31p/CFxnoUXPz7WRZWC/X4gcOto=
 		</data>
 		<key>__preview.dylib</key>
 		<data>
-		IdM1sVGpfdEed+MxLF7YfoVAOUA=
+		y8Cp7nyUOFIRfhyAyzgXRYQK9oQ=
 		</data>
 		<key>firebase_messaging_Privacy.bundle/Info.plist</key>
 		<data>
@@ -1223,7 +1255,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			IgkD8hDa3xz9iGgioYJfE5CLAjyLJJ9OGCDa2w+uSTI=
+			Sa4aD+JndjkTc9ZvrG7Y32JjS7bVVzkdE/30cJW2dko=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/Info.plist</key>
@@ -1237,7 +1269,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			+uHON00KyRm57JVYAZ9MGk+2XNoLEx7tDRAf4njYgKs=
+			52ozlbbmnRP1QMbSsu4qDeD8NWF74BoQPPAzQ1aizOU=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/flutter_assets/AssetManifest.bin</key>
@@ -1265,7 +1297,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			tKKd7DMYvO1jdQJoxvmEkPGv4E9whKfY5z6zoVa8Sfg=
+			aQBb4tLmocQnv+SwyPTi2HHuQsys8NWbl+LupWg7vpg=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/flutter_assets/NativeAssetsManifest.json</key>
@@ -1307,7 +1339,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			xCAL+yYeQE39yHQ7CTvAk8dKQe9ndLZjIEgTMrOj8LU=
+			UTqm1eWP71Kudo3Cyip2DzIxwfwNRZFj5lb8AopYPDI=
 			</data>
 		</dict>
 		<key>Frameworks/App.framework/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf</key>
@@ -2364,6 +2396,27 @@
 			8jIheunt8qtqVBoo7/UM/gUwPCtHVv/5XMpy7MvDuJg=
 			</data>
 		</dict>
+		<key>Frameworks/audioplayers_darwin.framework/Info.plist</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			bZ5HdCndnMbL0LQ3UA9OhrxBnG/tHAK/OpA51rxtogQ=
+			</data>
+		</dict>
+		<key>Frameworks/audioplayers_darwin.framework/_CodeSignature/CodeResources</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			wln4m5lW/m1tljcOcp6tdH2pzReRQvKO1NxFss4JCjw=
+			</data>
+		</dict>
+		<key>Frameworks/audioplayers_darwin.framework/audioplayers_darwin</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			3b+ulDfYkP8sMF++QIfz1LoJLcKsKGtY8t74vAp8KWw=
+			</data>
+		</dict>
 		<key>Frameworks/device_info_plus.framework/Info.plist</key>
 		<dict>
 			<key>hash2</key>
@@ -2763,6 +2816,41 @@
 			vIPn7W0pCxhZsWWfxlPUOFfy9vqt47oBNWwU/dcmfz8=
 			</data>
 		</dict>
+		<key>Frameworks/path_provider_foundation.framework/Info.plist</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			hu8YHp7HvPm/cW+6UiV1HsFsj1ceCm3J0Dbm5NYm1U8=
+			</data>
+		</dict>
+		<key>Frameworks/path_provider_foundation.framework/_CodeSignature/CodeResources</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Nk0Ylr0aE+AFO6Wcru5WS8dIfVN7Su5jR4g+GiOj1Vc=
+			</data>
+		</dict>
+		<key>Frameworks/path_provider_foundation.framework/path_provider_foundation</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Zi3x0TY3xRTrKwz/yj8nFwPvsrguG0JTMXTR0fM0ZWs=
+			</data>
+		</dict>
+		<key>Frameworks/path_provider_foundation.framework/path_provider_foundation_privacy.bundle/Info.plist</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			NV0GkCcOGzd/C5wyam40NkAUGlCy2WJk8AfRF/C3wjg=
+			</data>
+		</dict>
+		<key>Frameworks/path_provider_foundation.framework/path_provider_foundation_privacy.bundle/PrivacyInfo.xcprivacy</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			bS2g2NkwIn1CjB2TY7CtbjoS4sm2jFzilxWKdBL8jDE=
+			</data>
+		</dict>
 		<key>Frameworks/shared_preferences_foundation.framework/Info.plist</key>
 		<dict>
 			<key>hash2</key>
@@ -2900,14 +2988,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			DXVMHvyWDpXfXe5R6OLXXgz6mMnorc7OGw9nW7u9SOs=
+			MnYULw/da4BZ23blOof1mS3qQ8AYa/ZVBV0jeMMWVQ0=
 			</data>
 		</dict>
 		<key>__preview.dylib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			rfc9UYGHwSoAufdjT5UOUVkwvOrX2cYJbCYw+c3qnvk=
+			lyMshzLOTbrPjFZHvOhV26QD6hXhlm47ONufpF4uaPA=
 			</data>
 		</dict>
 		<key>firebase_messaging_Privacy.bundle/Info.plist</key>
