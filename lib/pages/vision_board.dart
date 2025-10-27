@@ -22,8 +22,8 @@ class BoardImage {
   String storagePath;
   String? url;
   String? localPath; // runtime-only
-  Offset pos;        // center (canvas coords)
-  double scaleX;     // free resize (independent axes)
+  Offset pos; // center (canvas coords)
+  double scaleX; // free resize (independent axes)
   double scaleY;
   double rotation;
   BoardShape shape;
@@ -47,18 +47,18 @@ class BoardImage {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'storagePath': storagePath,
-        'url': url,
-        'pos': _offset(pos),
-        'scaleX': scaleX,
-        'scaleY': scaleY,
-        'scale': (scaleX + scaleY) / 2, // legacy compatibility
-        'rotation': rotation,
-        'shape': shape.name,
-        'baseW': baseW,
-        'baseH': baseH,
-      };
+    'id': id,
+    'storagePath': storagePath,
+    'url': url,
+    'pos': _offset(pos),
+    'scaleX': scaleX,
+    'scaleY': scaleY,
+    'scale': (scaleX + scaleY) / 2, // legacy compatibility
+    'rotation': rotation,
+    'shape': shape.name,
+    'baseW': baseW,
+    'baseH': baseH,
+  };
 
   static BoardImage fromMap(Map<String, dynamic> m) {
     final legacy = (m['scale'] as num?)?.toDouble() ?? 1.0;
@@ -99,22 +99,22 @@ class BoardText {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'text': text,
-        'color': color,
-        'pos': _offset(pos),
-        'scale': scale,
-        'rotation': rotation,
-      };
+    'id': id,
+    'text': text,
+    'color': color,
+    'pos': _offset(pos),
+    'scale': scale,
+    'rotation': rotation,
+  };
 
   static BoardText fromMap(Map<String, dynamic> m) => BoardText(
-        id: m['id'],
-        text: m['text'] ?? '',
-        color: (m['color'] as num).toInt(),
-        pos: _toOffset(Map<String, dynamic>.from(m['pos'])),
-        scale: (m['scale'] as num?)?.toDouble() ?? 1,
-        rotation: (m['rotation'] as num?)?.toDouble() ?? 0,
-      );
+    id: m['id'],
+    text: m['text'] ?? '',
+    color: (m['color'] as num).toInt(),
+    pos: _toOffset(Map<String, dynamic>.from(m['pos'])),
+    scale: (m['scale'] as num?)?.toDouble() ?? 1,
+    rotation: (m['rotation'] as num?)?.toDouble() ?? 0,
+  );
 }
 
 class DrawStroke {
@@ -125,18 +125,19 @@ class DrawStroke {
   DrawStroke({required this.color, required this.width, required this.points});
 
   Map<String, dynamic> toMap() => {
-        'color': color,
-        'width': width,
-        'points': points.map(_offset).toList(),
-      };
+    'color': color,
+    'width': width,
+    'points': points.map(_offset).toList(),
+  };
 
   static DrawStroke fromMap(Map<String, dynamic> m) => DrawStroke(
-        color: (m['color'] as num).toInt(),
-        width: (m['width'] as num).toDouble(),
-        points: (m['points'] as List)
+    color: (m['color'] as num).toInt(),
+    width: (m['width'] as num).toDouble(),
+    points:
+        (m['points'] as List)
             .map((e) => _toOffset(Map<String, dynamic>.from(e)))
             .toList(),
-      );
+  );
 }
 
 class VisionBoardPage extends StatefulWidget {
@@ -205,9 +206,14 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       gradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: dark
-            ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-            : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+        colors:
+            dark
+                ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+                : const [
+                  Color(0xFFFFFFFF),
+                  Color(0xFFD7C3F1),
+                  Color(0xFF41B3A2),
+                ],
       ),
     );
   }
@@ -229,7 +235,10 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     );
     stream.addListener(l);
     try {
-      return await completer.future.timeout(const Duration(seconds: 5), onTimeout: () => false);
+      return await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => false,
+      );
     } catch (_) {
       return false;
     }
@@ -248,15 +257,18 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       }
 
       final m = snap.data()!;
-      final imgs = (m['images'] as List? ?? [])
-          .map((e) => BoardImage.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
-      final txts = (m['texts'] as List? ?? [])
-          .map((e) => BoardText.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
-      final dr = (m['strokes'] as List? ?? [])
-          .map((e) => DrawStroke.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+      final imgs =
+          (m['images'] as List? ?? [])
+              .map((e) => BoardImage.fromMap(Map<String, dynamic>.from(e)))
+              .toList();
+      final txts =
+          (m['texts'] as List? ?? [])
+              .map((e) => BoardText.fromMap(Map<String, dynamic>.from(e)))
+              .toList();
+      final dr =
+          (m['strokes'] as List? ?? [])
+              .map((e) => DrawStroke.fromMap(Map<String, dynamic>.from(e)))
+              .toList();
 
       bool changed = false;
       for (int i = 0; i < imgs.length; i++) {
@@ -347,22 +359,20 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     required double scaleY,
   }) {
     final size = MediaQuery.sizeOf(context);
-    final canvas = Size(size.width, size.height);
-    final center = _visibleCenter(canvas, context);
 
     final halfW = (baseSize.width * scaleX) / 2;
     final halfH = (baseSize.height * scaleY) / 2;
 
-    final leftMin = -center.dx + halfW + 8;
-    final rightMax = size.width - center.dx - halfW - 8;
+    // prevent going behind header & toolbar
+    final topLimit = _topBarrierPx(context) + halfH;
+    final bottomLimit = size.height - _bottomBarrierPx(context) - halfH;
 
-    final topMinDy = _topBarrierPx(context) - center.dy + halfH;
-    final bottomMaxDy =
-        (size.height - _bottomBarrierPx(context)) - center.dy - halfH;
-
-    final clampedX = pos.dx.clamp(leftMin, rightMax);
-    final clampedY = pos.dy.clamp(topMinDy, bottomMaxDy);
-    return Offset(clampedX, clampedY);
+    // only clamp vertically, not horizontally
+    final clampedY = pos.dy.clamp(
+      topLimit - size.height / 6,
+      bottomLimit - size.height / 6,
+    );
+    return Offset(pos.dx, clampedY);
   }
 
   void _clampCurrentSelection() {
@@ -529,7 +539,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     if (_mode != EditMode.draw) return;
     final localY = d.localPosition.dy;
     if (localY <= _topBarrierPx(context) ||
-        localY >= (canvas.height - _bottomBarrierPx(context))) return;
+        localY >= (canvas.height - _bottomBarrierPx(context)))
+      return;
 
     final center = _visibleCenter(canvas, context);
     _activeStroke = DrawStroke(
@@ -544,7 +555,8 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     if (_mode != EditMode.draw || _activeStroke == null) return;
     final localY = d.localPosition.dy;
     if (localY <= _topBarrierPx(context) ||
-        localY >= (canvas.height - _bottomBarrierPx(context))) return;
+        localY >= (canvas.height - _bottomBarrierPx(context)))
+      return;
 
     final center = _visibleCenter(canvas, context);
     _activeStroke!.points.add(d.localPosition - center);
@@ -566,57 +578,64 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add text'),
-        content: TextField(
-          controller: ctl,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Your text'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final txt = ctl.text.trim();
-              if (txt.isNotEmpty) {
-                final safePos = _clampPosForBox(
-                  pos: const Offset(0, 0),
-                  baseSize: const Size(160, 48),
-                  scaleX: 1.2,
-                  scaleY: 1.2,
-                );
-                _texts.add(BoardText(
-                  id: 'txt_${DateTime.now().microsecondsSinceEpoch}',
-                  text: txt,
-                  color: chosen.value,
-                  pos: safePos,
-                  scale: 1.2,
-                  rotation: 0,
-                ));
-                setState(() {});
-                _saveBoard();
-              }
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D7C66),
-              foregroundColor: Colors.white,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Add text'),
+            content: TextField(
+              controller: ctl,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Your text'),
             ),
-            child: const Text('Add'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final txt = ctl.text.trim();
+                  if (txt.isNotEmpty) {
+                    final safePos = _clampPosForBox(
+                      pos: const Offset(0, 0),
+                      baseSize: const Size(160, 48),
+                      scaleX: 1.2,
+                      scaleY: 1.2,
+                    );
+                    _texts.add(
+                      BoardText(
+                        id: 'txt_${DateTime.now().microsecondsSinceEpoch}',
+                        text: txt,
+                        color: chosen.value,
+                        pos: safePos,
+                        scale: 1.2,
+                        rotation: 0,
+                      ),
+                    );
+                    setState(() {});
+                    _saveBoard();
+                  }
+                  Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D7C66),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Add'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   Future<void> _changeShape() async {
     if (_selectedImage == null) return;
     final current = _images[_selectedImage!].shape;
-    final next = {
-      BoardShape.square: BoardShape.rounded,
-      BoardShape.rounded: BoardShape.circle,
-      BoardShape.circle: BoardShape.square,
-    }[current]!;
+    final next =
+        {
+          BoardShape.square: BoardShape.rounded,
+          BoardShape.rounded: BoardShape.circle,
+          BoardShape.circle: BoardShape.square,
+        }[current]!;
     setState(() => _images[_selectedImage!].shape = next);
     _saveBoard();
   }
@@ -641,50 +660,64 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
     double temp = _penWidth;
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Stroke width'),
-        content: StatefulBuilder(
-          builder: (context, setSB) => Slider(
-            value: temp,
-            min: 1,
-            max: 20,
-            onChanged: (v) => setSB(() => temp = v),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () { setState(() => _penWidth = temp); Navigator.pop(context); },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D7C66),
-              foregroundColor: Colors.white,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Stroke width'),
+            content: StatefulBuilder(
+              builder:
+                  (context, setSB) => Slider(
+                    value: temp,
+                    min: 1,
+                    max: 20,
+                    onChanged: (v) => setSB(() => temp = v),
+                  ),
             ),
-            child: const Text('Apply'),
-          )
-        ],
-      ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _penWidth = temp);
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D7C66),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
     );
   }
 
   Future<void> _confirmStartOver() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Start over?'),
-        content: const Text(
-          'This will clear all photos, text, and drawings from your board. '
-          'Your images in storage will remain. Continue?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D7C66),
-              foregroundColor: Colors.white),
-            child: const Text('Start over'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Start over?'),
+            content: const Text(
+              'This will clear all photos, text, and drawings from your board. '
+              'Your images in storage will remain. Continue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D7C66),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Start over'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (ok == true) {
       setState(() {
@@ -699,9 +732,9 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
   }
 
   void _clearSelection() => setState(() {
-        _selectedImage = null;
-        _selectedText = null;
-      });
+    _selectedImage = null;
+    _selectedText = null;
+  });
 
   Offset _visibleCenter(Size canvas, BuildContext context) {
     final mq = MediaQuery.of(context);
@@ -718,7 +751,11 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
       appBar: AppBar(
         title: const Text(
           'Vision Board',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .2,
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
@@ -754,252 +791,282 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
         decoration: _bg(context),
         child: SafeArea(
           top: false,
-          child: LayoutBuilder(builder: (context, cons) {
-            final canvas = Size(cons.maxWidth, cons.maxHeight);
-            final center = _visibleCenter(canvas, context);
+          child: LayoutBuilder(
+            builder: (context, cons) {
+              final canvas = Size(cons.maxWidth, cons.maxHeight);
+              final center = _visibleCenter(canvas, context);
 
-            if (_loading) return const Center(child: CircularProgressIndicator());
+              if (_loading)
+                return const Center(child: CircularProgressIndicator());
 
-            return Stack(
-              children: [
-                // background hit detector
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _clearSelection,
-                    onPanStart: (d) => _onPanStart(d, canvas),
-                    onPanUpdate: (d) => _onPanUpdate(d, canvas),
-                    onPanEnd: (_) => _onPanEnd(canvas),
-                    child: const SizedBox.shrink(),
+              return Stack(
+                children: [
+                  // background hit detector
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _clearSelection,
+                      onPanStart: (d) => _onPanStart(d, canvas),
+                      onPanUpdate: (d) => _onPanUpdate(d, canvas),
+                      onPanEnd: (_) => _onPanEnd(canvas),
+                      child: const SizedBox.shrink(),
+                    ),
                   ),
-                ),
 
-                // IMAGES
-                ...List.generate(_images.length, (i) {
-                  final it = _images[i];
-                  final clampedPos = _clampPosForBox(
-                    pos: it.pos,
-                    baseSize: Size(it.baseW, it.baseH),
-                    scaleX: it.scaleX,
-                    scaleY: it.scaleY,
-                  );
-                  if (clampedPos != it.pos) it.pos = clampedPos;
+                  // IMAGES
+                  ...List.generate(_images.length, (i) {
+                    final it = _images[i];
+                    final clampedPos = _clampPosForBox(
+                      pos: it.pos,
+                      baseSize: Size(it.baseW, it.baseH),
+                      scaleX: it.scaleX,
+                      scaleY: it.scaleY,
+                    );
+                    if (clampedPos != it.pos) it.pos = clampedPos;
 
-                  return _Transformable(
-                    key: ValueKey('img_$i'),
-                    canvasCenter: center,
-                    pos: it.pos,
-                    scaleX: it.scaleX,
-                    scaleY: it.scaleY,
-                    rotation: it.rotation,
-                    baseSize: Size(it.baseW, it.baseH),
-                    selected: _selectedImage == i,
-                    onTap: () {
-                      setState(() {
+                    return _Transformable(
+                      key: ValueKey('img_$i'),
+                      canvasCenter: center,
+                      pos: it.pos,
+                      scaleX: it.scaleX,
+                      scaleY: it.scaleY,
+                      rotation: it.rotation,
+                      baseSize: Size(it.baseW, it.baseH),
+                      selected: _selectedImage == i,
+                      onTap: () {
+                        setState(() {
+                          _selectedImage = i;
+                          _selectedText = null;
+                        });
+                      },
+                      onStart: (focal) {
                         _selectedImage = i;
                         _selectedText = null;
-                      });
-                    },
-                    onStart: (focal) {
-                      _selectedImage = i;
-                      _selectedText = null;
-                      _startTransform(focal, isImage: true);
-                    },
-                    onUpdate: (d) => _updateTransform(d, isImage: true),
-                    onEnd: _finishTransform,
-                    onCornerStart: () {
-                      _startScaleX = it.scaleX;
-                      _startScaleY = it.scaleY;
-                    },
-                    onCornerDragLocal: (sign, deltaLocal) {
-                      // current size in *screen* pixels
-                      final w = it.baseW * it.scaleX;
-                      final h = it.baseH * it.scaleY;
+                        _startTransform(focal, isImage: true);
+                      },
+                      onUpdate: (d) => _updateTransform(d, isImage: true),
+                      onEnd: _finishTransform,
+                      onCornerStart: () {
+                        _startScaleX = it.scaleX;
+                        _startScaleY = it.scaleY;
+                      },
+                      onCornerDragLocal: (sign, deltaLocal) {
+                        // current size in *screen* pixels
+                        final w = it.baseW * it.scaleX;
+                        final h = it.baseH * it.scaleY;
 
-                      // Since handles are inverse-transformed, deltaLocal is in the unrotated,
-                      // unscaled box space -> operate directly on w/h.
-                      final dw = sign.dx * deltaLocal.dx;
-                      final dh = sign.dy * deltaLocal.dy;
+                        // Since handles are inverse-transformed, deltaLocal is in the unrotated,
+                        // unscaled box space -> operate directly on w/h.
+                        final dw = sign.dx * deltaLocal.dx;
+                        final dh = sign.dy * deltaLocal.dy;
 
-                      const minW = 40.0, minH = 40.0;
-                      final newW = max(minW, w + dw);
-                      final newH = max(minH, h + dh);
+                        const minW = 40.0, minH = 40.0;
+                        final newW = max(minW, w + dw);
+                        final newH = max(minH, h + dh);
 
-                      // keep opposite corner fixed -> move center by half the delta
-                      final shiftLocal = Offset(
-                        sign.dx * (newW - w) / 2,
-                        sign.dy * (newH - h) / 2,
-                      );
+                        // keep opposite corner fixed -> move center by half the delta
+                        final shiftLocal = Offset(
+                          sign.dx * (newW - w) / 2,
+                          sign.dy * (newH - h) / 2,
+                        );
 
-                      // convert that local shift to screen using rotation only
-                      final a = it.rotation;
-                      final shiftScreen = Offset(
-                        shiftLocal.dx * cos(a) - shiftLocal.dy * sin(a),
-                        shiftLocal.dx * sin(a) + shiftLocal.dy * cos(a),
-                      );
+                        // convert that local shift to screen using rotation only
+                        final a = it.rotation;
+                        final shiftScreen = Offset(
+                          shiftLocal.dx * cos(a) - shiftLocal.dy * sin(a),
+                          shiftLocal.dx * sin(a) + shiftLocal.dy * cos(a),
+                        );
 
-                      it.scaleX = (newW / it.baseW).clamp(.15, 8.0);
-                      it.scaleY = (newH / it.baseH).clamp(.15, 8.0);
+                        it.scaleX = (newW / it.baseW).clamp(.15, 8.0);
+                        it.scaleY = (newH / it.baseH).clamp(.15, 8.0);
 
-                      it.pos = _clampPosForBox(
-                        pos: it.pos + shiftScreen,
-                        baseSize: Size(it.baseW, it.baseH),
-                        scaleX: it.scaleX,
-                        scaleY: it.scaleY,
-                      );
-                      setState(() {});
-                    },
-                    onCornerEnd: _saveBoard,
-                    child: _ImageShape(it: it),
-                  );
-                }),
+                        it.pos = _clampPosForBox(
+                          pos: it.pos + shiftScreen,
+                          baseSize: Size(it.baseW, it.baseH),
+                          scaleX: it.scaleX,
+                          scaleY: it.scaleY,
+                        );
+                        setState(() {});
+                      },
+                      onCornerEnd: _saveBoard,
+                      child: _ImageShape(it: it),
+                    );
+                  }),
 
-                // TEXTS
-                ...List.generate(_texts.length, (i) {
-                  final t = _texts[i];
-                  const base = Size(160, 48);
-                  final clampedPos = _clampPosForBox(
-                    pos: t.pos,
-                    baseSize: base,
-                    scaleX: t.scale,
-                    scaleY: t.scale,
-                  );
-                  if (clampedPos != t.pos) t.pos = clampedPos;
+                  // TEXTS
+                  ...List.generate(_texts.length, (i) {
+                    final t = _texts[i];
+                    const base = Size(160, 48);
+                    final clampedPos = _clampPosForBox(
+                      pos: t.pos,
+                      baseSize: base,
+                      scaleX: t.scale,
+                      scaleY: t.scale,
+                    );
+                    if (clampedPos != t.pos) t.pos = clampedPos;
 
-                  return _TransformableText(
-                    key: ValueKey('txt_$i'),
-                    canvasCenter: center,
-                    pos: t.pos,
-                    scale: t.scale,
-                    rotation: t.rotation,
-                    baseSize: base,
-                    selected: _selectedText == i,
-                    onTap: () {
-                      setState(() {
+                    return _TransformableText(
+                      key: ValueKey('txt_$i'),
+                      canvasCenter: center,
+                      pos: t.pos,
+                      scale: t.scale,
+                      rotation: t.rotation,
+                      baseSize: base,
+                      selected: _selectedText == i,
+                      onTap: () {
+                        setState(() {
+                          _selectedText = i;
+                          _selectedImage = null;
+                        });
+                      },
+                      onStart: (focal) {
                         _selectedText = i;
                         _selectedImage = null;
-                      });
-                    },
-                    onStart: (focal) {
-                      _selectedText = i;
-                      _selectedImage = null;
-                      _startTransform(focal, isImage: false);
-                    },
-                    onUpdate: (d) => _updateTransform(d, isImage: false),
-                    onEnd: _finishTransform,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.85),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                        border: Border.all(
-                          color: (_selectedText == i)
-                              ? const Color(0xFF0D7C66)
-                              : Colors.transparent,
-                          width: 1.4,
+                        _startTransform(focal, isImage: false);
+                      },
+                      onUpdate: (d) => _updateTransform(d, isImage: false),
+                      onEnd: _finishTransform,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                      ),
-                      child: Text(
-                        t.text,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Color(t.color),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-
-                if (_images.isEmpty && !_loading)
-                  Align(
-                    alignment: Alignment.center,
-                    child: ElevatedButton.icon(
-                      onPressed: _addPhotos,
-                      icon: const Icon(Icons.photo_library_rounded),
-                      label: const Text('Add Photos'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D7C66),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                        elevation: 3,
-                      ),
-                    ),
-                  ),
-
-                // Bottom toolbar
-                SafeArea(
-                  top: false,
-                  bottom: true,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(width: 8),
-                            _ModeIcon(
-                              tooltip: 'Move',
-                              selected: _mode == EditMode.move,
-                              icon: Icons.open_with_rounded,
-                              onTap: () => setState(() => _mode = EditMode.move),
-                            ),
-                            const SizedBox(width: 8),
-                            _ModeIcon(
-                              tooltip: 'Draw',
-                              selected: _mode == EditMode.draw,
-                              icon: Icons.brush_rounded,
-                              onTap: () => setState(() => _mode = EditMode.draw),
-                            ),
-                            const SizedBox(width: 8),
-                            _ModeIcon(
-                              tooltip: 'Text',
-                              selected: _mode == EditMode.text,
-                              icon: Icons.text_fields_rounded,
-                              onTap: _promptAddText,
-                            ),
-                            const SizedBox(width: 10),
-                            IconButton(
-                              tooltip: 'Change shape',
-                              onPressed: _selectedImage != null ? _changeShape : null,
-                              icon: const Icon(Icons.change_circle_rounded),
-                            ),
-                            IconButton(
-                              tooltip: 'Delete selected',
-                              onPressed: (_selectedImage != null || _selectedText != null)
-                                  ? _deleteSelected
-                                  : null,
-                              icon: const Icon(Icons.delete_forever_rounded, color: Colors.red),
-                            ),
-                            IconButton(
-                              tooltip: 'Pick color',
-                              onPressed: () async {
-                                final c = await _pickColor(context, initial: _penColor);
-                                if (c != null) setState(() => _penColor = c);
-                              },
-                              icon: CircleAvatar(radius: 14, backgroundColor: _penColor),
-                            ),
-                            IconButton(
-                              tooltip: 'Stroke width',
-                              onPressed: _pickPenWidth,
-                              icon: const Icon(Icons.line_weight_rounded),
-                            ),
-                            const SizedBox(width: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.85),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 6),
                           ],
+                          border: Border.all(
+                            color:
+                                (_selectedText == i)
+                                    ? const Color(0xFF0D7C66)
+                                    : Colors.transparent,
+                            width: 1.4,
+                          ),
+                        ),
+                        child: Text(
+                          t.text,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Color(t.color),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+
+                  if (_images.isEmpty && !_loading)
+                    Align(
+                      alignment: Alignment.center,
+                      child: ElevatedButton.icon(
+                        onPressed: _addPhotos,
+                        icon: const Icon(Icons.photo_library_rounded),
+                        label: const Text('Add Photos'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D7C66),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                          elevation: 3,
+                        ),
+                      ),
+                    ),
+
+                  // Bottom toolbar
+                  SafeArea(
+                    top: false,
+                    bottom: true,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 8),
+                              _ModeIcon(
+                                tooltip: 'Move',
+                                selected: _mode == EditMode.move,
+                                icon: Icons.open_with_rounded,
+                                onTap:
+                                    () => setState(() => _mode = EditMode.move),
+                              ),
+                              const SizedBox(width: 8),
+                              _ModeIcon(
+                                tooltip: 'Draw',
+                                selected: _mode == EditMode.draw,
+                                icon: Icons.brush_rounded,
+                                onTap:
+                                    () => setState(() => _mode = EditMode.draw),
+                              ),
+                              const SizedBox(width: 8),
+                              _ModeIcon(
+                                tooltip: 'Text',
+                                selected: _mode == EditMode.text,
+                                icon: Icons.text_fields_rounded,
+                                onTap: _promptAddText,
+                              ),
+                              const SizedBox(width: 10),
+                              IconButton(
+                                tooltip: 'Change shape',
+                                onPressed:
+                                    _selectedImage != null
+                                        ? _changeShape
+                                        : null,
+                                icon: const Icon(Icons.change_circle_rounded),
+                              ),
+                              IconButton(
+                                tooltip: 'Delete selected',
+                                onPressed:
+                                    (_selectedImage != null ||
+                                            _selectedText != null)
+                                        ? _deleteSelected
+                                        : null,
+                                icon: const Icon(
+                                  Icons.delete_forever_rounded,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Pick color',
+                                onPressed: () async {
+                                  final c = await _pickColor(
+                                    context,
+                                    initial: _penColor,
+                                  );
+                                  if (c != null) setState(() => _penColor = c);
+                                },
+                                icon: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: _penColor,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Stroke width',
+                                onPressed: _pickPenWidth,
+                                icon: const Icon(Icons.line_weight_rounded),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          }),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1010,7 +1077,7 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
 class _Transformable extends StatelessWidget {
   final Offset canvasCenter;
 
-  final Offset pos;          // center (canvas coords)
+  final Offset pos; // center (canvas coords)
   final double scaleX;
   final double scaleY;
   final double rotation;
@@ -1054,10 +1121,11 @@ class _Transformable extends StatelessWidget {
 
     return Positioned.fill(
       child: Transform(
-        transform: Matrix4.identity()
-          ..translate(worldCenter.dx, worldCenter.dy)
-          ..rotateZ(rotation)
-          ..scale(scaleX, scaleY),
+        transform:
+            Matrix4.identity()
+              ..translate(worldCenter.dx, worldCenter.dy)
+              ..rotateZ(rotation)
+              ..scale(scaleX, scaleY),
         origin: Offset.zero,
         child: FractionalTranslation(
           translation: const Offset(-0.5, -0.5),
@@ -1101,21 +1169,20 @@ class _Transformable extends StatelessWidget {
   }
 
   List<Widget> _cornerHandles(double w, double h) {
-    const double s = 16;
+    const double s = 18;
 
-    Widget corner({
-      required Alignment alignment,
-      required Offset sign,
-    }) {
-      return Align(
-        alignment: alignment,
+    Widget corner({required Alignment alignment, required Offset sign}) {
+      return Positioned(
+        left: (sign.dx < 0 ? 0 : w) - s / 2,
+        top: (sign.dy < 0 ? 0 : h) - s / 2,
         child: Transform(
           alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..rotateZ(-rotation) // cancel rotation
-            ..scale(1 / max(scaleX, 1e-6), 1 / max(scaleY, 1e-6)), // cancel scale
+          transform:
+              Matrix4.identity()
+                ..rotateZ(-rotation)
+                ..scale(1 / scaleX, 1 / scaleY),
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+            behavior: HitTestBehavior.translucent,
             onPanStart: (_) => onCornerStart?.call(),
             onPanUpdate: (d) => onCornerDragLocal?.call(sign, d.delta),
             onPanEnd: (_) => onCornerEnd?.call(),
@@ -1124,9 +1191,15 @@ class _Transformable extends StatelessWidget {
               height: s,
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: const Color(0xFF7E57C2), width: 2),
-                borderRadius: BorderRadius.circular(2),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF7E57C2), width: 1.5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 2,
+                    offset: Offset(1, 1),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1135,10 +1208,10 @@ class _Transformable extends StatelessWidget {
     }
 
     return [
-      corner(alignment: Alignment.topLeft,     sign: const Offset(-1, -1)),
-      corner(alignment: Alignment.topRight,    sign: const Offset( 1, -1)),
-      corner(alignment: Alignment.bottomRight, sign: const Offset( 1,  1)),
-      corner(alignment: Alignment.bottomLeft,  sign: const Offset(-1,  1)),
+      corner(alignment: Alignment.topLeft, sign: const Offset(-1, -1)),
+      corner(alignment: Alignment.topRight, sign: const Offset(1, -1)),
+      corner(alignment: Alignment.bottomLeft, sign: const Offset(-1, 1)),
+      corner(alignment: Alignment.bottomRight, sign: const Offset(1, 1)),
     ];
   }
 }
@@ -1182,10 +1255,11 @@ class _TransformableText extends StatelessWidget {
 
     return Positioned.fill(
       child: Transform(
-        transform: Matrix4.identity()
-          ..translate(worldCenter.dx, worldCenter.dy)
-          ..rotateZ(rotation)
-          ..scale(scale),
+        transform:
+            Matrix4.identity()
+              ..translate(worldCenter.dx, worldCenter.dy)
+              ..rotateZ(rotation)
+              ..scale(scale),
         origin: Offset.zero,
         child: FractionalTranslation(
           translation: const Offset(-0.5, -0.5),
@@ -1219,15 +1293,17 @@ class _SelectionOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final k = (scaleX + scaleY) / 2;
-    final border = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2 / max(k, 0.0001)
-      ..color = borderColor;
+    final border =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2 / max(k, 0.0001)
+          ..color = borderColor;
 
-    final grid = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1 / max(k, 0.0001)
-      ..color = gridColor;
+    final grid =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1 / max(k, 0.0001)
+          ..color = gridColor;
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.drawRect(rect, border);
@@ -1267,7 +1343,11 @@ class _ImageShape extends StatelessWidget {
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return const Center(
-            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           );
         },
         errorBuilder: (context, error, stack) {
@@ -1283,7 +1363,13 @@ class _ImageShape extends StatelessWidget {
       return Container(
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: content,
@@ -1293,7 +1379,13 @@ class _ImageShape extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(.85),
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: content,
@@ -1337,65 +1429,92 @@ class _ModeIcon extends StatelessWidget {
   }
 }
 
-Future<Color?> _pickColor(BuildContext context, {required Color initial}) async {
+Future<Color?> _pickColor(
+  BuildContext context, {
+  required Color initial,
+}) async {
   final swatches = <Color>[
-    Colors.black, Colors.white,
-    const Color(0xFF0D7C66), const Color(0xFF41B3A2), const Color(0xFF3E8F84),
-    const Color(0xFFD7C3F1), const Color(0xFFBDA9DB), const Color(0xFF99BBFF),
-    Colors.red, Colors.pink, Colors.deepOrange, Colors.orange, Colors.amber,
-    Colors.yellow, Colors.lime, Colors.lightGreen, Colors.green, Colors.teal,
-    Colors.cyan, Colors.lightBlue, Colors.blue, Colors.indigo, Colors.purple,
-    Colors.deepPurple, Colors.brown, Colors.grey, Colors.blueGrey,
+    Colors.black,
+    Colors.white,
+    const Color(0xFF0D7C66),
+    const Color(0xFF41B3A2),
+    const Color(0xFF3E8F84),
+    const Color(0xFFD7C3F1),
+    const Color(0xFFBDA9DB),
+    const Color(0xFF99BBFF),
+    Colors.red,
+    Colors.pink,
+    Colors.deepOrange,
+    Colors.orange,
+    Colors.amber,
+    Colors.yellow,
+    Colors.lime,
+    Colors.lightGreen,
+    Colors.green,
+    Colors.teal,
+    Colors.cyan,
+    Colors.lightBlue,
+    Colors.blue,
+    Colors.indigo,
+    Colors.purple,
+    Colors.deepPurple,
+    Colors.brown,
+    Colors.grey,
+    Colors.blueGrey,
   ];
 
   Color selected = initial;
 
   return showDialog<Color>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Pick a color'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: double.infinity,
-            height: 36,
-            decoration: BoxDecoration(
-              color: selected,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.black26),
+    builder:
+        (ctx) => AlertDialog(
+          title: const Text('Pick a color'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: selected,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.black26),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: 320,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final c in swatches)
+                      _ColorDot(
+                        color: c,
+                        initiallySelected: selected.value == c.value,
+                        onChoose: () => selected = c,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 320,
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final c in swatches)
-                  _ColorDot(
-                    color: c,
-                    initiallySelected: selected.value == c.value,
-                    onChoose: () => selected = c,
-                  ),
-              ],
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, selected),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D7C66),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Use color'),
             ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(ctx, selected),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0D7C66),
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Use color'),
+          ],
         ),
-      ],
-    ),
   );
 }
 
