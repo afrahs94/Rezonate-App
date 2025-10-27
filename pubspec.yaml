@@ -36,6 +36,7 @@ dependencies:
   showcaseview: ^4.0.1
   local_auth: ^2.1.6
   flutter_local_notifications: ^19.4.2
+  timezone: ^0.10.1
 
 
 dev_dependencies:

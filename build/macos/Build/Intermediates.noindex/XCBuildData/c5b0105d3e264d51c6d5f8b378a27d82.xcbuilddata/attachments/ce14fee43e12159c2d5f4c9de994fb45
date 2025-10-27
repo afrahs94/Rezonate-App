@@ -1,4 +1,0 @@
-
-module emoji_picker_flutter.__Swift {
-  exclude header "emoji_picker_flutter-Swift.h"
-}

@@ -132,6 +132,8 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     );
   }
 
+  
+
   Future<void> _editHabit(
     BuildContext context,
     String id,
@@ -251,150 +253,152 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
         .snapshots();
   }
 
-  Future<void> _openFilters() async {
-    final snap = await _habitsCol.orderBy('createdAt', descending: false).get();
-    final docs = snap.docs;
-    if (docs.isEmpty) return;
+Future<void> _openFilters() async {
+  final snap = await _habitsCol.orderBy('createdAt', descending: false).get();
+  final docs = snap.docs;
+  if (docs.isEmpty) return;
 
-    final local =
-        _visibleHabitIds.isEmpty
-            ? docs.map((d) => d.id).toSet()
-            : _visibleHabitIds.toSet();
+  final local = _visibleHabitIds.isEmpty
+      ? docs.map((d) => d.id).toSet()
+      : _visibleHabitIds.toSet();
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: MediaQuery.of(ctx).viewInsets,
-          child: StatefulBuilder(
-            builder: (ctx, setLocal) {
-              return SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  const Text(
+                    'Filter trackers on calendar',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Chips (scroll if many)
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: docs.map((h) {
+                          final id = h.id;
+                          final name = (h['name'] as String?) ?? 'Habit';
+                          final color = Color((h['color'] as int?) ?? Colors.amber.value);
+                          final selected = local.contains(id);
+
+                          return FilterChip(
+                            avatar: CircleAvatar(backgroundColor: color, radius: 6),
+                            label: Text(name,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                )),
+                            selected: selected,
+                            onSelected: (v) => setLocal(() {
+                              v ? local.add(id) : local.remove(id);
+                            }),
+                            showCheckmark: true,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            side: BorderSide(
+                              color: (selected
+                                      ? Colors.black.withOpacity(.15)
+                                      : Colors.black12),
+                            ),
+                            backgroundColor: Colors.grey.shade100,
+                            selectedColor: Colors.white,
+                            checkmarkColor: Colors.black87,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0x1A000000)),
+                  const SizedBox(height: 12),
+
+                  // Footer actions
+                  Row(
                     children: [
-                      Center(
-                        child: Container(
-                          width: 34,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                      TextButton(
+                        onPressed: () => setLocal(() {
+                          local
+                            ..clear()
+                            ..addAll(docs.map((d) => d.id));
+                        }),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0D7C66),
                         ),
+                        child: const Text('Select all'),
                       ),
-                      const Text(
-                        'Filter trackers on calendar',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                      const SizedBox(width: 6),
+                      TextButton(
+                        onPressed: () => setLocal(() => local.clear()),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0D7C66),
                         ),
+                        child: const Text('Clear all'),
                       ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            docs.map((h) {
-                              final id = h.id;
-                              final name = (h['name'] as String?) ?? 'Habit';
-                              final color = Color(
-                                (h['color'] as int?) ?? Colors.amber.value,
-                              );
-                              final selected = local.contains(id);
-                              return FilterChip(
-                                labelPadding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                avatar: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                label: Text(
-                                  name,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                selected: selected,
-                                onSelected: (val) {
-                                  setLocal(() {
-                                    if (val) {
-                                      local.add(id);
-                                    } else {
-                                      local.remove(id);
-                                    }
-                                  });
-                                },
-                                shape: const StadiumBorder(),
-                                selectedColor: Colors.white,
-                                checkmarkColor: Colors.black,
-                                backgroundColor: Colors.white.withOpacity(0.55),
-                                side: BorderSide(
-                                  color: Colors.black.withOpacity(0.08),
-                                ),
-                              );
-                            }).toList(),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed:
-                                () => setLocal(
-                                  (local
-                                        ..clear()
-                                        ..addAll(docs.map((d) => d.id)))
-                                      as VoidCallback,
-                                ),
-                            child: const Text('Select all'),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            if (local.length == docs.length) {
+                              _visibleHabitIds.clear(); // empty => show all
+                            } else {
+                              _visibleHabitIds
+                                ..clear()
+                                ..addAll(local);
+                            }
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text('Apply'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D7C66),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          const SizedBox(width: 6),
-                          TextButton(
-                            onPressed:
-                                () =>
-                                    setLocal((local..clear()) as VoidCallback),
-                            child: const Text('Clear all'),
-                          ),
-                          const Spacer(),
-                          FilledButton(
-                            onPressed: () {
-                              setState(() {
-                                if (local.length == docs.length) {
-                                  _visibleHabitIds.clear();
-                                } else {
-                                  _visibleHabitIds
-                                    ..clear()
-                                    ..addAll(local);
-                                }
-                              });
-                              Navigator.pop(ctx);
-                            },
-                            child: const Text('Done'),
-                          ),
-                        ],
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -627,9 +631,9 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                               startingDayOfWeek: StartingDayOfWeek.sunday,
 
                               // Make the calendar less squished: taller rows
-                              daysOfWeekHeight: 22,
-                              rowHeight: 78,
-
+                              daysOfWeekHeight: 20,
+                              rowHeight: 70,
+//here
                               calendarStyle: const CalendarStyle(
                                 cellPadding: EdgeInsets.symmetric(
                                   vertical: 6,
@@ -837,6 +841,54 @@ class _MonthHeader extends StatelessWidget {
   }
 }
 
+Widget _dotSized(Color c, double size) => Container(
+  width: size, height: size,
+  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+);
+
+Widget _moreBadge(int n, {double fontSize = 10}) => Container(
+  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+  decoration: BoxDecoration(
+    color: Colors.black.withOpacity(.10),
+    borderRadius: BorderRadius.circular(8),
+  ),
+  child: Text('+$n',
+      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700)),
+);
+
+Widget _buildMarkersSized(
+  List<Color> colors, {
+  int maxVisible = 4,
+  double dot = 6,
+  double spacing = 3,
+  double top = 4,
+}) {
+  if (colors.isEmpty) return const SizedBox.shrink();
+  maxVisible = maxVisible.clamp(2, 6);
+
+  final children = <Widget>[];
+  if (colors.length <= maxVisible) {
+    children.addAll(colors.take(maxVisible).map((c) => _dotSized(c, dot)));
+  } else {
+    // (maxVisible - 1) dots + "+N"
+    final overflow = colors.length - (maxVisible - 1);
+    children.addAll(colors.take(maxVisible - 1).map((c) => _dotSized(c, dot)));
+    children.add(_moreBadge(overflow, fontSize: dot + 4 /* ~10 */));
+  }
+
+  return Padding(
+    padding: EdgeInsets.only(top: top),
+    child: Wrap(
+      spacing: spacing,
+      runSpacing: spacing,
+      alignment: WrapAlignment.center,
+      children: children,
+    ),
+  );
+}
+
+
+
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
@@ -854,41 +906,15 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final number = Text(
-      '${day.day}',
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
-        color: Colors.black87,
-      ),
-    );
-
-    final dots = Wrap(
-      spacing: 2,
-      runSpacing: 2,
-      alignment: WrapAlignment.center,
-      children:
-          dotColors
-              .map(
-                (c) => Container(
-                  width: 5.5,
-                  height: 5.5,
-                  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-                ),
-              )
-              .toList(),
-    );
-
     final baseColor = Theme.of(context).colorScheme.surface.withOpacity(0.80);
     final bgColor =
-        overrideBackground ??
-        (isSelected ? const Color.fromARGB(255, 219, 219, 219) : baseColor);
+        overrideBackground ?? (isSelected ? const Color(0xFFDADADA) : baseColor);
 
     return Container(
       margin: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isSelected ? Colors.black12 : Colors.transparent,
           width: isSelected ? 1.2 : 0,
@@ -901,19 +927,45 @@ class _DayCell extends StatelessWidget {
           ),
         ],
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            number,
-            const SizedBox(height: 3),
-            if (dotColors.isNotEmpty) dots,
-          ],
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // If the inner height is tight (e.g., ~46px), use compact sizing
+          final h = constraints.maxHeight;
+          final compact = h < 52;
+
+          final number = Text(
+            '${day.day}',
+            style: TextStyle(
+              fontSize: compact ? 13 : 14,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
+            ),
+          );
+
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // keep content as small as needed
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                number,
+                // no fixed SizedBox; spacing is handled in _buildMarkersSized
+                _buildMarkersSized(
+                  dotColors,
+                  maxVisible: compact ? 3 : 4,
+                  dot: compact ? 5.0 : 6.0,
+                  spacing: compact ? 2.0 : 3.0,
+                  top: compact ? 2.0 : 4.0,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
+
+
 
 class _HabitCard extends StatelessWidget {
   const _HabitCard({

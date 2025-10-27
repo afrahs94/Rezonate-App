@@ -1,4 +1,0 @@
-
-module pasteboard.__Swift {
-  exclude header "pasteboard-Swift.h"
-}

@@ -31,6 +31,7 @@
         "showcaseview",
         "sqflite",
         "table_calendar",
+        "timezone",
         "url_launcher",
         "uuid",
         "vibration"
@@ -107,6 +108,14 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "timezone",
+      "version": "0.10.1",
+      "dependencies": [
+        "http",
+        "path"
       ]
     },
     {
@@ -639,7 +648,7 @@
     },
     {
       "name": "async",
-      "version": "2.13.0",
+      "version": "2.12.0",
       "dependencies": [
         "collection",
         "meta"
@@ -725,14 +734,6 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
-      ]
-    },
-    {
-      "name": "timezone",
-      "version": "0.10.1",
-      "dependencies": [
-        "http",
-        "path"
       ]
     },
     {
@@ -1776,7 +1777,7 @@
     },
     {
       "name": "vm_service",
-      "version": "15.0.0",
+      "version": "14.3.1",
       "dependencies": []
     },
     {
