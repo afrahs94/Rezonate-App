@@ -267,6 +267,18 @@ class _JournalPageState extends State<JournalPage>
   bool _startedCommunityShowcase = false;
   bool _startedPrivateShowcase = false;
 
+  final List<String> bannedWords = [
+    'fuck',
+    'shit',
+    'bitch',
+    'kill',
+    'shoot',
+    'die',
+    'suicide',
+    'murder',
+    'rape',
+  ];
+
   // Replay timers
   Timer? _toPrivateTimer;
   Timer? _toSettingsTimer;
@@ -446,11 +458,43 @@ class _JournalPageState extends State<JournalPage>
     return results;
   }
 
+  bool _containsBannedWord(String text) {
+    final lower = text.toLowerCase();
+    for (final w in bannedWords) {
+      if (lower.contains(w)) return true;
+    }
+    return false;
+  }
+
+  String? _firstBannedWord(String text) {
+    final lower = text.toLowerCase();
+    for (final w in bannedWords) {
+      if (lower.contains(w)) return w;
+    }
+    return null;
+  }
+
   // ---------------- Community actions ----------------
   Future<void> _postPublic() async {
     final text = _pubCtl.text.trim();
     final u = _user;
     if (text.isEmpty || u == null) return;
+
+    final bad = _firstBannedWord(text);
+    if (bad != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error: Your reply contains inappropriate language.',
+            style: const TextStyle(fontSize: 15),
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
 
     final anon = _anonNow;
     final safeUsername =
@@ -485,11 +529,11 @@ class _JournalPageState extends State<JournalPage>
     setState(() => _showTriggerAdvice = false);
     FocusScope.of(context).unfocus();
 
-    // Gated onboarding: if the message matches, advance to private step
+    // Onboarding progression logic (keep as is)
     final stage = await Onboarding.getStage();
     if (stage == OnboardingStage.needFirstCommunity &&
         _matchesIntroPhrase(text)) {
-      await Onboarding.markCommunityPosted(); // → needFirstJournal
+      await Onboarding.markCommunityPosted();
       if (!mounted) return;
       setState(() => _seg = 1);
       _startPrivateShowcase();
@@ -588,7 +632,22 @@ class _JournalPageState extends State<JournalPage>
     final t = text.trim();
     final u = _user;
     if (t.isEmpty || u == null) return;
-
+    // 🚫 Censor check
+    final bad = _firstBannedWord(t);
+    if (bad != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error: Your reply contains inappropriate language.',
+            style: const TextStyle(fontSize: 15),
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     final anon = _anonNow;
     final safeUsername =
         anon
@@ -2642,22 +2701,26 @@ class _ReplyThreadState extends State<_ReplyThread> {
                         const SizedBox(height: 4),
                         _MentionRichText(text: (m['content'] as String?) ?? ''),
                         const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            TextButton.icon(
-                              onPressed:
-                                  () => setState(() {
-                                    if (_openUnder.contains(r.id)) {
-                                      _openUnder.remove(r.id);
-                                    } else {
-                                      _openUnder.add(r.id);
-                                    }
-                                  }),
-                              icon: const Icon(Icons.reply_outlined, size: 18),
-                              label: const Text('Reply'),
-                            ),
-                          ],
-                        ),
+                        if (depth < 1)
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed:
+                                    () => setState(() {
+                                      if (_openUnder.contains(r.id)) {
+                                        _openUnder.remove(r.id);
+                                      } else {
+                                        _openUnder.add(r.id);
+                                      }
+                                    }),
+                                icon: const Icon(
+                                  Icons.reply_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Reply'),
+                              ),
+                            ],
+                          ),
                         if (_openUnder.contains(r.id))
                           _InlineReplyComposer(
                             currentUserName:
