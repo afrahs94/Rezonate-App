@@ -461,8 +461,8 @@ class _ToolItem {
 
 final _items = <_ToolItem>[
   const _ToolItem(
-    'Vision Board',
-    Icons.dashboard_customize_rounded,
+    'Sounds',
+    Icons.music_note_rounded,
     VisionBoardPage(),
   ),
   const _ToolItem(

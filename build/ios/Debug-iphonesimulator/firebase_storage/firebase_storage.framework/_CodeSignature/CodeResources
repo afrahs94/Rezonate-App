@@ -22,7 +22,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		79em+vvntFLSq6W6BSGb9n1MZ/M=
+		+1CA7LR4i4FqtEVe6aNwmR0qd4Y=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -33,6 +33,10 @@
 	<dict>
 		<key>Headers/FLTFirebaseStoragePlugin.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			nXqVHRA4gb+zFGLQAbg7okm4h6E=
+			</data>
 			<key>hash2</key>
 			<data>
 			KPazQndcq3AeEGaSLvMdxnlp3RV4qKqPxG4zwbDymqA=
@@ -40,6 +44,10 @@
 		</dict>
 		<key>Headers/FLTTaskStateChannelStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			pH1JSTCpuIxkymfDH2ZZi/q3adg=
+			</data>
 			<key>hash2</key>
 			<data>
 			98KPHmCbqlxgkDy1bTkpo3HxNhAnRuDbjlwbWYqvdko=
@@ -47,6 +55,10 @@
 		</dict>
 		<key>Headers/firebase_storage-umbrella.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			FFILh0z2ftHrf7Z2OB3hIbmu6WA=
+			</data>
 			<key>hash2</key>
 			<data>
 			R72iXg46itrVNTbzpn5xJtp/l6hA5zptUfPjE2l9H2k=
@@ -54,6 +66,10 @@
 		</dict>
 		<key>Headers/firebase_storage_messages.g.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			ORYMdEO0MA3VOL5FTH7EUKcY0AU=
+			</data>
 			<key>hash2</key>
 			<data>
 			FX1JqYvxkInLwJk7jc+OQK/C94DNXUhQShLcbVwQXg4=
@@ -61,6 +77,10 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			6mwsUuxS0Veqn/zl5Ef5E/Jnm40=
+			</data>
 			<key>hash2</key>
 			<data>
 			qSt10w3E7bKp5PKPdXsDKZoSDP9mjiesOz5rDLAGKDA=
