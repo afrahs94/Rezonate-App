@@ -36,22 +36,26 @@ class _SoundsPageState extends State<SoundsPage> {
       id: 'focus_deep',
       title: 'Deep Focus',
       category: 'Focus',
-      imageUrl: 'https://images.unsplash.com/photo-1496302662116-85c1052ac7dd?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2023/01/16/audio_0f5f6f62e8.mp3?filename=deep-focus-ambient-133281.mp3',
+      // Replaced with stable Picsum image
+      imageUrl: 'https://picsum.photos/id/1003/1200/800',
+      url:
+          'https://cdn.pixabay.com/download/audio/2023/01/16/audio_0f5f6f62e8.mp3?filename=deep-focus-ambient-133281.mp3',
     ),
     _SoundTrack(
       id: 'focus_alpha',
       title: 'Alpha Waves',
       category: 'Focus',
-      imageUrl: 'https://images.unsplash.com/photo-1520975922323-8a8d6fd78f36?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/10/24/audio_947bdc2a8f.mp3?filename=alpha-waves-ambient-124008.mp3',
+      imageUrl: 'https://picsum.photos/id/1015/1200/800',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/10/24/audio_947bdc2a8f.mp3?filename=alpha-waves-ambient-124008.mp3',
     ),
     _SoundTrack(
       id: 'focus_binaural',
       title: 'Binaural Beats',
       category: 'Focus',
       imageUrl: 'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b8e3d7e9a.mp3?filename=binaural-beats-ambient-18491.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b8e3d7e9a.mp3?filename=binaural-beats-ambient-18491.mp3',
     ),
 
     // Sleep
@@ -60,21 +64,24 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Soft Rain',
       category: 'Sleep',
       imageUrl: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_2e1f3a4e7f.mp3?filename=rain-ambient-9816.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_2e1f3a4e7f.mp3?filename=rain-ambient-9816.mp3',
     ),
     _SoundTrack(
       id: 'sleep_ocean',
       title: 'Ocean Waves',
       category: 'Sleep',
       imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4bff7f8e77.mp3?filename=sea-waves-ambient-10378.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4bff7f8e77.mp3?filename=sea-waves-ambient-10378.mp3',
     ),
     _SoundTrack(
       id: 'sleep_white',
       title: 'White Noise',
       category: 'Sleep',
       imageUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4d4b6339f6.mp3?filename=white-noise-ambient-9991.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4d4b6339f6.mp3?filename=white-noise-ambient-9991.mp3',
     ),
 
     // Study
@@ -83,21 +90,24 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Lo-Fi Study',
       category: 'Study',
       imageUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_8d2b3f9f30.mp3?filename=lofi-study-ambient-19150.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_8d2b3f9f30.mp3?filename=lofi-study-ambient-19150.mp3',
     ),
     _SoundTrack(
       id: 'study_piano',
       title: 'Soft Piano',
       category: 'Study',
       imageUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_48453b8244.mp3?filename=soft-piano-ambient-19144.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_48453b8244.mp3?filename=soft-piano-ambient-19144.mp3',
     ),
     _SoundTrack(
       id: 'study_strings',
       title: 'Calm Strings',
       category: 'Study',
       imageUrl: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/09/audio_4d8e1e9a51.mp3?filename=calm-strings-ambient-18366.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/09/audio_4d8e1e9a51.mp3?filename=calm-strings-ambient-18366.mp3',
     ),
 
     // Nature
@@ -106,21 +116,24 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Forest Birds',
       category: 'Nature',
       imageUrl: 'https://images.unsplash.com/photo-1472491235688-bdc81a63246e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_9a39e4fa0a.mp3?filename=forest-birds-ambient-10976.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_9a39e4fa0a.mp3?filename=forest-birds-ambient-10976.mp3',
     ),
     _SoundTrack(
       id: 'nature_stream',
       title: 'Mountain Stream',
       category: 'Nature',
-      imageUrl: 'https://images.unsplash.com/photo-1500043357865-c6b8827edf39?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/11/08/audio_7a0c0aa1a3.mp3?filename=stream-ambient-12028.mp3',
+      imageUrl: 'https://picsum.photos/id/1056/1200/800',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/11/08/audio_7a0c0aa1a3.mp3?filename=stream-ambient-12028.mp3',
     ),
     _SoundTrack(
       id: 'nature_fire',
       title: 'Campfire',
       category: 'Nature',
-      imageUrl: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4a22d5b355.mp3?filename=campfire-ambient-9748.mp3',
+      imageUrl: 'https://images.unsplash.com/photo-1500043357865-c6b8827edf39?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4a22d5b355.mp3?filename=campfire-ambient-9748.mp3',
     ),
   ];
 
@@ -301,20 +314,16 @@ class _SoundsPageState extends State<SoundsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // HEADER
+              // HEADER — simplified & less congested
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                 child: Row(
                   children: [
-                    // Back to Tools
-                    _PillButton(
-                      icon: Icons.arrow_back_rounded,
-                      label: 'Back',
-                      onTap: () => Navigator.pop(context),
-                    ),
+                    // Back – matches app’s rounded icon style
+                    _BackChip(onTap: () => Navigator.pop(context)),
                     const SizedBox(width: 10),
                     const Icon(Icons.music_note_rounded, size: 22, color: Color(0xFF0D7C66)),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     const Text('Sounds',
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
                     const Spacer(),
@@ -335,13 +344,13 @@ class _SoundsPageState extends State<SoundsPage> {
 
               // SEARCH
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                 child: _SearchBar(onChanged: (v) => setState(() => _query = v)),
               ),
 
               // CATEGORY CHIPS
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: _CategoryBar(
                   active: _category,
                   onChanged: (c) => setState(() => _category = c),
@@ -351,7 +360,7 @@ class _SoundsPageState extends State<SoundsPage> {
               // RECENTS
               if (_recents.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                   child: const Align(
                     alignment: Alignment.centerLeft,
                     child: Text('Recently played',
@@ -378,14 +387,14 @@ class _SoundsPageState extends State<SoundsPage> {
               // GRID
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(14, _recents.isEmpty ? 6 : 8, 14, 8),
+                  padding: EdgeInsets.fromLTRB(12, _recents.isEmpty ? 6 : 8, 12, 8),
                   child: GridView.builder(
                     physics: const BouncingScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.92,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.95,
                     ),
                     itemCount: _filtered.length,
                     itemBuilder: (_, i) {
@@ -422,6 +431,34 @@ class _SoundsPageState extends State<SoundsPage> {
 
 /* ─────────────────── Reusable UI ─────────────────── */
 
+class _BackChip extends StatelessWidget {
+  const _BackChip({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    return Material(
+      color: (dark ? Colors.white : Colors.white).withOpacity(0.25),
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: const [
+              Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF0D7C66)),
+              SizedBox(width: 6),
+              Text('Back', style: TextStyle(fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PillButton extends StatelessWidget {
   const _PillButton({required this.icon, required this.label, required this.onTap});
   final IconData icon;
@@ -433,16 +470,12 @@ class _PillButton extends StatelessWidget {
     final dark = app.ThemeControllerScope.of(context).isDark;
     return Material(
       color: (dark ? Colors.white : Colors.white).withOpacity(0.25),
-      borderRadius: BorderRadius.circular(12),
+      shape: const StadiumBorder(),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
+        customBorder: const StadiumBorder(),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: (dark ? Colors.white : Colors.black).withOpacity(0.14)),
-          ),
           child: Row(
             children: [
               Icon(icon, size: 18, color: const Color(0xFF0D7C66)),
@@ -651,14 +684,9 @@ class _SoundTileState extends State<_SoundTile> {
           clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
-              // Background image
-              Positioned.fill(
-                child: Image.network(
-                  widget.track.imageUrl,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              // Gradient overlay for readability
+              // Image with graceful error handling (no red X)
+              Positioned.fill(child: _NetImage(url: widget.track.imageUrl)),
+              // Overlay for readability
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -667,7 +695,7 @@ class _SoundTileState extends State<_SoundTile> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.black.withOpacity(0.15),
-                        Colors.black.withOpacity(0.35),
+                        Colors.black.withOpacity(0.36),
                       ],
                     ),
                   ),
@@ -728,6 +756,41 @@ class _SoundTileState extends State<_SoundTile> {
   }
 }
 
+class _NetImage extends StatelessWidget {
+  const _NetImage({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      loadingBuilder: (ctx, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          color: Colors.black.withOpacity(0.05),
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        );
+      },
+      errorBuilder: (ctx, _, __) {
+        // Graceful fallback – soft gradient + music note
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFBDA9DB), Color(0xFF41B3A2)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Center(
+            child: Icon(Icons.music_note_rounded, size: 44, color: Colors.white70),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _RecentCard extends StatelessWidget {
   const _RecentCard({required this.track, required this.isCurrent, required this.onTap});
   final _SoundTrack track;
@@ -758,9 +821,7 @@ class _RecentCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            Positioned.fill(
-              child: Image.network(track.imageUrl, fit: BoxFit.cover),
-            ),
+            Positioned.fill(child: _NetImage(url: track.imageUrl)),
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
