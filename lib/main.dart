@@ -16,7 +16,7 @@ import 'pages/services/user_settings.dart';
 
 // NEW
 import 'pages/onboarding.dart';
-import 'pages/onboarding_keys';
+import 'pages/onboarding_keys.dart';
 import 'pages/landing_page.dart'; // ✅ Added Landing Page import
 
 final FlutterLocalNotificationsPlugin _fln = FlutterLocalNotificationsPlugin();
