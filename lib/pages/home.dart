@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'onboarding.dart';
-import 'onboarding_keys';
+import 'onboarding_keys.dart';
 import 'package:showcaseview/showcaseview.dart';
 
 import 'package:new_rezonate/main.dart' as app;
@@ -64,6 +64,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+// --- Showcase (page-local keys; avoid conflicts across routes)
+final GlobalKey _kAddHabit      = GlobalKey();
+final GlobalKey _kChartSelector = GlobalKey();
+final GlobalKey _kJournalTab    = GlobalKey();
+final GlobalKey _kSettingsTab   = GlobalKey();
+
 class _HomePageState extends State<HomePage> {
   // ---- Firebase
   final _auth = FirebaseAuth.instance;
@@ -81,6 +87,8 @@ class _HomePageState extends State<HomePage> {
   BuildContext? _showcaseCtx;
   bool _tourActive = false;      // show helper UI like “Next”
   bool _showNextButton = false;  // only when we can proceed to Journal
+  bool _showcaseStarted = false;
+  bool _startingShowcase = false; // <-- added
 
   // ---- Local UI state
   final _rnd = Random();
@@ -109,16 +117,6 @@ class _HomePageState extends State<HomePage> {
 
   // ---- Daily midnight reset timer
   Timer? _midnightTimer;
-
-  // --- Showcase (page-local keys; avoid conflicts across routes)
-final GlobalKey _kAddHabit      = GlobalKey();
-final GlobalKey _kChartSelector = GlobalKey();
-final GlobalKey _kJournalTab    = GlobalKey();
-final GlobalKey _kSettingsTab   = GlobalKey();
-
-// Prevent starting the tour multiple times
-bool _showcaseStarted = false;
-
 
   @override
   void initState() {
@@ -278,128 +276,159 @@ bool _showcaseStarted = false;
     );
   }
 
+  // --- Showcase safe-start helpers (added) ---
+  bool _allTargetsReady() {
+    final keys = [_kAddHabit, _kChartSelector, _kJournalTab, _kSettingsTab];
+    for (final k in keys) {
+      final ctx = k.currentContext;
+      if (ctx == null || !ctx.mounted) return false;
+      final ro = ctx.findRenderObject();
+      if (ro == null || !ro.attached) return false;
+    }
+    return true;
+  }
+
+  void _tryStartShowcase() {
+    if (!mounted || _showcaseStarted || _startingShowcase || !_tourActive) return;
+    if (_showcaseCtx == null) return;
+
+    _startingShowcase = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 16));
+      if (!mounted || _showcaseStarted) { _startingShowcase = false; return; }
+
+      if (_allTargetsReady()) {
+        try {
+          ShowCaseWidget.of(_showcaseCtx!)?.startShowCase([
+            _kAddHabit,
+            _kChartSelector,
+            _kJournalTab,
+            _kSettingsTab,
+          ]);
+          _showcaseStarted = true;
+        } catch (_) {
+          _startingShowcase = false;
+          WidgetsBinding.instance.addPostFrameCallback((__) => _tryStartShowcase());
+          return;
+        }
+      } else {
+        _startingShowcase = false;
+        WidgetsBinding.instance.addPostFrameCallback((__) => _tryStartShowcase());
+        return;
+      }
+      _startingShowcase = false;
+    });
+  }
+  // --- end helpers ---
+
   Future<void> _maybeStartHomeShowcase() async {
-  var stage = await Onboarding.getStage();
+    var stage = await Onboarding.getStage();
 
-  if (stage == OnboardingStage.notStarted) {
-    await Onboarding.setStage(OnboardingStage.homeIntro);
-    stage = OnboardingStage.homeIntro;
-  }
-  if (!mounted) return;
-
-  final isRelevant = stage == OnboardingStage.homeIntro ||
-      stage == OnboardingStage.needFirstHabit ||
-      stage == OnboardingStage.replayingTutorial;
-
-  setState(() {
-    _tourActive = isRelevant;
-    _showNextButton = false;
-  });
-
-  if (!isRelevant) return;
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    final ctx = _showcaseCtx;
-    if (ctx == null || _showcaseStarted) return;
-    try {
-      ShowCaseWidget.of(ctx).startShowCase([
-        _kAddHabit,
-        _kChartSelector,
-        _kJournalTab,
-        _kSettingsTab,
-      ]);
-      _showcaseStarted = true;
-    } catch (_) {}
-  });
-
-  if (stage == OnboardingStage.replayingTutorial) {
-    _replayAutoNext?.cancel();
-    _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        _slideTo(JournalPage(userName: widget.userName)),
-      );
-    });
-  }
-}
-
-
-Future<void> _bootstrap() async {
-  final u = _user;
-  if (u == null) return;
-
-  _trackersSub = _db
-      .collection('users')
-      .doc(u.uid)
-      .collection('trackers')
-      .orderBy('sort')
-      .snapshots()
-      .listen((snap) async {
-    final list = snap.docs.map(Tracker.fromDoc).toList();
-    final count = list.length;
-
+    if (stage == OnboardingStage.notStarted) {
+      await Onboarding.setStage(OnboardingStage.homeIntro);
+      stage = OnboardingStage.homeIntro;
+    }
     if (!mounted) return;
+
+    final isRelevant = stage == OnboardingStage.homeIntro ||
+        stage == OnboardingStage.needFirstHabit ||
+        stage == OnboardingStage.replayingTutorial;
+
     setState(() {
-      _trackers = list;
-      _selectedForChart
-        ..clear()
-        ..addAll(_trackers.map((t) => t.id));
+      _tourActive = isRelevant;
+      _showNextButton = false;
     });
 
-    final stage = await Onboarding.getStage();
+    if (!isRelevant) return;
 
-    if (stage == OnboardingStage.homeIntro ||
-        stage == OnboardingStage.needFirstHabit) {
-      if (count == 0) {
-        await Onboarding.setStage(OnboardingStage.needFirstHabit);
+    // REPLACED direct start with safe attempt:
+    _tryStartShowcase();
+
+    if (stage == OnboardingStage.replayingTutorial) {
+      _replayAutoNext?.cancel();
+      _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
+        if (!mounted) return;
+
+        // Dismiss tour before navigating
+        ShowCaseWidget.of(_showcaseCtx!)?.dismiss();
+
+        Navigator.pushReplacement(
+          context,
+          _slideTo(JournalPage(userName: widget.userName)),
+        );
+      });
+    }
+  }
+
+  Future<void> _bootstrap() async {
+    final u = _user;
+    if (u == null) return;
+
+    _trackersSub = _db
+        .collection('users')
+        .doc(u.uid)
+        .collection('trackers')
+        .orderBy('sort')
+        .snapshots()
+        .listen((snap) async {
+      final list = snap.docs.map(Tracker.fromDoc).toList();
+      final count = list.length;
+
+      if (!mounted) return;
+      setState(() {
+        _trackers = list;
+        _selectedForChart
+          ..clear()
+          ..addAll(_trackers.map((t) => t.id));
+      });
+
+      final stage = await Onboarding.getStage();
+
+      if (stage == OnboardingStage.homeIntro ||
+          stage == OnboardingStage.needFirstHabit) {
+        if (count == 0) {
+          await Onboarding.setStage(OnboardingStage.needFirstHabit);
+          if (mounted) {
+            setState(() {
+              _tourActive = true;
+              _showNextButton = false;
+            });
+          }
+
+          // REPLACED direct start with safe attempt:
+          _tryStartShowcase();
+        }
+
+        // 0 -> 1 transition…
+        final prev = _prevTrackerCount ?? 0;
+        if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
+          await Onboarding.markHabitCreated();
+          _navigatedAfterHabit = true;
+          if (!mounted) return;
+
+          // Dismiss tour before navigating
+          ShowCaseWidget.of(_showcaseCtx!)?.dismiss();
+
+          Navigator.pushReplacement(
+            context,
+            _slideTo(JournalPage(userName: widget.userName)),
+          );
+          return;
+        }
+      }
+
+      _prevTrackerCount = count;
+
+      if (stage == OnboardingStage.replayingTutorial) {
         if (mounted) {
           setState(() {
             _tourActive = true;
             _showNextButton = false;
           });
         }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final ctx = _showcaseCtx;
-          if (ctx == null || _showcaseStarted) return;
-          try {
-            ShowCaseWidget.of(ctx).startShowCase([
-              _kAddHabit,
-              _kChartSelector,
-              _kJournalTab,
-              _kSettingsTab,
-            ]);
-            _showcaseStarted = true;
-          } catch (_) {}
-        });
       }
-
-      // 0 -> 1 transition…
-      final prev = _prevTrackerCount ?? 0;
-      if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
-        await Onboarding.markHabitCreated();
-        _navigatedAfterHabit = true;
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          _slideTo(JournalPage(userName: widget.userName)),
-        );
-        return;
-      }
-    }
-
-    _prevTrackerCount = count;
-
-    if (stage == OnboardingStage.replayingTutorial) {
-      if (mounted) {
-        setState(() {
-          _tourActive = true;
-          _showNextButton = false;
-        });
-      }
-    }
-  });
-
+    });
 
     // --- Pull last 120 days of logs and keep in memory
     _logsSub = _db
@@ -472,6 +501,8 @@ Future<void> _bootstrap() async {
       });
     });
   }
+
+
 
   // ---- Helpers
   String _dayKey(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -1410,58 +1441,87 @@ Future<void> _bootstrap() async {
 
                               const SizedBox(height: 6),
 
-                              // Chart card
+                              // Chart card with seamlessly blended button
                               Container(
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 8,
-                                ),
-                                height: 320,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                height: 300,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(.55),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: const [
+                                  color: Colors.white.withOpacity(0.35),
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
                                     BoxShadow(
-                                        color: Colors.black12, blurRadius: 6),
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
                                   ],
                                 ),
-                                child: _selectedForChart.isEmpty
-                                    ? const Center(
-                                        child: Text(
-                                          'Select trackers to view',
-                                          style: TextStyle(fontSize: 13),
+                                child: Stack(
+                                  children: [
+                                    // Chart content
+                                    Positioned.fill(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 6,
+                                          left: 6,
+                                          right: 6,
+                                          bottom: 42, // space for button
                                         ),
-                                      )
-                                    : LineChart(_chartData()),
-                              ),
-
-                              // -------- "More insights" button under the graph --------
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  icon: const Icon(Icons.insights_outlined),
-                                  label: const Text(
-                                    'More insights',
-                                    style: TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF0D7C66),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      NoTransitionPageRoute(
-                                        builder: (_) =>
-                                            SummariesPage(userName: widget.userName),
+                                        child: _selectedForChart.isEmpty
+                                            ? const Center(
+                                                child: Text(
+                                                  'Select trackers to view',
+                                                  style: TextStyle(fontSize: 13),
+                                                ),
+                                              )
+                                            : LineChart(_chartData()),
                                       ),
-                                    );
-                                  },
+                                    ),
+
+                                    // Transparent, blended "View More insights" text button
+                                    Positioned(
+                                      bottom: 2,
+                                      right: 10,
+                                      child: TextButton.icon(
+                                        icon: Icon(
+                                          Icons.insights_outlined,
+                                          size: 16,
+                                          color: const Color(0xFF0D7C66).withOpacity(0.65),
+                                        ),
+                                        label: Text(
+                                          'View More insights',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                            color: const Color(0xFF0D7C66).withOpacity(0.65),
+                                          ),
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          backgroundColor: Colors.transparent, // fully transparent
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          minimumSize: Size.zero,
+                                          splashFactory: NoSplash.splashFactory, // no ripple
+                                        ),
+                                        onPressed: _selectedForChart.isEmpty
+                                            ? null
+                                            : () {
+                                                Navigator.push(
+                                                  context,
+                                                  NoTransitionPageRoute(
+                                                    builder: (_) =>
+                                                        SummariesPage(userName: widget.userName),
+                                                  ),
+                                                );
+                                              },
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              // ----------------------------------------------------------------
                             ],
                           ),
                         ),
@@ -2236,10 +2296,8 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
 class _BottomNav extends StatelessWidget {
   final int index;
   final String userName;
-  final GlobalKey journalKey;
-  final GlobalKey settingsKey;
 
-  const _BottomNav({required this.index, required this.userName});
+  const _BottomNav({required this.index, required this.userName,});
 
   @override
   Widget build(BuildContext context) {
