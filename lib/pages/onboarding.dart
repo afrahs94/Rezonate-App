@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:showcaseview/showcaseview.dart';
 
-import 'onboarding_keys';
+import 'onboarding_keys.dart';
 
 enum OnboardingStage {
   notStarted,

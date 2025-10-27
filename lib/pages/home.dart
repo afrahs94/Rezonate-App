@@ -110,6 +110,16 @@ class _HomePageState extends State<HomePage> {
   // ---- Daily midnight reset timer
   Timer? _midnightTimer;
 
+  // --- Showcase (page-local keys; avoid conflicts across routes)
+final GlobalKey _kAddHabit      = GlobalKey();
+final GlobalKey _kChartSelector = GlobalKey();
+final GlobalKey _kJournalTab    = GlobalKey();
+final GlobalKey _kSettingsTab   = GlobalKey();
+
+// Prevent starting the tour multiple times
+bool _showcaseStarted = false;
+
+
   @override
   void initState() {
     super.initState();
@@ -269,125 +279,127 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _maybeStartHomeShowcase() async {
-    var stage = await Onboarding.getStage();
+  var stage = await Onboarding.getStage();
 
-    if (stage == OnboardingStage.notStarted) {
-      await Onboarding.setStage(OnboardingStage.homeIntro);
-      stage = OnboardingStage.homeIntro;
-    }
-    if (!mounted) return;
-
-    final isRelevant = stage == OnboardingStage.homeIntro ||
-        stage == OnboardingStage.needFirstHabit ||
-        stage == OnboardingStage.replayingTutorial;
-
-    setState(() {
-      _tourActive = isRelevant;
-      _showNextButton = false;
-    });
-
-    if (!isRelevant) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctx = _showcaseCtx;
-      if (ctx == null) return;
-      try {
-        ShowCaseWidget.of(ctx).startShowCase([
-          OBKeys.addHabit,
-          OBKeys.chartSelector,
-          OBKeys.journalTab,
-          OBKeys.settingsTab,
-        ]);
-      } catch (_) {}
-    });
-
-    if (stage == OnboardingStage.replayingTutorial) {
-      _replayAutoNext?.cancel();
-      _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          _slideTo(JournalPage(userName: widget.userName)),
-        );
-      });
-    }
+  if (stage == OnboardingStage.notStarted) {
+    await Onboarding.setStage(OnboardingStage.homeIntro);
+    stage = OnboardingStage.homeIntro;
   }
+  if (!mounted) return;
 
-  Future<void> _bootstrap() async {
-    final u = _user;
-    if (u == null) return;
+  final isRelevant = stage == OnboardingStage.homeIntro ||
+      stage == OnboardingStage.needFirstHabit ||
+      stage == OnboardingStage.replayingTutorial;
 
-    // --- Trackers live snapshot
-    _trackersSub = _db
-        .collection('users')
-        .doc(u.uid)
-        .collection('trackers')
-        .orderBy('sort')
-        .snapshots()
-        .listen((snap) async {
-      final list = snap.docs.map(Tracker.fromDoc).toList();
-      final count = list.length;
+  setState(() {
+    _tourActive = isRelevant;
+    _showNextButton = false;
+  });
 
+  if (!isRelevant) return;
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final ctx = _showcaseCtx;
+    if (ctx == null || _showcaseStarted) return;
+    try {
+      ShowCaseWidget.of(ctx).startShowCase([
+        _kAddHabit,
+        _kChartSelector,
+        _kJournalTab,
+        _kSettingsTab,
+      ]);
+      _showcaseStarted = true;
+    } catch (_) {}
+  });
+
+  if (stage == OnboardingStage.replayingTutorial) {
+    _replayAutoNext?.cancel();
+    _replayAutoNext = Timer(const Duration(milliseconds: 6000), () {
       if (!mounted) return;
-      setState(() {
-        _trackers = list;
-        _selectedForChart
-          ..clear()
-          ..addAll(_trackers.map((t) => t.id));
-      });
+      Navigator.pushReplacement(
+        context,
+        _slideTo(JournalPage(userName: widget.userName)),
+      );
+    });
+  }
+}
 
-      final stage = await Onboarding.getStage();
 
-      // -------- Gated flow (new users) ----------
-      if (stage == OnboardingStage.homeIntro ||
-          stage == OnboardingStage.needFirstHabit) {
-        if (count == 0) {
-          await Onboarding.setStage(OnboardingStage.needFirstHabit);
-          if (mounted) {
-            setState(() {
-              _tourActive = true;
-              _showNextButton = false;
-            });
-          }
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final ctx = _showcaseCtx;
-            if (ctx == null) return;
-            try {
-              ShowCaseWidget.of(ctx).startShowCase([
-                OBKeys.addHabit,
-                OBKeys.chartSelector,
-                OBKeys.journalTab,
-                OBKeys.settingsTab,
-              ]);
-            } catch (_) {}
-          });
-        }
+Future<void> _bootstrap() async {
+  final u = _user;
+  if (u == null) return;
 
-        // Detect 0 -> 1+ transition and auto-advance to Journal
-        final prev = _prevTrackerCount ?? 0;
-        if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
-          await Onboarding.markHabitCreated(); // -> needFirstCommunity
-          _navigatedAfterHabit = true;
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            _slideTo(JournalPage(userName: widget.userName)),
-          );
-          return;
-        }
-      }
+  _trackersSub = _db
+      .collection('users')
+      .doc(u.uid)
+      .collection('trackers')
+      .orderBy('sort')
+      .snapshots()
+      .listen((snap) async {
+    final list = snap.docs.map(Tracker.fromDoc).toList();
+    final count = list.length;
 
-      _prevTrackerCount = count;
+    if (!mounted) return;
+    setState(() {
+      _trackers = list;
+      _selectedForChart
+        ..clear()
+        ..addAll(_trackers.map((t) => t.id));
+    });
 
-      if (stage == OnboardingStage.replayingTutorial) {
+    final stage = await Onboarding.getStage();
+
+    if (stage == OnboardingStage.homeIntro ||
+        stage == OnboardingStage.needFirstHabit) {
+      if (count == 0) {
+        await Onboarding.setStage(OnboardingStage.needFirstHabit);
         if (mounted) {
           setState(() {
             _tourActive = true;
             _showNextButton = false;
           });
         }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = _showcaseCtx;
+          if (ctx == null || _showcaseStarted) return;
+          try {
+            ShowCaseWidget.of(ctx).startShowCase([
+              _kAddHabit,
+              _kChartSelector,
+              _kJournalTab,
+              _kSettingsTab,
+            ]);
+            _showcaseStarted = true;
+          } catch (_) {}
+        });
       }
-    });
+
+      // 0 -> 1 transition…
+      final prev = _prevTrackerCount ?? 0;
+      if (!_navigatedAfterHabit && prev == 0 && count >= 1) {
+        await Onboarding.markHabitCreated();
+        _navigatedAfterHabit = true;
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          _slideTo(JournalPage(userName: widget.userName)),
+        );
+        return;
+      }
+    }
+
+    _prevTrackerCount = count;
+
+    if (stage == OnboardingStage.replayingTutorial) {
+      if (mounted) {
+        setState(() {
+          _tourActive = true;
+          _showNextButton = false;
+        });
+      }
+    }
+  });
+
 
     // --- Pull last 120 days of logs and keep in memory
     _logsSub = _db
@@ -1281,7 +1293,7 @@ class _HomePageState extends State<HomePage> {
 
                               // Add tracker (Showcase target)
                               Showcase(
-                                key: OBKeys.addHabit,
+                                key:_kAddHabit,
                                 description:
                                     'Tap here to add your first habit tracker.',
                                 disposeOnTap: true,
@@ -1302,7 +1314,7 @@ class _HomePageState extends State<HomePage> {
 
                               // View selector (Showcase target)
                               Showcase(
-                                key: OBKeys.chartSelector,
+                                key: _kChartSelector,
                                 description:
                                     'Switch between Weekly, Monthly, or Overall views.',
                                 disposeOnTap: true,
@@ -1461,6 +1473,7 @@ class _HomePageState extends State<HomePage> {
                         child: _BottomNav(
                           index: 0,
                           userName: widget.userName,
+                          
                         ),
                       ),
                     ],
@@ -1480,7 +1493,7 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => SettingsPage(userName: widget.userName),
                         ),
                       ),
-                      icon: const _ShadowedIcon(
+                      icon: const FrostedIcon(
                         icon: Icons.settings_outlined,
                         size: 26, // sleeker size
                       ),
@@ -1499,7 +1512,7 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => EditProfilePage(userName: widget.userName),
                         ),
                       ),
-                      icon: const _ShadowedIcon(
+                      icon: const FrostedIcon(
                         icon: Icons.person_outline_rounded,
                         size: 26, // sleeker size
                       ),
@@ -2216,13 +2229,16 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation, Widget child) {
-    return child; // no animation
+    return child; 
   }
 }
 
 class _BottomNav extends StatelessWidget {
   final int index;
   final String userName;
+  final GlobalKey journalKey;
+  final GlobalKey settingsKey;
+
   const _BottomNav({required this.index, required this.userName});
 
   @override
@@ -2244,7 +2260,7 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(icon: Icon(Icons.home, color: c(0)), onPressed: () {}),
           Showcase(
-            key: OBKeys.journalTab,
+            key: _kJournalTab,
             description: 'Go to your Journal and community feed.',
             disposeOnTap: true,
             onTargetClick: () {},
@@ -2261,7 +2277,7 @@ class _BottomNav extends StatelessWidget {
             ),
           ),
           Showcase(
-            key: OBKeys.settingsTab,
+            key:_kSettingsTab,
             description: 'Open Settings to customize the app.',
             disposeOnTap: true,
             onTargetClick: () {},
@@ -2285,36 +2301,69 @@ class _BottomNav extends StatelessWidget {
 
 /// Refined icon: sleek outline style, theme-aware tint, and a soft shadow.
 /// No heavy circles; looks cleaner against the gradient header.
-class _ShadowedIcon extends StatelessWidget {
+class FrostedIcon extends StatefulWidget {         // ← starts here, top-level
   final IconData icon;
   final double size;
-  const _ShadowedIcon({required this.icon, this.size = 24});
-
+  const FrostedIcon({super.key, required this.icon, this.size = 22});
+  @override
+  State<FrostedIcon> createState() => _FrostedIconState();
+}
+class _FrostedIconState extends State<FrostedIcon> {
+  bool _pressed = false;
   @override
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
-    final Color tint = dark
-        ? Colors.white.withOpacity(0.92)
-        : const Color(0xFF0D7C66).withOpacity(0.92);
+    final bg = dark ? Colors.white.withOpacity(0.08)
+                    : Colors.white.withOpacity(0.18);
+    final border = dark ? Colors.white.withOpacity(0.20)
+                        : Colors.black.withOpacity(0.05);
+    final iconColor = dark ? Colors.white.withOpacity(0.95)
+                           : const Color(0xFF0D7C66).withOpacity(0.95);
 
-    return Stack(
-      children: [
-        // Soft, subtle shadow for legibility on bright backgrounds
-        Positioned(
-          left: 0,
-          top: 1,
-          child: Icon(
-            icon,
-            size: size,
-            color: Colors.black.withOpacity(0.28),
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 120),
+      scale: _pressed ? 0.92 : 1.0,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: border),
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                        color: Colors.black.withOpacity(dark ? 0.20 : 0.10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ShaderMask(
+                shaderCallback: (rect) => const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF41B3A2), Color(0xFF0D7C66)],
+                ).createShader(rect),
+                blendMode: BlendMode.srcATop,
+                child: Icon(widget.icon, size: widget.size, color: iconColor),
+              ),
+            ],
           ),
         ),
-        Icon(
-          icon,
-          size: size,
-          color: tint,
-        ),
-      ],
+      ),
     );
   }
 }
