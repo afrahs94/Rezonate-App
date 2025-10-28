@@ -374,9 +374,12 @@ class _SummariesPageState extends State<SummariesPage> {
         ),
     ];
 
+    final double minX = -0.5;
+    final double maxX = points.isEmpty ? 0.5 : (points.length - 1 + 0.5);
+
     return LineChartData(
-      minX: 0,
-      maxX: 13,
+      minX: minX,
+      maxX: maxX,
       minY: -0.5,
       maxY: 10.5,
       gridData: FlGridData(
@@ -388,13 +391,15 @@ class _SummariesPageState extends State<SummariesPage> {
       ),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(
-          sideTitles:
-              SideTitles(showTitles: false, reservedSize: 0),
+          sideTitles: SideTitles(
+            showTitles: false,
+            reservedSize: 0,
+          ),
         ),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 28,
+            reservedSize: 32, // a little more breathing room
             interval: 3,
             getTitlesWidget: (v, meta) {
               final i = v.round();
@@ -413,18 +418,27 @@ class _SummariesPageState extends State<SummariesPage> {
           ),
         ),
         rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false)),
+          sideTitles: SideTitles(showTitles: false),
+        ),
         topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false)),
+          sideTitles: SideTitles(showTitles: false),
+        ),
       ),
-      borderData: FlBorderData(show: false),
+      borderData: FlBorderData(
+        show: true,
+        border: const Border(
+          top: BorderSide(color: Colors.transparent),
+          right: BorderSide(color: Colors.transparent),
+          left: BorderSide(color: Colors.transparent),
+          bottom: BorderSide(color: Colors.transparent),
+        ),
+      ),
       lineBarsData: [
         LineChartBarData(
           spots: points,
           isCurved: true,
           barWidth: 3,
           color: const Color(0xFF0D7C66),
-          dotData: FlDotData(show: true),
           belowBarData: BarAreaData(
             show: true,
             gradient: const LinearGradient(
@@ -436,9 +450,10 @@ class _SummariesPageState extends State<SummariesPage> {
               ],
             ),
           ),
+          dotData: FlDotData(show: true),
         ),
       ],
-      clipData: const FlClipData.all(),
+      clipData: const FlClipData.none(), // don't clip ends
     );
   }
 
@@ -451,71 +466,55 @@ class _SummariesPageState extends State<SummariesPage> {
       isScrollControlled: true,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final dark =
-            app.ThemeControllerScope.of(context).isDark;
+        final dark = app.ThemeControllerScope.of(context).isDark;
         return Padding(
           padding: EdgeInsets.only(
             left: 16,
             right: 16,
-            bottom: 16 +
-                MediaQuery.of(ctx).padding.bottom,
+            bottom: 16 + MediaQuery.of(ctx).padding.bottom,
             top: 6,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                DateFormat('EEEE, MMM d, yyyy')
-                    .format(day),
+                DateFormat('EEEE, MMM d, yyyy').format(day),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: dark
-                      ? Colors.white
-                      : const Color(0xFF20312F),
+                  color: dark ? Colors.white : const Color(0xFF20312F),
                 ),
               ),
               const SizedBox(height: 8),
               if (values == null || values.isEmpty)
                 Padding(
-                  padding:
-                      const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
                     'No entries for this day.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: (dark
-                              ? Colors.white
-                              : Colors.black)
-                          .withOpacity(.7),
+                      color:
+                          (dark ? Colors.white : Colors.black).withOpacity(.7),
                     ),
                   ),
                 )
               else
                 ...values.entries.map((e) {
                   final meta = _trackers[e.key];
-                  final label =
-                      meta?.label ?? 'Tracker';
-                  final color =
-                      meta?.color ??
-                          const Color(0xFF0D7C66);
+                  final label = meta?.label ?? 'Tracker';
+                  final color = meta?.color ?? const Color(0xFF0D7C66);
                   return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(
-                            vertical: 6),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
                       children: [
                         Container(
                           width: 10,
                           height: 10,
-                          decoration:
-                              BoxDecoration(
+                          decoration: BoxDecoration(
                             color: color,
                             shape: BoxShape.circle,
                           ),
@@ -526,26 +525,19 @@ class _SummariesPageState extends State<SummariesPage> {
                             label,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight:
-                                  FontWeight.w700,
-                              color: dark
-                                  ? Colors.white
-                                  : const Color(
-                                      0xFF20312F),
+                              fontWeight: FontWeight.w700,
+                              color:
+                                  dark ? Colors.white : const Color(0xFF20312F),
                             ),
                           ),
                         ),
                         Text(
-                          e.value
-                              .toStringAsFixed(1),
+                          e.value.toStringAsFixed(1),
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight:
-                                FontWeight.w900,
-                            color: dark
-                                ? Colors.white
-                                : const Color(
-                                    0xFF20312F),
+                            fontWeight: FontWeight.w900,
+                            color:
+                                dark ? Colors.white : const Color(0xFF20312F),
                           ),
                         ),
                       ],
@@ -574,19 +566,14 @@ class _SummariesPageState extends State<SummariesPage> {
             children: [
               // Top app bar / header summary -----------------
               Padding(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Row(
                   children: [
                     IconButton(
                       tooltip: 'Back',
-                      icon: const Icon(Icons
-                          .arrow_back_ios_new_rounded),
-                      color: dark
-                          ? Colors.white
-                          : const Color(0xFF20312F),
-                      onPressed: () =>
-                          Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      color: dark ? Colors.white : const Color(0xFF20312F),
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
                     const SizedBox(width: 4),
                     Expanded(
@@ -594,8 +581,7 @@ class _SummariesPageState extends State<SummariesPage> {
                         userName: widget.userName,
                         streak: _streak,
                         avgLast7: _avgLast7,
-                        adherencePct:
-                            _adherenceLast14 * 100,
+                        adherencePct: _adherenceLast14 * 100,
                         dark: dark,
                       ),
                     ),
@@ -606,21 +592,15 @@ class _SummariesPageState extends State<SummariesPage> {
 
               Expanded(
                 child: SingleChildScrollView(
-                  physics:
-                      const BouncingScrollPhysics(),
+                  physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                     16,
                     8,
                     16,
-                    16 +
-                        MediaQuery.of(context)
-                            .padding
-                            .bottom +
-                        56,
+                    16 + MediaQuery.of(context).padding.bottom,
                   ),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Week/Month comparison chips ------------
                       _CardShell(
@@ -636,17 +616,14 @@ class _SummariesPageState extends State<SummariesPage> {
 
                       const SizedBox(height: 16),
 
-                      // Mood trend chart -----------------------
+                      // Overall score trend chart -----------------------
                       _CardShell(
                         dark: dark,
-                        sectionTitle:
-                            'Mood trend (last 14 days)',
-                        sectionSubtitle:
-                            'Higher is better',
+                        sectionTitle: 'Overall score (last 14 days)',
+                        sectionSubtitle: 'Higher = better days',
                         child: SizedBox(
                           height: 200,
-                          child: LineChart(
-                              _trend14Chart()),
+                          child: LineChart(_trend14Chart()),
                         ),
                       ),
 
@@ -655,10 +632,8 @@ class _SummariesPageState extends State<SummariesPage> {
                       // Logging calendar -----------------------
                       _CardShell(
                         dark: dark,
-                        sectionTitle:
-                            'Logging consistency',
-                        sectionSubtitle:
-                            'Days you made an entry',
+                        sectionTitle: 'Logging consistency',
+                        sectionSubtitle: 'Days you made an entry',
                         child: _LoggingCalendar(
                           monthAnchor: _calMonth,
                           isLogged: _isLogged,
@@ -676,8 +651,7 @@ class _SummariesPageState extends State<SummariesPage> {
                               1,
                             );
                           }),
-                          onDayTap: (d) =>
-                              _showDayDetails(d),
+                          onDayTap: (d) => _showDayDetails(d),
                         ),
                       ),
 
@@ -691,8 +665,7 @@ class _SummariesPageState extends State<SummariesPage> {
                           setState(() {
                             _range = r;
                             _rangeAverages =
-                                _computeTrackerAveragesForRange(
-                                    _range);
+                                _computeTrackerAveragesForRange(_range);
                           });
                         },
                         rangeAverages: _rangeAverages,
@@ -702,12 +675,6 @@ class _SummariesPageState extends State<SummariesPage> {
                     ],
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 6),
-              _BottomNav3(
-                index: 0,
-                userName: widget.userName,
               ),
             ],
           ),
@@ -735,9 +702,10 @@ class _CardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = dark
-        ? const Color(0xFF1F2E2C)
-        : Colors.white.withOpacity(.95);
+    // glassy/translucent cards
+    final Color bg = dark
+        ? const Color(0xFF1F2E2C).withOpacity(0.6)
+        : Colors.white.withOpacity(0.6);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -745,24 +713,29 @@ class _CardShell extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(20),
         boxShadow: dark
-            ? []
-            : const [
+            ? [
                 BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 )
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
               ],
-        border: dark
-            ? Border.all(
-                color: Colors.white24,
-                width: 1,
-              )
-            : null,
+        border: Border.all(
+          color: dark
+              ? Colors.white.withOpacity(0.15)
+              : Colors.white.withOpacity(0.4),
+          width: 1,
+        ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (sectionTitle != null) ...[
             Text(
@@ -770,9 +743,7 @@ class _CardShell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
-                color: dark
-                    ? Colors.white
-                    : const Color(0xFF20312F),
+                color: dark ? Colors.white : const Color(0xFF20312F),
               ),
             ),
             if (sectionSubtitle != null) ...[
@@ -782,10 +753,7 @@ class _CardShell extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: (dark
-                          ? Colors.white
-                          : Colors.black)
-                      .withOpacity(.6),
+                  color: (dark ? Colors.white : Colors.black).withOpacity(.6),
                 ),
               ),
             ],
@@ -798,7 +766,7 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-// Header block that replaces "Insights" title + separate streak card
+// Header block that replaces the big title
 class _HeaderSummary extends StatelessWidget {
   final String userName;
   final int streak;
@@ -816,14 +784,12 @@ class _HeaderSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor =
-        dark ? Colors.white : const Color(0xFF20312F);
-    final subColor = (dark ? Colors.white : Colors.black)
-        .withOpacity(.65);
+    final titleColor = dark ? Colors.white : const Color(0xFF20312F);
+    final subColor =
+        (dark ? Colors.white : Colors.black).withOpacity(.65);
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Insights',
@@ -839,7 +805,7 @@ class _HeaderSummary extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                '$streak-day streak • Avg mood ${avgLast7.toStringAsFixed(1)}',
+                '$streak-day streak • Avg score ${avgLast7.toStringAsFixed(1)}',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -852,8 +818,7 @@ class _HeaderSummary extends StatelessWidget {
             const SizedBox(width: 8),
             _MiniPill(
               icon: Icons.check_circle,
-              label:
-                  '${adherencePct.toStringAsFixed(0)}% logged',
+              label: '${adherencePct.toStringAsFixed(0)}% logged',
               dark: dark,
             ),
           ],
@@ -897,8 +862,9 @@ class _StatChipRow extends StatelessWidget {
       dir = pct >= 0 ? 1 : -1;
     }
 
-    final Color accent =
-        dir == 1 ? up : (dir == -1 ? down : flat);
+    final Color accent = dir == 1
+        ? up
+        : (dir == -1 ? down : flat);
     final IconData icon = dir == 1
         ? Icons.trending_up_rounded
         : (dir == -1
@@ -912,9 +878,10 @@ class _StatChipRow extends StatelessWidget {
 
     return Expanded(
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           color: accent.withOpacity(.07),
@@ -924,21 +891,18 @@ class _StatChipRow extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon,
-                    size: 18, color: accent),
+                Icon(icon, size: 18, color: accent),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     label,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w700,
+                      fontWeight: FontWeight.w700,
                       color: accent,
                       height: 1.2,
                     ),
@@ -961,10 +925,8 @@ class _StatChipRow extends StatelessWidget {
               deltaTxt,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight:
-                    FontWeight.w600,
-                color: accent
-                    .withOpacity(.8),
+                fontWeight: FontWeight.w600,
+                color: accent.withOpacity(.8),
                 height: 1.1,
               ),
             ),
@@ -1017,11 +979,9 @@ class _TrackersSection extends StatelessWidget {
     return _CardShell(
       dark: dark,
       sectionTitle: 'Your trackers',
-      sectionSubtitle:
-          'Averages + what to watch',
+      sectionSubtitle: 'Averages + what to watch',
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // RANGE PICKER
           _RangePicker(
@@ -1033,8 +993,7 @@ class _TrackersSection extends StatelessWidget {
           // AVERAGES LIST
           if (rangeAverages.isEmpty)
             _EmptyLine(
-              text:
-                  'No data yet. Log a few check-ins first.',
+              text: 'No data yet. Log a few check-ins first.',
               dark: dark,
             )
           else
@@ -1042,12 +1001,8 @@ class _TrackersSection extends StatelessWidget {
               children: [
                 for (final s in rangeAverages)
                   Padding(
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                                vertical: 6),
-                    child:
-                        _TrackerAverageRow(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: _TrackerAverageRow(
                       stat: s,
                       dark: dark,
                     ),
@@ -1064,40 +1019,32 @@ class _TrackersSection extends StatelessWidget {
 
           // SIGNALS / CALL OUTS
           Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Signals',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight:
-                      FontWeight.w800,
-                  color: dark
-                      ? Colors.white
-                      : const Color(
-                          0xFF20312F),
+                  fontWeight: FontWeight.w800,
+                  color: dark ? Colors.white : const Color(0xFF20312F),
                 ),
               ),
               const SizedBox(height: 12),
               if (bestTracker != null)
                 _SignalRow(
-                  label:
-                      'Improving the most',
+                  label: 'Improving the most',
                   stat: bestTracker!,
                   dark: dark,
                 )
               else
                 _EmptyLine(
-                  text:
-                      'Keep logging to spot improvements.',
+                  text: 'Keep logging to spot improvements.',
                   dark: dark,
                 ),
               const SizedBox(height: 12),
               if (worstTracker != null)
                 _SignalRow(
-                  label:
-                      'Needs attention',
+                  label: 'Needs attention',
                   stat: worstTracker!,
                   dark: dark,
                 ),
@@ -1109,7 +1056,7 @@ class _TrackersSection extends StatelessWidget {
   }
 }
 
-// Tiny pill used in header row ("84% logged")
+// Tiny pill used in header row ("% logged")
 class _MiniPill extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1122,22 +1069,15 @@ class _MiniPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = (dark ? Colors.white : Colors.black)
-        .withOpacity(.07);
-    final border =
-        (dark ? Colors.white : Colors.black)
-            .withOpacity(.15);
-    final textColor =
-        dark ? Colors.white : const Color(0xFF20312F);
+    final bg = (dark ? Colors.white : Colors.black).withOpacity(.07);
+    final border = (dark ? Colors.white : Colors.black).withOpacity(.15);
+    final textColor = dark ? Colors.white : const Color(0xFF20312F);
 
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-              horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius:
-            BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: border,
           width: 1,
@@ -1146,10 +1086,11 @@ class _MiniPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon,
-              size: 12,
-              color: textColor
-                  .withOpacity(.8)),
+          Icon(
+            icon,
+            size: 12,
+            color: textColor.withOpacity(.8),
+          ),
           const SizedBox(width: 4),
           Text(
             label,
@@ -1232,15 +1173,12 @@ class _EmptyLine extends StatelessWidget {
       text,
       style: TextStyle(
         fontSize: 12,
-        color: (dark ? Colors.white : Colors.black)
-            .withOpacity(.6),
+        color: (dark ? Colors.white : Colors.black).withOpacity(.6),
       ),
     );
   }
 }
 
-// calendar, tracker rows, signal rows, bottom nav, models
-// (copied straight from your file with no visual changes except what we've already done)
 class _LoggingCalendar extends StatelessWidget {
   final DateTime monthAnchor;
   final bool Function(DateTime day) isLogged;
@@ -1259,12 +1197,9 @@ class _LoggingCalendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final monthStart =
-        DateTime(monthAnchor.year, monthAnchor.month, 1);
-    final startWeekday =
-        monthStart.weekday % 7; // Sun=0
-    final gridStart = monthStart
-        .subtract(Duration(days: startWeekday));
+    final monthStart = DateTime(monthAnchor.year, monthAnchor.month, 1);
+    final startWeekday = monthStart.weekday % 7; // Sun=0
+    final gridStart = monthStart.subtract(Duration(days: startWeekday));
     final days = List<DateTime>.generate(
       42,
       (i) => DateTime(
@@ -1273,61 +1208,49 @@ class _LoggingCalendar extends StatelessWidget {
         gridStart.day + i,
       ),
     );
-    final isDark =
-        app.ThemeControllerScope.of(context).isDark;
+    final isDark = app.ThemeControllerScope.of(context).isDark;
 
     final Color onSurface = theme.colorScheme.onSurface;
     Color loggedColor = const Color(0xFF3E8F84);
     Color outMonthText = onSurface.withOpacity(.35);
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          mainAxisAlignment:
-              MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              visualDensity:
-                  VisualDensity.compact,
+              visualDensity: VisualDensity.compact,
               onPressed: onPrev,
-              icon: const Icon(
-                  Icons.chevron_left),
+              icon: const Icon(Icons.chevron_left),
             ),
             Text(
-              DateFormat('MMMM yyyy')
-                  .format(monthStart),
+              DateFormat('MMMM yyyy').format(monthStart),
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
               ),
             ),
             IconButton(
-              visualDensity:
-                  VisualDensity.compact,
+              visualDensity: VisualDensity.compact,
               onPressed: onNext,
-              icon: const Icon(
-                  Icons.chevron_right),
+              icon: const Icon(Icons.chevron_right),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Row(
-          mainAxisAlignment:
-              MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            for (final d
-                in ['S', 'M', 'T', 'W', 'T', 'F', 'S'])
+            for (final d in ['S', 'M', 'T', 'W', 'T', 'F', 'S'])
               Expanded(
                 child: Center(
                   child: Text(
                     d,
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight:
-                          FontWeight.w700,
-                      color:
-                          onSurface.withOpacity(.6),
+                      fontWeight: FontWeight.w700,
+                      color: onSurface.withOpacity(.6),
                     ),
                   ),
                 ),
@@ -1337,12 +1260,10 @@ class _LoggingCalendar extends StatelessWidget {
         const SizedBox(height: 6),
         GridView.builder(
           padding: EdgeInsets.zero,
-          physics:
-              const NeverScrollableScrollPhysics(),
+          physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,
           itemCount: days.length,
-          gridDelegate:
-              const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
@@ -1350,23 +1271,18 @@ class _LoggingCalendar extends StatelessWidget {
           ),
           itemBuilder: (context, idx) {
             final day = days[idx];
-            final inMonth =
-                day.month == monthStart.month;
+            final inMonth = day.month == monthStart.month;
             final logged = isLogged(day);
 
             return LayoutBuilder(
-              builder:
-                  (context, constraints) {
-                final side = constraints
-                    .biggest.shortestSide;
+              builder: (context, constraints) {
+                final side = constraints.biggest.shortestSide;
                 final dia = side * 0.72;
                 final bgColor = logged
                     ? loggedColor
                     : (isDark
-                        ? Colors.white
-                            .withOpacity(.06)
-                        : Colors.black12
-                            .withOpacity(.08));
+                        ? Colors.white.withOpacity(.06)
+                        : Colors.black12.withOpacity(.08));
                 final border = logged
                     ? null
                     : Border.all(
@@ -1374,31 +1290,24 @@ class _LoggingCalendar extends StatelessWidget {
                         width: 0.6,
                       );
                 final textColor = inMonth
-                    ? (logged
-                        ? Colors.white
-                        : onSurface)
+                    ? (logged ? Colors.white : onSurface)
                     : outMonthText;
 
                 final circle = Center(
                   child: Container(
                     width: dia,
                     height: dia,
-                    decoration:
-                        BoxDecoration(
+                    decoration: BoxDecoration(
                       color: bgColor,
-                      shape:
-                          BoxShape.circle,
+                      shape: BoxShape.circle,
                       border: border,
                     ),
-                    alignment:
-                        Alignment.center,
+                    alignment: Alignment.center,
                     child: Text(
                       '${day.day}',
                       style: TextStyle(
-                        fontSize:
-                            dia * 0.45,
-                        fontWeight:
-                            FontWeight.w800,
+                        fontSize: dia * 0.45,
+                        fontWeight: FontWeight.w800,
                         color: textColor,
                         height: 1.0,
                       ),
@@ -1409,13 +1318,8 @@ class _LoggingCalendar extends StatelessWidget {
                 return Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius:
-                        BorderRadius.circular(
-                            dia / 2),
-                    onTap: onDayTap == null
-                        ? null
-                        : () =>
-                            onDayTap!(day),
+                    borderRadius: BorderRadius.circular(dia / 2),
+                    onTap: onDayTap == null ? null : () => onDayTap!(day),
                     child: circle,
                   ),
                 );
@@ -1441,9 +1345,8 @@ class _SignalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chipBg = dark
-        ? stat.color.withOpacity(.25)
-        : stat.color.withOpacity(.12);
+    final chipBg =
+        dark ? stat.color.withOpacity(.25) : stat.color.withOpacity(.12);
     return Row(
       children: [
         Expanded(
@@ -1451,34 +1354,28 @@ class _SignalRow extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              fontWeight:
-                  FontWeight.w700,
-              color: (dark
-                      ? Colors.white
-                      : Colors.black)
-                  .withOpacity(.8),
+              fontWeight: FontWeight.w700,
+              color:
+                  (dark ? Colors.white : Colors.black).withOpacity(.8),
             ),
           ),
         ),
         Container(
-          padding:
-              const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
           decoration: BoxDecoration(
             color: chipBg,
-            borderRadius:
-                BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
-            mainAxisSize:
-                MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 width: 8,
                 height: 8,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: stat.color,
                   shape: BoxShape.circle,
                 ),
@@ -1488,26 +1385,19 @@ class _SignalRow extends StatelessWidget {
                 stat.label,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight:
-                      FontWeight.w700,
-                  color: dark
-                      ? Colors.white
-                      : const Color(
-                          0xFF20312F),
+                  fontWeight: FontWeight.w700,
+                  color:
+                      dark ? Colors.white : const Color(0xFF20312F),
                 ),
               ),
               const SizedBox(width: 10),
               Text(
-                stat.mean
-                    .toStringAsFixed(1),
+                stat.mean.toStringAsFixed(1),
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight:
-                      FontWeight.w900,
-                  color: dark
-                      ? Colors.white
-                      : const Color(
-                          0xFF20312F),
+                  fontWeight: FontWeight.w900,
+                  color:
+                      dark ? Colors.white : const Color(0xFF20312F),
                 ),
               ),
             ],
@@ -1518,8 +1408,7 @@ class _SignalRow extends StatelessWidget {
   }
 }
 
-class _TrackerAverageRow
-    extends StatelessWidget {
+class _TrackerAverageRow extends StatelessWidget {
   final _TrackerStat stat;
   final bool dark;
   const _TrackerAverageRow({
@@ -1527,11 +1416,26 @@ class _TrackerAverageRow
     required this.dark,
   });
 
+  // Map 0–10 score to a single emoji. Tweak thresholds to match your slider.
+  String _emojiForScore(double v) {
+    final s = v.clamp(0.0, 10.0);
+    if (s >= 9.0) return '🤩';
+    if (s >= 8.0) return '😄';
+    if (s >= 7.0) return '😊';
+    if (s >= 6.0) return '🙂';
+    if (s >= 5.0) return '😐';
+    if (s >= 4.0) return '😕';
+    if (s >= 3.0) return '☹️';
+    if (s >= 2.0) return '😣';
+    return '😫';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final chipBg = dark
-        ? stat.color.withOpacity(.25)
-        : stat.color.withOpacity(.12);
+    final chipBg =
+        dark ? stat.color.withOpacity(.20) : stat.color.withOpacity(.12);
+    final emoji = _emojiForScore(stat.mean);
+
     return Row(
       children: [
         Expanded(
@@ -1540,8 +1444,7 @@ class _TrackerAverageRow
               Container(
                 width: 10,
                 height: 10,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: stat.color,
                   shape: BoxShape.circle,
                 ),
@@ -1550,154 +1453,41 @@ class _TrackerAverageRow
               Flexible(
                 child: Text(
                   stat.label,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        FontWeight.w700,
-                    color: dark
-                        ? Colors.white
-                        : const Color(
-                            0xFF20312F),
+                    fontWeight: FontWeight.w700,
+                    color:
+                        dark ? Colors.white : const Color(0xFF20312F),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        Container(
-          padding:
-              const EdgeInsets
-                  .symmetric(
-                      horizontal: 12,
-                      vertical: 6),
-          decoration: BoxDecoration(
-            color: chipBg,
-            borderRadius:
-                BorderRadius.circular(
-                    999),
-          ),
-          child: Text(
-            stat.mean
-                .toStringAsFixed(1),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight:
-                  FontWeight.w900,
-              color: dark
-                  ? Colors.white
-                  : const Color(
-                      0xFF20312F),
+        // Emoji badge (no numeric average shown)
+        Semantics(
+          label: 'Average ${stat.mean.toStringAsFixed(1)}',
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              emoji,
+              style: const TextStyle(
+                fontSize: 18, // nice, readable size
+              ),
             ),
           ),
         ),
       ],
     );
   }
-}
-
-class _BottomNav3 extends StatelessWidget {
-  final int index;
-  final String userName;
-  const _BottomNav3({
-    required this.index,
-    required this.userName,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const green = Color(0xFF0D7C66);
-    const darkSelected = Color(0xFFBDA9DB);
-
-    Color c(int i) {
-      final dark =
-          app.ThemeControllerScope.of(context).isDark;
-      if (i == index) return dark
-          ? darkSelected
-          : green;
-      return Colors.white;
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: 8 +
-            MediaQuery.of(context)
-                .padding
-                .bottom,
-        top: 6,
-      ),
-      child: Row(
-        mainAxisAlignment:
-            MainAxisAlignment
-                .spaceEvenly,
-        children: [
-          IconButton(
-            icon: Icon(
-              Icons.home,
-              color: c(0),
-            ),
-            onPressed: () {
-              if (Navigator.of(context)
-                  .canPop()) {
-                Navigator.of(context)
-                    .pop();
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.menu_book,
-              color: c(1),
-            ),
-            onPressed: () =>
-                Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(
-                builder: (_) =>
-                    JournalPage(
-                  userName:
-                      userName,
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.settings,
-              color: c(2),
-            ),
-            onPressed: () =>
-                Navigator.pushReplacement(
-              context,
-              NoTransitionPageRoute(
-                builder: (_) =>
-                    SettingsPage(
-                  userName:
-                      userName,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class NoTransitionPageRoute<T>
-    extends MaterialPageRoute<T> {
-  NoTransitionPageRoute({
-    required WidgetBuilder builder,
-  }) : super(builder: builder);
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> a,
-    Animation<double> s,
-    Widget child,
-  ) =>
-      child;
 }
 
 // Models

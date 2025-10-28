@@ -18,7 +18,6 @@
 #import "FlutterPlatformViews.h"
 #import "FlutterPlugin.h"
 #import "FlutterPluginAppLifeCycleDelegate.h"
-#import "FlutterSceneDelegate.h"
 #import "FlutterTexture.h"
 #import "FlutterViewController.h"
 
