@@ -18,7 +18,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		akziBl/nxgMWtJ9Tde12kQYVn28=
+		ar1AIjMMJwwKGcJxWaj15fntELA=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -26,11 +26,11 @@
 		</data>
 		<key>Modules/vibration.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		Ul0cZEZzhdzR10tmiABoEj6ffL0=
+		WF9fhkp7QTazbfxUfnlKnc/0sMc=
 		</data>
 		<key>Modules/vibration.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		h5D3/G5utqMw/YkNPvmIaPYS1Wc=
+		wJf9nzSmPDVddVjYzqF4ZWup98A=
 		</data>
 		<key>Modules/vibration.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -42,7 +42,7 @@
 		</data>
 		<key>Modules/vibration.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		37uS3gpsmMdUtsOwYJeDpQLyYbQ=
+		8jqUn2q7j/D36jl48/vYu1y+3O0=
 		</data>
 		<key>Modules/vibration.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -54,7 +54,7 @@
 		</data>
 		<key>Modules/vibration.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		S7D5+QvgrOZ8qvcDrC8PMccNZWk=
+		o9TkgUE37y4bgjwdL5gEqoAJ8rQ=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -91,14 +91,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			My7yZ4GS751UihebcfyhrH8ETudgvqr8Oz17RcG2i/o=
+			2m1RBHJwaUDkpEVUbDWwQOLRtHxe5n0WKrQ5BTA5kr4=
 			</data>
 		</dict>
 		<key>Modules/vibration.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			cmDD40If1444ciBUaNpsfFSUPcYoovhM14Ucqds1F+4=
+			+2+kdssQfJ6cdB0MwYcoCPYKuw37PhzdIcBG7b9W9zA=
 			</data>
 		</dict>
 		<key>Modules/vibration.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -119,7 +119,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			2+AyHgLr+BuJSN0Kp4CiMQ1cfgeEAYS84D3i4DOdauE=
+			ba4UQqr7Sw5jHzoxFP1Rh1+wHQrWOaiCqE8jqWA4Bd0=
 			</data>
 		</dict>
 		<key>Modules/vibration.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -140,7 +140,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			Y947UbY3Gaj5UMSDokjLArYWQfwn7eFHz8EKPI+qC8I=
+			I3U62R+QGhp/wO4w2F8eLH+FYGl68Hk3eF7jecTsNGQ=
 			</data>
 		</dict>
 	</dict>
