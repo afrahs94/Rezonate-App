@@ -71,68 +71,65 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     Color picked = _randomColor();
     await showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('New Habit'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New Habit'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Text('Color'),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: () async {
-                        final c = await showDialog<Color>(
-                          context: context,
-                          builder: (_) => _ColorPickerDialog(initial: picked),
-                        );
-                        if (c != null) setState(() => picked = c);
-                      },
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: picked,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black12),
-                        ),
-                      ),
+                const Text('Color'),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () async {
+                    final c = await showDialog<Color>(
+                      context: context,
+                      builder: (_) => _ColorPickerDialog(initial: picked),
+                    );
+                    if (c != null) setState(() => picked = c);
+                  },
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: picked,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black12),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  final name = nameCtrl.text.trim();
-                  if (name.isEmpty) return;
-                  await _habitsCol.add({
-                    'name': name,
-                    'color': picked.value,
-                    'createdAt': FieldValue.serverTimestamp(),
-                    'active': true,
-                  });
-                  if (context.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('Save'),
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
+              await _habitsCol.add({
+                'name': name,
+                'color': picked.value,
+                'createdAt': FieldValue.serverTimestamp(),
+                'active': true,
+              });
+              if (context.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
-
-  
 
   Future<void> _editHabit(
     BuildContext context,
@@ -144,62 +141,61 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     Color picked = color;
     await showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Edit Habit'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Habit'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Text('Color'),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: () async {
-                        final c = await showDialog<Color>(
-                          context: context,
-                          builder: (_) => _ColorPickerDialog(initial: picked),
-                        );
-                        if (c != null) setState(() => picked = c);
-                      },
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: picked,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black12),
-                        ),
-                      ),
+                const Text('Color'),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () async {
+                    final c = await showDialog<Color>(
+                      context: context,
+                      builder: (_) => _ColorPickerDialog(initial: picked),
+                    );
+                    if (c != null) setState(() => picked = c);
+                  },
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: picked,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black12),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  final newName = nameCtrl.text.trim();
-                  if (newName.isEmpty) return;
-                  await _habitsCol.doc(id).update({
-                    'name': newName,
-                    'color': picked.value,
-                  });
-                  if (context.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('Save'),
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () async {
+              final newName = nameCtrl.text.trim();
+              if (newName.isEmpty) return;
+              await _habitsCol.doc(id).update({
+                'name': newName,
+                'color': picked.value,
+              });
+              if (context.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -226,10 +222,9 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors:
-          dark
-              ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-              : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+      colors: dark
+          ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
     );
   }
 
@@ -253,152 +248,153 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
         .snapshots();
   }
 
-Future<void> _openFilters() async {
-  final snap = await _habitsCol.orderBy('createdAt', descending: false).get();
-  final docs = snap.docs;
-  if (docs.isEmpty) return;
+  Future<void> _openFilters() async {
+    final snap = await _habitsCol.orderBy('createdAt', descending: false).get();
+    final docs = snap.docs;
+    if (docs.isEmpty) return;
 
-  final local = _visibleHabitIds.isEmpty
-      ? docs.map((d) => d.id).toSet()
-      : _visibleHabitIds.toSet();
+    final local = _visibleHabitIds.isEmpty
+        ? docs.map((d) => d.id).toSet()
+        : _visibleHabitIds.toSet();
 
-  await showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: StatefulBuilder(
-          builder: (ctx, setLocal) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  const Text(
-                    'Filter trackers on calendar',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    const Text(
+                      'Filter trackers on calendar',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
 
-                  // Chips (scroll if many)
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: docs.map((h) {
-                          final id = h.id;
-                          final name = (h['name'] as String?) ?? 'Habit';
-                          final color = Color((h['color'] as int?) ?? Colors.amber.value);
-                          final selected = local.contains(id);
+                    // Chips (scroll if many)
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: docs.map((h) {
+                            final id = h.id;
+                            final name = (h['name'] as String?) ?? 'Habit';
+                            final color = Color((h['color'] as int?) ?? Colors.amber.value);
+                            final selected = local.contains(id);
 
-                          return FilterChip(
-                            avatar: CircleAvatar(backgroundColor: color, radius: 6),
-                            label: Text(name,
+                            return FilterChip(
+                              avatar: CircleAvatar(backgroundColor: color, radius: 6),
+                              label: Text(
+                                name,
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                )),
-                            selected: selected,
-                            onSelected: (v) => setLocal(() {
-                              v ? local.add(id) : local.remove(id);
-                            }),
-                            showCheckmark: true,
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            side: BorderSide(
-                              color: (selected
-                                      ? Colors.black.withOpacity(.15)
-                                      : Colors.black12),
-                            ),
-                            backgroundColor: Colors.grey.shade100,
-                            selectedColor: Colors.white,
-                            checkmarkColor: Colors.black87,
-                          );
-                        }).toList(),
+                                ),
+                              ),
+                              selected: selected,
+                              onSelected: (v) => setLocal(() {
+                                v ? local.add(id) : local.remove(id);
+                              }),
+                              showCheckmark: true,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              side: BorderSide(
+                                color: (selected
+                                    ? Colors.black.withOpacity(.15)
+                                    : Colors.black12),
+                              ),
+                              backgroundColor: Colors.grey.shade100,
+                              selectedColor: Colors.white,
+                              checkmarkColor: Colors.black87,
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 16),
-                  const Divider(height: 1, color: Color(0x1A000000)),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: Color(0x1A000000)),
+                    const SizedBox(height: 12),
 
-                  // Footer actions
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => setLocal(() {
-                          local
-                            ..clear()
-                            ..addAll(docs.map((d) => d.id));
-                        }),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0D7C66),
-                        ),
-                        child: const Text('Select all'),
-                      ),
-                      const SizedBox(width: 6),
-                      TextButton(
-                        onPressed: () => setLocal(() => local.clear()),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0D7C66),
-                        ),
-                        child: const Text('Clear all'),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            if (local.length == docs.length) {
-                              _visibleHabitIds.clear(); // empty => show all
-                            } else {
-                              _visibleHabitIds
-                                ..clear()
-                                ..addAll(local);
-                            }
-                          });
-                          Navigator.pop(ctx);
-                        },
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: const Text('Apply'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D7C66),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                    // Footer actions
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => setLocal(() {
+                            local
+                              ..clear()
+                              ..addAll(docs.map((d) => d.id));
+                          }),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF0D7C66),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 10),
+                          child: const Text('Select all'),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
-    },
-  );
-}
-
+                        const SizedBox(width: 6),
+                        TextButton(
+                          onPressed: () => setLocal(() => local.clear()),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF0D7C66),
+                          ),
+                          child: const Text('Clear all'),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              if (local.length == docs.length) {
+                                _visibleHabitIds.clear(); // empty => show all
+                              } else {
+                                _visibleHabitIds
+                                  ..clear()
+                                  ..addAll(local);
+                              }
+                            });
+                            Navigator.pop(ctx);
+                          },
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: const Text('Apply'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D7C66),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -457,7 +453,6 @@ Future<void> _openFilters() async {
           ),
         ],
       ),
-
       body: Stack(
         children: [
           Positioned.fill(
@@ -474,22 +469,20 @@ Future<void> _openFilters() async {
                   sliver: SliverToBoxAdapter(
                     child: _MonthHeader(
                       focusedDay: _focusedDay,
-                      onPrev:
-                          () => setState(() {
-                            _focusedDay = DateTime(
-                              _focusedDay.year,
-                              _focusedDay.month - 1,
-                              1,
-                            );
-                          }),
-                      onNext:
-                          () => setState(() {
-                            _focusedDay = DateTime(
-                              _focusedDay.year,
-                              _focusedDay.month + 1,
-                              1,
-                            );
-                          }),
+                      onPrev: () => setState(() {
+                        _focusedDay = DateTime(
+                          _focusedDay.year,
+                          _focusedDay.month - 1,
+                          1,
+                        );
+                      }),
+                      onNext: () => setState(() {
+                        _focusedDay = DateTime(
+                          _focusedDay.year,
+                          _focusedDay.month + 1,
+                          1,
+                        );
+                      }),
                     ),
                   ),
                 ),
@@ -526,12 +519,7 @@ Future<void> _openFilters() async {
 
                 // Weekdays row (today highlighted)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    10,
-                    6,
-                    10,
-                    0,
-                  ), // match calendar padding
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                   sliver: SliverToBoxAdapter(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -548,10 +536,9 @@ Future<void> _openFilters() async {
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
-                                    color:
-                                        isToday
-                                            ? const Color(0xFF0D7C66)
-                                            : Colors.black87,
+                                    color: isToday
+                                        ? const Color(0xFF0D7C66)
+                                        : Colors.black87,
                                   ),
                                 ),
                               ),
@@ -563,7 +550,7 @@ Future<void> _openFilters() async {
                   ),
                 ),
 
-                // Calendar with colored markers + filters applied
+                // Calendar with squared cells
                 SliverToBoxAdapter(
                   child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                     stream: _habitsCol.snapshots(),
@@ -576,9 +563,8 @@ Future<void> _openFilters() async {
                       }
                       final habitColor = <String, Color>{};
                       for (final d in habitsSnap.data!.docs) {
-                        habitColor[d.id] = Color(
-                          (d['color'] as int?) ?? Colors.amber.value,
-                        );
+                        habitColor[d.id] =
+                            Color((d['color'] as int?) ?? Colors.amber.value);
                       }
 
                       return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -591,8 +577,7 @@ Future<void> _openFilters() async {
                               final colors = <Color>[];
                               data.forEach((key, value) {
                                 if (key == '_ts') return;
-                                final passesFilter =
-                                    _visibleHabitIds.isEmpty ||
+                                final passesFilter = _visibleHabitIds.isEmpty ||
                                     _visibleHabitIds.contains(key);
                                 if (passesFilter &&
                                     value == true &&
@@ -606,68 +591,70 @@ Future<void> _openFilters() async {
                             }
                           }
 
+                          // >>> Square-cell sizing based on available width
                           return Padding(
                             padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
-                            child: TableCalendar(
-                              firstDay: DateTime.utc(2010, 1, 1),
-                              lastDay: DateTime.utc(2040, 12, 31),
-                              focusedDay: _focusedDay,
-                              headerVisible: false,
-                              daysOfWeekVisible: false,
-                              selectedDayPredicate:
-                                  (d) => isSameDay(d, _selectedDay),
-                              onDaySelected: (sel, foc) {
-                                setState(() {
-                                  _selectedDay = DateTime(
-                                    sel.year,
-                                    sel.month,
-                                    sel.day,
-                                  );
-                                  _focusedDay = foc;
-                                });
-                              },
-                              onPageChanged:
-                                  (f) => setState(() => _focusedDay = f),
-                              startingDayOfWeek: StartingDayOfWeek.sunday,
+                            child: LayoutBuilder(
+                              builder: (context, cons) {
+                                // cell margin = 4 (see _DayCell), 7 columns => total gaps ~ 8*4 = 32
+                                final cellSize = (cons.maxWidth - 32) / 7;
+                                return TableCalendar(
+                                  firstDay: DateTime.utc(2010, 1, 1),
+                                  lastDay: DateTime.utc(2040, 12, 31),
+                                  focusedDay: _focusedDay,
+                                  headerVisible: false,
+                                  daysOfWeekVisible: false,
+                                  selectedDayPredicate: (d) =>
+                                      isSameDay(d, _selectedDay),
+                                  onDaySelected: (sel, foc) {
+                                    setState(() {
+                                      _selectedDay =
+                                          DateTime(sel.year, sel.month, sel.day);
+                                      _focusedDay = foc;
+                                    });
+                                  },
+                                  onPageChanged: (f) =>
+                                      setState(() => _focusedDay = f),
+                                  startingDayOfWeek: StartingDayOfWeek.sunday,
 
-                              // Make the calendar less squished: taller rows
-                              daysOfWeekHeight: 20,
-                              rowHeight: 70,
-//here
-                              calendarStyle: const CalendarStyle(
-                                cellPadding: EdgeInsets.symmetric(
-                                  vertical: 6,
-                                  horizontal: 6,
-                                ),
-                                outsideDaysVisible: false,
-                              ),
-                              calendarBuilders: CalendarBuilders(
-                                defaultBuilder:
-                                    (context, day, _) => _DayCell(
+                                  // Square: rowHeight ~= cell width
+                                  rowHeight: cellSize,
+
+                                  daysOfWeekHeight: 20,
+                                  calendarStyle: const CalendarStyle(
+                                    // reduced padding so cells can be square
+                                    cellPadding:
+                                        EdgeInsets.symmetric(horizontal: 2),
+                                    outsideDaysVisible: false,
+                                  ),
+                                  calendarBuilders: CalendarBuilders(
+                                    defaultBuilder: (context, day, _) => _DayCell(
                                       day: day,
-                                      dotColors:
-                                          markers[_docId(day)] ?? const [],
+                                      dotColors: markers[_docId(day)] ?? const [],
                                     ),
-                                todayBuilder: (context, day, _) {
-                                  // Use darker shade of base surface for today
-                                  final base = Theme.of(
-                                    context,
-                                  ).colorScheme.surface.withOpacity(0.80);
-                                  return _DayCell(
-                                    day: day,
-                                    isToday: true,
-                                    overrideBackground: _darken(base, .12),
-                                    dotColors: markers[_docId(day)] ?? const [],
-                                  );
-                                },
-                                selectedBuilder:
-                                    (context, day, _) => _DayCell(
+                                    todayBuilder: (context, day, _) {
+                                      final base = Theme.of(context)
+                                          .colorScheme
+                                          .surface
+                                          .withOpacity(0.80);
+                                      return _DayCell(
+                                        day: day,
+                                        isToday: true,
+                                        overrideBackground: _darken(base, .12),
+                                        dotColors:
+                                            markers[_docId(day)] ?? const [],
+                                      );
+                                    },
+                                    selectedBuilder:
+                                        (context, day, _) => _DayCell(
                                       day: day,
                                       isSelected: true,
                                       dotColors:
                                           markers[_docId(day)] ?? const [],
                                     ),
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },
@@ -710,10 +697,9 @@ Future<void> _openFilters() async {
                   padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
                   sliver: SliverToBoxAdapter(
                     child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream:
-                          _habitsCol
-                              .orderBy('createdAt', descending: false)
-                              .snapshots(),
+                      stream: _habitsCol
+                          .orderBy('createdAt', descending: false)
+                          .snapshots(),
                       builder: (context, snapshotHabits) {
                         if (!snapshotHabits.hasData) {
                           return const Padding(
@@ -722,14 +708,12 @@ Future<void> _openFilters() async {
                           );
                         }
                         final docs = snapshotHabits.data!.docs;
-                        if (docs.isEmpty)
-                          return _EmptyState(
-                            onAdd: () => _createHabit(context),
-                          );
+                        if (docs.isEmpty) {
+                          return _EmptyState(onAdd: () => _createHabit(context));
+                        }
 
                         return StreamBuilder<
-                          DocumentSnapshot<Map<String, dynamic>>
-                        >(
+                            DocumentSnapshot<Map<String, dynamic>>>(
                           stream: _logDocFor(_selectedDay).snapshots(),
                           builder: (context, snapshotLog) {
                             final log =
@@ -738,14 +722,13 @@ Future<void> _openFilters() async {
                               children: List.generate(docs.length, (i) {
                                 final h = docs[i];
                                 final id = h.id;
-                                final name = (h['name'] as String?) ?? 'Habit';
+                                final name =
+                                    (h['name'] as String?) ?? 'Habit';
                                 final color = Color(
-                                  (h['color'] as int?) ?? Colors.amber.value,
-                                );
+                                    (h['color'] as int?) ?? Colors.amber.value);
                                 final logged = (log[id] as bool?) ?? false;
-                                final isFuture = _selectedDay.isAfter(
-                                  DateTime.now(),
-                                );
+                                final isFuture =
+                                    _selectedDay.isAfter(DateTime.now());
 
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
@@ -754,17 +737,12 @@ Future<void> _openFilters() async {
                                     color: color,
                                     logged: logged,
                                     isFuture: isFuture,
-                                    onToggle:
-                                        (val) =>
-                                            _toggleHabit(id, _selectedDay, val),
+                                    onToggle: (val) =>
+                                        _toggleHabit(id, _selectedDay, val),
                                     onMenuSelected: (value) async {
                                       if (value == 'edit') {
                                         await _editHabit(
-                                          context,
-                                          id,
-                                          name,
-                                          color,
-                                        );
+                                            context, id, name, color);
                                       } else if (value == 'delete') {
                                         await _deleteHabit(id);
                                       }
@@ -842,19 +820,20 @@ class _MonthHeader extends StatelessWidget {
 }
 
 Widget _dotSized(Color c, double size) => Container(
-  width: size, height: size,
-  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-);
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+    );
 
 Widget _moreBadge(int n, {double fontSize = 10}) => Container(
-  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-  decoration: BoxDecoration(
-    color: Colors.black.withOpacity(.10),
-    borderRadius: BorderRadius.circular(8),
-  ),
-  child: Text('+$n',
-      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700)),
-);
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text('+$n',
+          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700)),
+    );
 
 Widget _buildMarkersSized(
   List<Color> colors, {
@@ -887,8 +866,6 @@ Widget _buildMarkersSized(
   );
 }
 
-
-
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
@@ -910,26 +887,26 @@ class _DayCell extends StatelessWidget {
     final bgColor =
         overrideBackground ?? (isSelected ? const Color(0xFFDADADA) : baseColor);
 
+    // >>> Squared, calendar-like cell styling (tight radius, hairline grid)
     return Container(
-      margin: const EdgeInsets.all(6),
+      margin: const EdgeInsets.all(4), // tighter gaps so cells read as a grid
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6), // closer to a square
         border: Border.all(
-          color: isSelected ? Colors.black12 : Colors.transparent,
-          width: isSelected ? 1.2 : 0,
+          color: Colors.black.withOpacity(0.08), // subtle grid lines
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.045),
-            blurRadius: 7,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // If the inner height is tight (e.g., ~46px), use compact sizing
           final h = constraints.maxHeight;
           final compact = h < 52;
 
@@ -944,11 +921,10 @@ class _DayCell extends StatelessWidget {
 
           return Center(
             child: Column(
-              mainAxisSize: MainAxisSize.min, // keep content as small as needed
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 number,
-                // no fixed SizedBox; spacing is handled in _buildMarkersSized
                 _buildMarkersSized(
                   dotColors,
                   maxVisible: compact ? 3 : 4,
@@ -964,8 +940,6 @@ class _DayCell extends StatelessWidget {
     );
   }
 }
-
-
 
 class _HabitCard extends StatelessWidget {
   const _HabitCard({
@@ -1032,11 +1006,10 @@ class _HabitCard extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               onSelected: onMenuSelected,
-              itemBuilder:
-                  (context) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
-                  ],
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
               child: const Padding(
                 padding: EdgeInsets.only(right: 4.0),
                 child: Icon(
@@ -1055,12 +1028,9 @@ class _HabitCard extends StatelessWidget {
                 borderRadius: BorderRadius.all(Radius.circular(6)),
               ),
               side: BorderSide(
-                color:
-                    isFuture
-                        ? Colors.grey.withOpacity(
-                          0.5,
-                        ) // light gray border when future
-                        : color, // normal border color
+                color: isFuture
+                    ? Colors.grey.withOpacity(0.5)
+                    : color,
                 width: 1,
               ),
               fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
@@ -1133,24 +1103,24 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     Color(0xFF8BC34A),
     Color(0xFF9C27B0),
     Color(0xFF795548),
-    Color(0xFFFFD54F), 
-    Color(0xFF00796B), 
-    Color(0xFF303F9F), 
-    Color(0xFFD81B60), 
-    Color(0xFFFF8A65), 
-    Color(0xFF00ACC1), 
-    Color(0xFF7CB342), 
-    Color(0xFF8E24AA), 
-    Color(0xFF6D4C41), 
-    Color(0xFFFFEB3B), 
+    Color(0xFFFFD54F),
+    Color(0xFF00796B),
+    Color(0xFF303F9F),
+    Color(0xFFD81B60),
+    Color(0xFFFF8A65),
+    Color(0xFF00ACC1),
+    Color(0xFF7CB342),
+    Color(0xFF8E24AA),
+    Color(0xFF6D4C41),
+    Color(0xFFFFEB3B),
     Color(0xFF009688),
     Color(0xFF5C6BC0),
     Color(0xFFF06292),
     Color(0xFFFFA726),
-    Color.fromARGB(255, 0, 225, 255), 
-    Color.fromARGB(255, 135, 233, 22), 
+    Color.fromARGB(255, 0, 225, 255),
+    Color.fromARGB(255, 135, 233, 22),
     Color.fromARGB(255, 201, 29, 231),
-    Color.fromARGB(255, 0, 0, 0), 
+    Color.fromARGB(255, 0, 0, 0),
   ];
   @override
   void initState() {
@@ -1165,29 +1135,27 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
       content: Wrap(
         spacing: 9,
         runSpacing: 9,
-        children:
-            _palette
-                .map(
-                  (c) => GestureDetector(
-                    onTap: () => setState(() => _selected = c),
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: c,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color:
-                              _selected == c
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.black26,
-                          width: _selected == c ? 2.2 : 1,
-                        ),
-                      ),
+        children: _palette
+            .map(
+              (c) => GestureDetector(
+                onTap: () => setState(() => _selected = c),
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _selected == c
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.black26,
+                      width: _selected == c ? 2.2 : 1,
                     ),
                   ),
-                )
-                .toList(),
+                ),
+              ),
+            )
+            .toList(),
       ),
       actions: [
         TextButton(
