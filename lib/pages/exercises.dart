@@ -1,5 +1,6 @@
 // lib/pages/exercises.dart
 import 'dart:async';
+import 'package:vibration/vibration.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // for HapticFeedback.vibrate()
 import 'package:new_rezonate/main.dart' as app;
@@ -71,9 +72,14 @@ class _ExercisesPageState extends State<ExercisesPage> {
       gradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: dark
-            ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-            : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+        colors:
+            dark
+                ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+                : const [
+                  Color(0xFFFFFFFF),
+                  Color(0xFFD7C3F1),
+                  Color(0xFF41B3A2),
+                ],
       ),
     );
   }
@@ -82,7 +88,8 @@ class _ExercisesPageState extends State<ExercisesPage> {
     final lower = _query.trim().toLowerCase();
     return _exercises.where((e) {
       final matchesFilter = _filter == 'All' || e.tags.contains(_filter);
-      final matchesText = lower.isEmpty ||
+      final matchesText =
+          lower.isEmpty ||
           e.title.toLowerCase().contains(lower) ||
           e.description.toLowerCase().contains(lower) ||
           e.tags.any((t) => t.toLowerCase().contains(lower));
@@ -104,7 +111,11 @@ class _ExercisesPageState extends State<ExercisesPage> {
         centerTitle: true,
         title: const Text(
           'Exercises',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .2,
+          ),
         ),
       ),
       body: Container(
@@ -176,13 +187,15 @@ class _ExercisesPageState extends State<ExercisesPage> {
               const SizedBox(height: 8),
 
               // Cards
-              ..._filtered.map((e) => _ExerciseCard(
-                    exercise: e,
-                    onPlay: () {
-                      _markRecent(e);
-                      _openPlayer(e);
-                    },
-                  )),
+              ..._filtered.map(
+                (e) => _ExerciseCard(
+                  exercise: e,
+                  onPlay: () {
+                    _markRecent(e);
+                    _openPlayer(e);
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -233,7 +246,7 @@ class _FilterChipsBar extends StatelessWidget {
               onTap: () => onSelected(t),
             ),
             const SizedBox(width: 8),
-          ]
+          ],
         ],
       ),
     );
@@ -253,7 +266,8 @@ class _ChipButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? const Color(0xFF0D7C66) : Colors.white.withOpacity(.78);
+    final bg =
+        selected ? const Color(0xFF0D7C66) : Colors.white.withOpacity(.78);
     final fg = selected ? Colors.white : Colors.black87;
     return Material(
       color: bg,
@@ -265,10 +279,7 @@ class _ChipButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Text(
             label,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: fg,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w700, color: fg),
           ),
         ),
       ),
@@ -357,7 +368,10 @@ class _ExerciseCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     exercise.title,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 FilledButton.icon(
@@ -379,18 +393,31 @@ class _ExerciseCard extends StatelessWidget {
               runSpacing: 6,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF7F5),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF0D7C66).withOpacity(.25)),
+                    border: Border.all(
+                      color: const Color(0xFF0D7C66).withOpacity(.25),
+                    ),
                   ),
-                  child: Text('${exercise.minutes}–${exercise.minutes + 2} min',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF0D7C66))),
+                  child: Text(
+                    '${exercise.minutes}–${exercise.minutes + 2} min',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF0D7C66),
+                    ),
+                  ),
                 ),
                 ...exercise.tags.map(
                   (t) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
@@ -398,7 +425,7 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                     child: Text(t, style: const TextStyle(fontSize: 12)),
                   ),
-                )
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -465,16 +492,20 @@ class _PlayerSheetState extends State<_PlayerSheet> {
       setState(() => _running = true);
       _t = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_remaining <= 1) {
-          // advance step
+          Vibration.hasVibrator().then((hasVibrator) {
+            if (hasVibrator ?? false) {
+              Vibration.vibrate(duration: 300);
+            } else {
+              HapticFeedback.mediumImpact();
+            }
+          });
+
           if (_i >= widget.exercise.steps.length - 1) {
-            // finished
             timer.cancel();
             setState(() {
               _running = false;
               _remaining = 0;
             });
-            // Vibrate when the entire timer/course is over
-            HapticFeedback.vibrate();
           } else {
             setState(() {
               _i += 1;
@@ -543,9 +574,14 @@ class _PlayerSheetState extends State<_PlayerSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(widget.exercise.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(
+                widget.exercise.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
               const SizedBox(height: 8),
               LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
@@ -566,17 +602,28 @@ class _PlayerSheetState extends State<_PlayerSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('Step ${_i + 1} of ${widget.exercise.steps.length}',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      'Step ${_i + 1} of ${widget.exercise.steps.length}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                     const SizedBox(height: 6),
-                    Text(step.title, textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    Text(
+                      step.title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Text(step.instruction, textAlign: TextAlign.center),
                     const SizedBox(height: 14),
                     Text(
                       _mmss(_remaining),
-                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ],
                 ),
@@ -593,11 +640,15 @@ class _PlayerSheetState extends State<_PlayerSheet> {
                     onPressed: _prev,
                     icon: const Icon(Icons.skip_previous_rounded),
                     label: const Text('Prev'),
-                    style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
                   ),
                   FilledButton.icon(
                     onPressed: _toggle,
-                    icon: Icon(_running ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                    icon: Icon(
+                      _running ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    ),
                     label: Text(_running ? 'Pause' : 'Start'),
                     style: FilledButton.styleFrom(
                       backgroundColor: green,
@@ -609,19 +660,26 @@ class _PlayerSheetState extends State<_PlayerSheet> {
                     onPressed: _next,
                     icon: const Icon(Icons.skip_next_rounded),
                     label: const Text('Next'),
-                    style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
                   ),
                   OutlinedButton.icon(
                     onPressed: _reset,
                     icon: const Icon(Icons.replay_rounded),
                     label: const Text('Reset'),
-                    style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              const Text('All steps', style: TextStyle(fontWeight: FontWeight.w800)),
+              const Text(
+                'All steps',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 6),
               ...widget.exercise.steps.asMap().entries.map((e) {
                 final k = e.key;
@@ -637,9 +695,15 @@ class _PlayerSheetState extends State<_PlayerSheet> {
                   ),
                   child: Row(
                     children: [
-                      Text('${k + 1}. ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        '${k + 1}. ',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       Expanded(child: Text(s.title)),
-                      Text('${s.seconds}s', style: const TextStyle(color: Colors.black54)),
+                      Text(
+                        '${s.seconds}s',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
                     ],
                   ),
                 );
@@ -652,8 +716,6 @@ class _PlayerSheetState extends State<_PlayerSheet> {
     );
   }
 }
-
-/* ---------------------------- Data Structures ---------------------------- */
 
 class _Exercise {
   final String title;
@@ -703,141 +765,140 @@ const List<String> _tags = [
 ];
 
 List<_ExStep> _breathBox() => const [
-      _ExStep('Inhale', 'Breathe in steadily through your nose.', 4),
-      _ExStep('Hold', 'Gently hold the breath—soft shoulders, loose jaw.', 4),
-      _ExStep('Exhale', 'Exhale slowly through the mouth.', 4),
-      _ExStep('Hold', 'Rest before the next inhale.', 4),
-    ];
+  _ExStep('Inhale', 'Breathe in steadily through your nose.', 4),
+  _ExStep('Hold', 'Gently hold the breath—soft shoulders, loose jaw.', 4),
+  _ExStep('Exhale', 'Exhale slowly through the mouth.', 4),
+  _ExStep('Hold', 'Rest before the next inhale.', 4),
+];
 
 List<_ExStep> _pmrShort() => const [
-      _ExStep('Hands', 'Clench fists for 5s, then release.', 10),
-      _ExStep('Arms', 'Tense biceps for 5s, release.', 10),
-      _ExStep('Shoulders', 'Shrug up for 5s, release.', 10),
-      _ExStep('Face', 'Scrunch gently 5s, release.', 10),
-      _ExStep('Core', 'Tighten stomach 5s, release.', 10),
-      _ExStep('Legs', 'Press feet into floor 5s, release.', 10),
-    ];
+  _ExStep('Hands', 'Clench fists for 5s, then release.', 10),
+  _ExStep('Arms', 'Tense biceps for 5s, release.', 10),
+  _ExStep('Shoulders', 'Shrug up for 5s, release.', 10),
+  _ExStep('Face', 'Scrunch gently 5s, release.', 10),
+  _ExStep('Core', 'Tighten stomach 5s, release.', 10),
+  _ExStep('Legs', 'Press feet into floor 5s, release.', 10),
+];
 
 List<_ExStep> _fiveFourThreeTwoOne() => const [
-      _ExStep('Look', 'Name 5 things you can see.', 20),
-      _ExStep('Touch', 'Notice 4 things you can feel.', 20),
-      _ExStep('Hear', 'Identify 3 sounds around you.', 20),
-      _ExStep('Smell', 'Notice 2 smells (or remember pleasant ones).', 20),
-      _ExStep('Taste', 'Name 1 taste or sip water mindfully.', 20),
-    ];
+  _ExStep('Look', 'Name 5 things you can see.', 20),
+  _ExStep('Touch', 'Notice 4 things you can feel.', 20),
+  _ExStep('Hear', 'Identify 3 sounds around you.', 20),
+  _ExStep('Smell', 'Notice 2 smells (or remember pleasant ones).', 20),
+  _ExStep('Taste', 'Name 1 taste or sip water mindfully.', 20),
+];
 
 List<_ExStep> _worryContainment() => const [
-      _ExStep('Capture', 'Write brief bullet worries; no solving yet.', 45),
-      _ExStep('Schedule', 'Pick a 10–15min “worry window” later today.', 30),
-      _ExStep('Redirect', 'Return to present task; breathe 4–6 pattern.', 45),
-    ];
+  _ExStep('Capture', 'Write brief bullet worries; no solving yet.', 45),
+  _ExStep('Schedule', 'Pick a 10–15min “worry window” later today.', 30),
+  _ExStep('Redirect', 'Return to present task; breathe 4–6 pattern.', 45),
+];
 
 List<_ExStep> _thoughtRecord() => const [
-      _ExStep('Situation', 'Note what happened + where/when.', 45),
-      _ExStep('Thought', 'Write the automatic thought.', 45),
-      _ExStep('Evidence', 'List evidence for and against.', 60),
-      _ExStep('Reframe', 'Create a balanced alternative thought.', 60),
-    ];
+  _ExStep('Situation', 'Note what happened + where/when.', 45),
+  _ExStep('Thought', 'Write the automatic thought.', 45),
+  _ExStep('Evidence', 'List evidence for and against.', 60),
+  _ExStep('Reframe', 'Create a balanced alternative thought.', 60),
+];
 
 List<_ExStep> _behavioralActivation() => const [
-      _ExStep('Pick', 'Choose 1 small enjoyable/meaningful activity.', 30),
-      _ExStep('Plan', 'Plan when/where; set a 5–10m timer.', 45),
-      _ExStep('Do', 'Start—focus only on the first minute.', 60),
-      _ExStep('Reward', 'Check it off; note how you feel now.', 30),
-    ];
+  _ExStep('Pick', 'Choose 1 small enjoyable/meaningful activity.', 30),
+  _ExStep('Plan', 'Plan when/where; set a 5–10m timer.', 45),
+  _ExStep('Do', 'Start—focus only on the first minute.', 60),
+  _ExStep('Reward', 'Check it off; note how you feel now.', 30),
+];
 
 List<_ExStep> _urgeSurfing() => const [
-      _ExStep('Notice', 'Label the urge and its intensity (0–10).', 30),
-      _ExStep('Breathe', 'Slow exhales; watch the urge like a wave.', 60),
-      _ExStep('Ride', 'Tell yourself: “This will peak and pass.”', 60),
-      _ExStep('Choose', 'Pick a values-aligned action.', 30),
-    ];
+  _ExStep('Notice', 'Label the urge and its intensity (0–10).', 30),
+  _ExStep('Breathe', 'Slow exhales; watch the urge like a wave.', 60),
+  _ExStep('Ride', 'Tell yourself: “This will peak and pass.”', 60),
+  _ExStep('Choose', 'Pick a values-aligned action.', 30),
+];
 
 List<_ExStep> _sleepWindDown() => const [
-      _ExStep('Lights', 'Dim lights, reduce screens and noise.', 60),
-      _ExStep('Body', 'Gentle stretches or warm shower.', 60),
-      _ExStep('Mind', 'Journaling or gratitude list (3 items).', 60),
-      _ExStep('Breathe', '4–7–8 breathing for 4 cycles.', 60),
-    ];
+  _ExStep('Lights', 'Dim lights, reduce screens and noise.', 60),
+  _ExStep('Body', 'Gentle stretches or warm shower.', 60),
+  _ExStep('Mind', 'Journaling or gratitude list (3 items).', 60),
+  _ExStep('Breathe', '4–7–8 breathing for 4 cycles.', 60),
+];
 
 List<_ExStep> _stopSkill() => const [
-      _ExStep('Stop', 'Freeze the impulse—don’t act yet.', 10),
-      _ExStep('Take a breath', 'One slow breath to create space.', 10),
-      _ExStep('Observe', 'What do you feel/think? What are the facts?', 30),
-      _ExStep('Proceed', 'Act wisely toward your values.', 30),
-    ];
+  _ExStep('Stop', 'Freeze the impulse—don’t act yet.', 10),
+  _ExStep('Take a breath', 'One slow breath to create space.', 10),
+  _ExStep('Observe', 'What do you feel/think? What are the facts?', 30),
+  _ExStep('Proceed', 'Act wisely toward your values.', 30),
+];
 
 List<_ExStep> _tipDbs() => const [
-      _ExStep('Temp', 'Cool down: splash cold water or hold an ice pack.', 30),
-      _ExStep('Intense exercise', '1–2 min vigorous movement.', 60),
-      _ExStep('Paced breathing', 'Exhale longer than inhale (~4/6).', 60),
-      _ExStep('Paired muscle relax', 'Brief tense–release cycles.', 30),
-    ];
+  _ExStep('Temp', 'Cool down: splash cold water or hold an ice pack.', 30),
+  _ExStep('Intense exercise', '1–2 min vigorous movement.', 60),
+  _ExStep('Paced breathing', 'Exhale longer than inhale (~4/6).', 60),
+  _ExStep('Paired muscle relax', 'Brief tense–release cycles.', 30),
+];
 
 List<_ExStep> _socialWarmup() => const [
-      _ExStep('Micro-smile', 'Relax jaw; soft eye contact practice.', 20),
-      _ExStep('Opener', 'Prepare one friendly question.', 30),
-      _ExStep('Approach', 'Say hello to someone nearby (or text).', 40),
-      _ExStep('Reflect', 'Note something that went okay.', 30),
-    ];
+  _ExStep('Micro-smile', 'Relax jaw; soft eye contact practice.', 20),
+  _ExStep('Opener', 'Prepare one friendly question.', 30),
+  _ExStep('Approach', 'Say hello to someone nearby (or text).', 40),
+  _ExStep('Reflect', 'Note something that went okay.', 30),
+];
 
 List<_ExStep> _exposurePlanning() => const [
-      _ExStep('List', 'Write 5 feared situations (1–10 scale).', 45),
-      _ExStep('Pick', 'Choose one medium challenge (4–6).', 30),
-      _ExStep('Plan', 'Define a 10–15m exposure; no safety behaviors.', 60),
-      _ExStep('Review', 'Log anxiety peak and drop afterward.', 45),
-    ];
+  _ExStep('List', 'Write 5 feared situations (1–10 scale).', 45),
+  _ExStep('Pick', 'Choose one medium challenge (4–6).', 30),
+  _ExStep('Plan', 'Define a 10–15m exposure; no safety behaviors.', 60),
+  _ExStep('Review', 'Log anxiety peak and drop afterward.', 45),
+];
 
 List<_ExStep> _compassionBreak() => const [
-      _ExStep('Mindful moment', 'Acknowledge: “This is hard.”', 20),
-      _ExStep('Common humanity', '“Others struggle too; I’m not alone.”', 20),
-      _ExStep('Kindness', 'Place hand on chest; say something kind.', 30),
-    ];
+  _ExStep('Mindful moment', 'Acknowledge: “This is hard.”', 20),
+  _ExStep('Common humanity', '“Others struggle too; I’m not alone.”', 20),
+  _ExStep('Kindness', 'Place hand on chest; say something kind.', 30),
+];
 
 List<_ExStep> _valuesClarify() => const [
-      _ExStep('Domains', 'Choose one domain (health, family, work…).', 30),
-      _ExStep('Qualities', 'List 3 qualities of the person you want to be.', 45),
-      _ExStep('Action', 'Write 1 tiny action that reflects those.', 45),
-    ];
+  _ExStep('Domains', 'Choose one domain (health, family, work…).', 30),
+  _ExStep('Qualities', 'List 3 qualities of the person you want to be.', 45),
+  _ExStep('Action', 'Write 1 tiny action that reflects those.', 45),
+];
 
 List<_ExStep> _breath478() => const [
-      _ExStep('Inhale', 'Inhale through nose (4s).', 4),
-      _ExStep('Hold', 'Hold gently (7s).', 7),
-      _ExStep('Exhale', 'Exhale slowly through mouth (8s).', 8),
-    ];
+  _ExStep('Inhale', 'Inhale through nose (4s).', 4),
+  _ExStep('Hold', 'Hold gently (7s).', 7),
+  _ExStep('Exhale', 'Exhale slowly through mouth (8s).', 8),
+];
 
 List<_ExStep> _miniGround() => const [
-      _ExStep('Feet', 'Press feet into floor; notice support.', 20),
-      _ExStep('Name', 'Say your full name and today’s date.', 15),
-      _ExStep('Look', 'Name three colors you can see.', 20),
-    ];
+  _ExStep('Feet', 'Press feet into floor; notice support.', 20),
+  _ExStep('Name', 'Say your full name and today’s date.', 15),
+  _ExStep('Look', 'Name three colors you can see.', 20),
+];
 
 List<_ExStep> _gratitude3() => const [
-      _ExStep('One', 'Write one thing you’re grateful for.', 30),
-      _ExStep('Two', 'Write a second (different domain).', 30),
-      _ExStep('Three', 'Write a third + why it matters.', 45),
-    ];
+  _ExStep('One', 'Write one thing you’re grateful for.', 30),
+  _ExStep('Two', 'Write a second (different domain).', 30),
+  _ExStep('Three', 'Write a third + why it matters.', 45),
+];
 
 List<_ExStep> _safePlace() => const [
-      _ExStep('Visualize', 'Imagine a safe, calm place in detail.', 60),
-      _ExStep('Sense', 'What can you see, hear, smell, feel there?', 60),
-      _ExStep('Anchor', 'Choose a word/picture as an anchor.', 30),
-    ];
+  _ExStep('Visualize', 'Imagine a safe, calm place in detail.', 60),
+  _ExStep('Sense', 'What can you see, hear, smell, feel there?', 60),
+  _ExStep('Anchor', 'Choose a word/picture as an anchor.', 30),
+];
 
 List<_ExStep> _bodyScanShort() => const [
-      _ExStep('Head', 'Notice sensations in face and head.', 30),
-      _ExStep('Chest', 'Notice breath in chest and ribs.', 30),
-      _ExStep('Belly', 'Let abdomen soften as you breathe.', 30),
-      _ExStep('Legs', 'Scan down to toes, relaxing as you go.', 30),
-    ];
+  _ExStep('Head', 'Notice sensations in face and head.', 30),
+  _ExStep('Chest', 'Notice breath in chest and ribs.', 30),
+  _ExStep('Belly', 'Let abdomen soften as you breathe.', 30),
+  _ExStep('Legs', 'Scan down to toes, relaxing as you go.', 30),
+];
 
 List<_ExStep> _oppositeAction() => const [
-      _ExStep('Name emotion', 'Identify emotion + urge (e.g., avoid).', 30),
-      _ExStep('Check facts', 'Is the threat realistic/probable?', 45),
-      _ExStep('Act opposite', 'Choose a small opposite action.', 45),
-    ];
+  _ExStep('Name emotion', 'Identify emotion + urge (e.g., avoid).', 30),
+  _ExStep('Check facts', 'Is the threat realistic/probable?', 45),
+  _ExStep('Act opposite', 'Choose a small opposite action.', 45),
+];
 
-/// === Base library (kept from your previous version) ===
 final List<_Exercise> _baseExercises = [
   _Exercise(
     title: '5-4-3-2-1 Grounding',
@@ -873,8 +934,16 @@ final List<_Exercise> _baseExercises = [
     tags: ['Panic', 'Anxiety'],
     minutes: 5,
     steps: const [
-      _ExStep('Spin gently', 'Stand and spin slowly for 10–15s, then stop and notice sensations.', 30),
-      _ExStep('Stairs/step-ups', 'Walk faster or step-up to raise heart rate briefly.', 60),
+      _ExStep(
+        'Spin gently',
+        'Stand and spin slowly for 10–15s, then stop and notice sensations.',
+        30,
+      ),
+      _ExStep(
+        'Stairs/step-ups',
+        'Walk faster or step-up to raise heart rate briefly.',
+        60,
+      ),
       _ExStep('Recovery', 'Breathe slowly and label sensations as safe.', 60),
     ],
   ),
@@ -1541,53 +1610,306 @@ final List<_Exercise> _baseExercises = [
       _ExStep('Return', 'When distracted, gently return.', 60),
     ],
   ),
-];
-
-/// === Ensure the final list has exactly 81 items ===
-final List<_Exercise> _exercises = [
-  ..._baseExercises,
-  ...List<_Exercise>.generate(
-    (81 - _baseExercises.length) > 0 ? (81 - _baseExercises.length) : 0,
-    (i) {
-      final templateIndex = i % 4;
-      List<_ExStep> steps;
-      List<String> tags;
-      int mins;
-      String label;
-
-      switch (templateIndex) {
-        case 0:
-          steps = _breathBox();
-          tags = const ['Anxiety', 'Stress', 'Mindfulness'];
-          mins = 3;
-          label = 'Box Breathing – Practice Set';
-          break;
-        case 1:
-          steps = _fiveFourThreeTwoOne();
-          tags = const ['Anxiety', 'Panic', 'Grounding'];
-          mins = 3;
-          label = '5-4-3-2-1 Grounding – Practice Set';
-          break;
-        case 2:
-          steps = _pmrShort();
-          tags = const ['Stress', 'Anxiety', 'Sleep'];
-          mins = 5;
-          label = 'PMR – Practice Set';
-          break;
-        default:
-          steps = _breath478();
-          tags = const ['Sleep', 'Anxiety', 'Mindfulness'];
-          mins = 3;
-          label = '4-7-8 Breathing – Practice Set';
-      }
-
-      return _Exercise(
-        title: '$label ${i + 1}',
-        description: 'A short guided practice to reinforce the core skill.',
-        tags: tags,
-        minutes: mins,
-        steps: steps,
-      );
-    },
+  _Exercise(
+    title: 'Sensory Reset (Cold–Warm–Soft)',
+    description: 'Quick sensory grounding using temperature and texture.',
+    tags: ['Anxiety', 'Panic', 'Grounding', 'PTSD'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Cold', 'Hold something cool for 10–20s.', 30),
+      _ExStep('Warm', 'Wrap in blanket or hold mug for warmth.', 45),
+      _ExStep('Soft', 'Touch something comforting like fabric.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Micro-Meditation (1 Minute)',
+    description: 'Train focus with a single minute of mindful breathing.',
+    tags: ['Mindfulness', 'Anxiety', 'Stress'],
+    minutes: 1,
+    steps: const [
+      _ExStep('Set timer', 'One minute only.', 10),
+      _ExStep('Breathe', 'Focus entirely on breath sensations.', 40),
+      _ExStep('Finish', 'Notice one word that describes how you feel.', 10),
+    ],
+  ),
+  _Exercise(
+    title: 'Affirmation Practice',
+    description: 'Replace self-criticism with balanced statements.',
+    tags: ['Depression', 'Anxiety', 'Grief'],
+    minutes: 3,
+    steps: const [
+      _ExStep(
+        'Identify',
+        'Write one harsh thought you often say to yourself.',
+        45,
+      ),
+      _ExStep(
+        'Reframe',
+        'Write a balanced truth (e.g., “I’m trying my best”).',
+        60,
+      ),
+      _ExStep('Repeat', 'Say the new phrase 3 times aloud.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Mood Rating & Note',
+    description: 'Quick awareness tool for emotion tracking.',
+    tags: ['Bipolar', 'Depression', 'Stress'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Rate', 'Rate mood 0–10 right now.', 20),
+      _ExStep('Note', 'Write 1–2 triggers or events today.', 45),
+      _ExStep('Plan', 'Pick one stabilizing action (e.g., walk, water).', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Anchoring Phrase',
+    description: 'Create a calm phrase to repeat during distress.',
+    tags: ['Anxiety', 'PTSD', 'Panic'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Choose', 'Pick phrase (e.g., “I’m safe right now”).', 30),
+      _ExStep('Repeat', 'Say aloud or in mind with slow breaths.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Guided Imagery: Calm Morning',
+    description: 'Visualize a peaceful morning scene to reset mood.',
+    tags: ['Anxiety', 'Depression', 'Stress'],
+    minutes: 4,
+    steps: const [
+      _ExStep('Imagine', 'Picture a soft morning light, safe place.', 60),
+      _ExStep('Engage', 'Notice 3 senses: sound, smell, texture.', 60),
+      _ExStep('Breathe', 'Stay with the image for a few breaths.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Mini Gratitude Text',
+    description: 'Send one short appreciation message.',
+    tags: ['Social', 'Depression', 'Mindfulness'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Pick', 'Choose one person who helped or matters.', 30),
+      _ExStep('Write', 'Send a short thank-you or kind check-in.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Distraction Plan (Crisis)',
+    description: 'Prepare safe distractions for intense urges.',
+    tags: ['Addiction', 'Self-Harm', 'Anxiety'],
+    minutes: 4,
+    steps: const [
+      _ExStep('List', 'Write 3 safe distractions (music, walk, call).', 60),
+      _ExStep('Prep', 'Keep items or contacts easy to reach.', 60),
+      _ExStep('Use', 'Use list at first sign of high urge.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Gentle Movement Reset',
+    description: 'Loosen body tension to regulate emotion.',
+    tags: ['Stress', 'Anxiety', 'Depression'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Roll', 'Roll shoulders and neck slowly.', 45),
+      _ExStep('Stretch', 'Reach arms overhead; exhale slowly.', 45),
+      _ExStep('Shake', 'Gently shake arms/legs for release.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Tiny Goal Tracker',
+    description: 'Celebrate micro-progress for motivation.',
+    tags: ['ADHD', 'Depression', 'Stress'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Pick', 'Choose one goal you worked on today.', 45),
+      _ExStep('Note', 'Write one thing you did toward it.', 45),
+      _ExStep('Reward', 'Acknowledge progress (smile, mark done).', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Coping Card',
+    description: 'Write reminders for hard moments.',
+    tags: ['Anxiety', 'Depression', 'PTSD'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Write', 'One sentence you want to remember when upset.', 60),
+      _ExStep('Keep', 'Save on phone lock screen or paper.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Eating Check-In',
+    description: 'Pause before meals to connect with body cues.',
+    tags: ['Eating', 'Anxiety', 'Mindfulness'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Pause', 'Take 3 slow breaths before eating.', 30),
+      _ExStep('Notice', 'Ask: Am I hungry, bored, or stressed?', 60),
+      _ExStep('Begin', 'Eat first bites slowly, noticing texture.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Urge Wave Visualization',
+    description: 'Imagine cravings like waves that crest and fall.',
+    tags: ['Addiction', 'Anxiety', 'OCD'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Notice', 'Visualize the craving as a rising wave.', 45),
+      _ExStep('Ride', 'Breathe and picture it cresting + fading.', 60),
+      _ExStep('Reflect', 'See that it passed without acting.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Reconnecting Memory',
+    description: 'Recall a time you felt supported or strong.',
+    tags: ['Grief', 'Depression', 'PTSD'],
+    minutes: 4,
+    steps: const [
+      _ExStep('Recall', 'Think of one caring moment or ally.', 60),
+      _ExStep('Feel', 'Notice sensations or emotions that arise.', 60),
+      _ExStep('Anchor', 'Hold that feeling for 2 breaths.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'One-Minute Nature Pause',
+    description: 'Reset attention with something living.',
+    tags: ['Mindfulness', 'Depression', 'Stress'],
+    minutes: 1,
+    steps: const [
+      _ExStep('Look', 'Find one plant, sky, or animal nearby.', 20),
+      _ExStep('Observe', 'Watch movement, color, or sound.', 40),
+    ],
+  ),
+  _Exercise(
+    title: 'Sleep Thought Dump',
+    description: 'Write thoughts to clear the mind before bed.',
+    tags: ['Sleep', 'Anxiety', 'Stress'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Write', 'List any lingering thoughts or worries.', 90),
+      _ExStep('Close', 'Say “I’ll handle this tomorrow.”', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Mindful Sip',
+    description: 'Ground yourself with a single mindful drink.',
+    tags: ['Mindfulness', 'Anxiety', 'Stress'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Observe', 'Notice smell, warmth, color.', 30),
+      _ExStep('Sip', 'Feel the liquid; swallow slowly.', 45),
+      _ExStep('Breathe', 'Take one slow exhale after each sip.', 30),
+    ],
+  ),
+  _Exercise(
+    title: 'Social Mini-Goal',
+    description: 'Create one achievable social step for today.',
+    tags: ['Social', 'Anxiety', 'Depression'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Plan', 'Pick one safe person to connect with.', 45),
+      _ExStep('Act', 'Send message or wave hello.', 45),
+      _ExStep('Reflect', 'Note what felt okay afterward.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Hope List',
+    description: 'List small things you still look forward to.',
+    tags: ['Depression', 'Grief', 'Stress'],
+    minutes: 3,
+    steps: const [
+      _ExStep('List', 'Write 3 things that bring a spark of interest.', 60),
+      _ExStep('Choose', 'Circle one you can do this week.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Breath + Posture Reset',
+    description: 'Quick alignment to signal calm to the nervous system.',
+    tags: ['Anxiety', 'Stress', 'Mindfulness'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Straighten', 'Lift chest slightly; relax shoulders.', 30),
+      _ExStep('Inhale', 'Deep breath through nose, feel ribs expand.', 30),
+      _ExStep('Exhale', 'Slowly through mouth; drop tension.', 30),
+      _ExStep('Repeat', 'Two more cycles, softer each time.', 30),
+    ],
+  ),
+  _Exercise(
+    title: 'Urge Wave Sketch',
+    description: 'Draw your craving like a wave to visualize rise and fall.',
+    tags: ['Addiction', 'Anxiety', 'Stress'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Draw', 'Sketch a wave—label “urge intensity”.', 45),
+      _ExStep('Track', 'Mark where you are right now on the curve.', 60),
+      _ExStep('Wait', 'Breathe and let time move you down the wave.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Self-Talk Audit',
+    description: 'Catch and reword unhelpful inner dialogue.',
+    tags: ['Depression', 'Anxiety', 'OCD'],
+    minutes: 4,
+    steps: const [
+      _ExStep('Notice', 'Write one recent harsh thought.', 45),
+      _ExStep('Ask', 'Would I say this to a friend?', 45),
+      _ExStep('Reword', 'Rewrite it with accuracy and kindness.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Ground by Counting Shapes',
+    description: 'Cognitive grounding using geometry.',
+    tags: ['Anxiety', 'Panic', 'PTSD', 'Grounding'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Look', 'Find 5 circles, 5 squares, 5 triangles.', 60),
+      _ExStep('Breathe', 'Slow exhale while scanning next shape.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'The 10-Second Kind Act',
+    description: 'Fast boost of meaning and connection.',
+    tags: ['Depression', 'Social', 'Stress'],
+    minutes: 2,
+    steps: const [
+      _ExStep('Pick', 'Think of one tiny kindness (message, smile).', 30),
+      _ExStep('Do', 'Complete it now—keep it simple.', 45),
+      _ExStep('Note', 'Notice how that felt, even if small.', 30),
+    ],
+  ),
+  _Exercise(
+    title: 'ADHD Momentum Loop',
+    description: 'Build inertia with micro-commitments.',
+    tags: ['ADHD', 'Depression', 'Stress'],
+    minutes: 4,
+    steps: const [
+      _ExStep('Choose', 'Pick a 2-min doable task.', 45),
+      _ExStep('Do', 'Start timer; work until it dings.', 120),
+      _ExStep('Decide', 'Continue 2 more mins or stop with pride.', 60),
+    ],
+  ),
+  _Exercise(
+    title: 'Emotional Weather Check',
+    description: 'Label and rate the day’s “weather” to track patterns.',
+    tags: ['Depression', 'Bipolar', 'Anxiety'],
+    minutes: 3,
+    steps: const [
+      _ExStep('Forecast', 'Pick a weather word for mood (sunny, foggy…).', 45),
+      _ExStep('Rate', '0–10 intensity; note any triggers.', 60),
+      _ExStep('Adjust', 'Choose one gentle act of care.', 45),
+    ],
+  ),
+  _Exercise(
+    title: 'Five-Breath Reset',
+    description: 'Portable grounding to fit any context.',
+    tags: ['Anxiety', 'Stress', 'Panic', 'Mindfulness'],
+    minutes: 2,
+    steps: const [
+      _ExStep('One', 'Notice the first inhale and exhale fully.', 20),
+      _ExStep('Two–Four', 'Relax one body part each breath.', 60),
+      _ExStep('Five', 'Smile softly; open eyes wider.', 20),
+    ],
   ),
 ];
+
+/// === Final exercises list (includes all base items, no artificial limit) ===
+final List<_Exercise> _exercises = [..._baseExercises];

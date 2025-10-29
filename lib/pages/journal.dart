@@ -2269,158 +2269,179 @@ class _ComposerWithMentionsState extends State<_ComposerWithMentions> {
       widget.compact ? 10 : 14,
     );
 
-    // Friendlier compact style (used for replies)
-    if (widget.compact) {
-      return CompositedTransformTarget(
-        link: _link,
-        child: Container(
-          decoration: BoxDecoration(
-            color: _cardBg(context),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-            border: Border.all(color: Colors.black12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFD7CFFC),
-                backgroundImage:
-                    (widget.leadingAvatarUrl?.isNotEmpty == true)
-                        ? NetworkImage(widget.leadingAvatarUrl!)
-                        : null,
-                child:
-                    (widget.leadingAvatarUrl?.isNotEmpty == true)
-                        ? null
-                        : const Icon(
-                          Icons.person,
-                          size: 18,
-                          color: Colors.black54,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        FocusManager.instance.primaryFocus?.unfocus();
+      },
+      child: Builder(
+        builder: (context) {
+          // Friendlier compact style (used for replies)
+          if (widget.compact) {
+            return CompositedTransformTarget(
+              link: _link,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _cardBg(context),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 6),
+                  ],
+                  border: Border.all(color: Colors.black12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: const Color(0xFFD7CFFC),
+                      backgroundImage:
+                          (widget.leadingAvatarUrl?.isNotEmpty == true)
+                              ? NetworkImage(widget.leadingAvatarUrl!)
+                              : null,
+                      child:
+                          (widget.leadingAvatarUrl?.isNotEmpty == true)
+                              ? null
+                              : const Icon(
+                                Icons.person,
+                                size: 18,
+                                color: Colors.black54,
+                              ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    Expanded(
+                      child: Padding(
+                        padding: padding,
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          keyboardType: TextInputType.multiline,
+                          textCapitalization: TextCapitalization.sentences,
+                          enableSuggestions: true,
+                          autocorrect: true,
+                          textInputAction:
+                              widget.compact
+                                  ? TextInputAction.send
+                                  : TextInputAction.newline,
+                          onSubmitted: (_) => widget.onSubmit(),
+                          cursorColor: _teal,
+                          style: TextStyle(
+                            color: _textPrimary(context),
+                            fontSize: 14,
+                            height: 1.2,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: widget.hintText,
+                            border: InputBorder.none,
+                            isDense: true,
+                            filled: false,
+                            contentPadding: padding,
+                          ),
                         ),
-              ),
-              const SizedBox(width: 8),
-
-              Expanded(
-                child: Padding(
-                  padding: padding,
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    enableSuggestions: true,
-                    autocorrect: true,
-                    textInputAction:
-                        widget.compact
-                            ? TextInputAction.send
-                            : TextInputAction.newline,
-                    onSubmitted: (_) => widget.onSubmit(),
-                    cursorColor: _teal,
-                    style: TextStyle(
-                      color: _textPrimary(context),
-                      fontSize: 14,
-                      height: 1.2,
+                      ),
                     ),
-                    decoration: InputDecoration(
-                      hintText: widget.hintText,
-                      border: InputBorder.none,
-                      isDense: true,
-                      filled: false,
-                      contentPadding: padding,
+
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: widget.onSubmit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _teal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Send'),
                     ),
-                  ),
+                  ],
                 ),
               ),
+            );
+          }
 
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: widget.onSubmit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Send'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Default (top composer) style remains
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-      child: CompositedTransformTarget(
-        link: _link,
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withOpacity(.18)),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Row(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: padding,
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    enableSuggestions: true,
-                    autocorrect: true,
-                    textInputAction:
-                        widget.compact
-                            ? TextInputAction.send
-                            : TextInputAction.newline,
-                    onSubmitted: (_) => widget.onSubmit(),
-                    cursorColor: _teal,
-                    style: TextStyle(color: _textPrimary(context), height: 1.2),
-                    decoration: InputDecoration(
-                      hintText: widget.hintText,
-                      border: InputBorder.none,
-                      isDense: true,
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          // Default (top composer) style remains
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: CompositedTransformTarget(
+              link: _link,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: Colors.white.withOpacity(.18)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
                     ),
-                  ),
+                  ],
                 ),
-              ),
+                clipBehavior: Clip.antiAlias,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: padding,
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          keyboardType: TextInputType.multiline,
+                          textCapitalization: TextCapitalization.sentences,
+                          enableSuggestions: true,
+                          autocorrect: true,
+                          textInputAction:
+                              widget.compact
+                                  ? TextInputAction.send
+                                  : TextInputAction.newline,
+                          onSubmitted: (_) => widget.onSubmit(),
+                          cursorColor: _teal,
+                          style: TextStyle(
+                            color: _textPrimary(context),
+                            height: 1.2,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: widget.hintText,
+                            border: InputBorder.none,
+                            isDense: true,
+                            filled: false,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
 
-              Theme(
-                data: Theme.of(context).copyWith(
-                  splashColor: Colors.white.withOpacity(.12),
-                  highlightColor: Colors.white.withOpacity(.08),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.send),
-                  color: _teal,
-                  splashRadius: widget.compact ? 20 : 22,
-                  tooltip: 'Send',
-                  onPressed: widget.onSubmit,
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        splashColor: Colors.white.withOpacity(.12),
+                        highlightColor: Colors.white.withOpacity(.08),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.send),
+                        color: _teal,
+                        splashRadius: widget.compact ? 20 : 22,
+                        tooltip: 'Send',
+                        onPressed: widget.onSubmit,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                 ),
               ),
-              const SizedBox(width: 6),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
