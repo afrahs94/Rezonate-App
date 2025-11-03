@@ -1,5 +1,7 @@
+// lib/pages/summaries.dart
 import 'dart:async';
 import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -19,40 +21,49 @@ class SummariesPage extends StatefulWidget {
   State<SummariesPage> createState() => _SummariesPageState();
 }
 
+enum _DisplayMode { emoji, number }
+
 class _SummariesPageState extends State<SummariesPage> {
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
   User? get _user => _auth.currentUser;
 
+  // Live data
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _trackersSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _logsSub;
 
   final Map<String, _TrackerMeta> _trackers = {};
   final Map<String, Map<String, double>> _daily = {};
 
+  // Header stats
   int _streak = 0;
-
-  double _avgLast7 = 0;
-  double _avgPrev7 = 0;
-  double _delta7 = 0;
-  double _pct7 = 0;
-
-  double _avgLast30 = 0;
-  double _avgPrev30 = 0;
-  double _delta30 = 0;
-  double _pct30 = 0;
-
-  double _avgLast14 = 0;
   double _adherenceLast14 = 0;
   int _daysLoggedLast14 = 0;
-  _TrackerStat? _bestTracker;
-  _TrackerStat? _worstTracker;
 
+  // Change cards
+  double _avgLast7 = 0, _avgPrev7 = 0, _delta7 = 0, _pct7 = 0;
+  double _avgLast30 = 0, _avgPrev30 = 0, _delta30 = 0, _pct30 = 0;
+
+  // Chart
+  double _avgLast14 = 0;
+
+  // “Signals” + trackers table
+  _TrackerStat? _bestTracker, _worstTracker;
   _Range _range = _Range.week;
   List<_TrackerStat> _rangeAverages = const [];
 
+  // Calendar paging
   DateTime _calMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
+  // Display preferences
+  _DisplayMode _displayMode = _DisplayMode.emoji;
+
+  /// 0..10 -> emoji chosen by the user on Home (fallback to defaults)
+  List<String> _emojiScale = const [
+    '😭','😫','😣','☹️','😕','😐','🙂','😊','😄','🤩','🥳'
+  ];
+
+  // Snapshot writer debounce
   Timer? _persistDebounce;
 
   @override
@@ -71,20 +82,12 @@ class _SummariesPageState extends State<SummariesPage> {
 
   LinearGradient _bg(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
-    // Softer gradient: lighter top, less harsh teal bottom
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: dark
-          ? const [
-              Color(0xFF1F1F28),
-              Color(0xFF123A36),
-            ]
-          : const [
-              Color(0xFFF9F7FF), // near-white lilac
-              Color(0xFFE5DBFF), // soft lavender
-              Color(0xFFE0F5F0), // desaturated teal fade
-            ],
+          ? const [Color(0xFF1F1F28), Color(0xFF123A36)]
+          : const [Color(0xFFF9F7FF), Color(0xFFE5DBFF), Color(0xFFE0F5F0)],
     );
   }
 
@@ -92,6 +95,22 @@ class _SummariesPageState extends State<SummariesPage> {
   Future<void> _bootstrap() async {
     final u = _user;
     if (u == null) return;
+
+    // Load user UI prefs once (emoji scale + display mode), if present.
+    try {
+      final userDoc = await _db.collection('users').doc(u.uid).get();
+      final data = userDoc.data() ?? {};
+      final dynamic scale = data['emoji_scale'];
+      if (scale is List && scale.isNotEmpty) {
+        // Expect list of 11 strings for 0..10; if fewer, we’ll still use what we have.
+        _emojiScale = scale.map((e) => '$e').toList();
+      }
+      final String? mode = (data['tracker_display_mode'] as String?);
+      if (mode == 'number') _displayMode = _DisplayMode.number;
+      if (mode == 'emoji') _displayMode = _DisplayMode.emoji;
+    } catch (_) {
+      // Safe defaults already set
+    }
 
     _trackersSub = _db
         .collection('users')
@@ -109,9 +128,7 @@ class _SummariesPageState extends State<SummariesPage> {
             _TrackerMeta(
               id: d.id,
               label: (m['label'] as String? ?? 'Tracker').trim(),
-              color: Color(
-                (m['color'] as int?) ?? const Color(0xFF147C72).value,
-              ),
+              color: Color((m['color'] as int?) ?? const Color(0xFF147C72).value),
               latest: (m['latest_value'] as num?)?.toDouble() ?? 0,
               sort: (m['sort'] as num?)?.toInt() ?? 0,
             ),
@@ -187,7 +204,7 @@ class _SummariesPageState extends State<SummariesPage> {
       c++;
       d = d.subtract(const Duration(days: 1));
     }
-    return max(0, c - 1); // don't include in-progress day
+    return max(0, c - 1); // don’t include in-progress day
   }
 
   double _avgOfDay(Map<String, double> vals) {
@@ -236,9 +253,9 @@ class _SummariesPageState extends State<SummariesPage> {
 
     _daysLoggedLast14 =
         last14.where((d) => (_daily[_dayKey(d)]?.isNotEmpty ?? false)).length;
-    _adherenceLast14 =
-        last14.isEmpty ? 0 : _daysLoggedLast14 / last14.length;
+    _adherenceLast14 = last14.isEmpty ? 0 : _daysLoggedLast14 / last14.length;
 
+    // best / worst over last 14
     final meansByTracker = <String, _Accumulator>{};
     for (final d in last14) {
       final m = _daily[_dayKey(d)];
@@ -259,12 +276,8 @@ class _SummariesPageState extends State<SummariesPage> {
         color: meta.color,
         mean: mean,
       );
-      if (_bestTracker == null || mean > _bestTracker!.mean) {
-        _bestTracker = stat;
-      }
-      if (_worstTracker == null || mean < _worstTracker!.mean) {
-        _worstTracker = stat;
-      }
+      if (_bestTracker == null || mean > _bestTracker!.mean) _bestTracker = stat;
+      if (_worstTracker == null || mean < _worstTracker!.mean) _worstTracker = stat;
     });
 
     _rangeAverages = _computeTrackerAveragesForRange(_range);
@@ -367,10 +380,7 @@ class _SummariesPageState extends State<SummariesPage> {
       for (int i = 0; i < days.length; i++)
         FlSpot(
           i.toDouble(),
-          _avgOfDay(
-            _daily[_dayKey(days[i])] ??
-                const <String, double>{},
-          ),
+          _avgOfDay(_daily[_dayKey(days[i])] ?? const <String, double>{}),
         ),
     ];
 
@@ -391,21 +401,16 @@ class _SummariesPageState extends State<SummariesPage> {
       ),
       titlesData: FlTitlesData(
         leftTitles: const AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: false,
-            reservedSize: 0,
-          ),
+          sideTitles: SideTitles(showTitles: false, reservedSize: 0),
         ),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 32, // a little more breathing room
+            reservedSize: 32,
             interval: 3,
             getTitlesWidget: (v, meta) {
               final i = v.round();
-              if (i < 0 || i >= days.length) {
-                return const SizedBox.shrink();
-              }
+              if (i < 0 || i >= days.length) return const SizedBox.shrink();
               return SideTitleWidget(
                 axisSide: meta.axisSide,
                 space: 6,
@@ -417,12 +422,8 @@ class _SummariesPageState extends State<SummariesPage> {
             },
           ),
         ),
-        rightTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        topTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       borderData: FlBorderData(
         show: true,
@@ -444,16 +445,13 @@ class _SummariesPageState extends State<SummariesPage> {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xBF0D7C66),
-                Color(0x100D7C66),
-              ],
+              colors: [Color(0xBF0D7C66), Color(0x100D7C66)],
             ),
           ),
           dotData: FlDotData(show: true),
         ),
       ],
-      clipData: const FlClipData.none(), // don't clip ends
+      clipData: const FlClipData.none(),
     );
   }
 
@@ -514,10 +512,8 @@ class _SummariesPageState extends State<SummariesPage> {
                         Container(
                           width: 10,
                           height: 10,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
+                          decoration:
+                              BoxDecoration(color: color, shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -526,8 +522,9 @@ class _SummariesPageState extends State<SummariesPage> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color:
-                                  dark ? Colors.white : const Color(0xFF20312F),
+                              color: dark
+                                  ? Colors.white
+                                  : const Color(0xFF20312F),
                             ),
                           ),
                         ),
@@ -564,7 +561,7 @@ class _SummariesPageState extends State<SummariesPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // Top app bar / header summary -----------------
+              // Top app bar / header summary
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Row(
@@ -580,7 +577,7 @@ class _SummariesPageState extends State<SummariesPage> {
                       child: _HeaderSummary(
                         userName: widget.userName,
                         streak: _streak,
-                        avgLast7: _avgLast7,
+                        daysLogged14: _daysLoggedLast14,
                         adherencePct: _adherenceLast14 * 100,
                         dark: dark,
                       ),
@@ -602,7 +599,7 @@ class _SummariesPageState extends State<SummariesPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Week/Month comparison chips ------------
+                      // Week/Month comparison chips
                       _CardShell(
                         dark: dark,
                         child: _StatChipRow(
@@ -616,20 +613,21 @@ class _SummariesPageState extends State<SummariesPage> {
 
                       const SizedBox(height: 16),
 
-                      // Overall score trend chart -----------------------
+                      // Overall score trend chart + explanation
                       _CardShell(
                         dark: dark,
                         sectionTitle: 'Overall score (last 14 days)',
-                        sectionSubtitle: 'Higher = better days',
+                        sectionSubtitle:
+                            'Daily average of all trackers (0–10). Higher = better.',
                         child: SizedBox(
-                          height: 200,
+                          height: 220,
                           child: LineChart(_trend14Chart()),
                         ),
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Logging calendar -----------------------
+                      // Logging calendar
                       _CardShell(
                         dark: dark,
                         sectionTitle: 'Logging consistency',
@@ -637,30 +635,22 @@ class _SummariesPageState extends State<SummariesPage> {
                         child: _LoggingCalendar(
                           monthAnchor: _calMonth,
                           isLogged: _isLogged,
-                          onPrev: () => setState(() {
-                            _calMonth = DateTime(
-                              _calMonth.year,
-                              _calMonth.month - 1,
-                              1,
-                            );
-                          }),
-                          onNext: () => setState(() {
-                            _calMonth = DateTime(
-                              _calMonth.year,
-                              _calMonth.month + 1,
-                              1,
-                            );
-                          }),
+                          onPrev: () =>
+                              setState(() => _calMonth = DateTime(_calMonth.year, _calMonth.month - 1, 1)),
+                          onNext: () =>
+                              setState(() => _calMonth = DateTime(_calMonth.year, _calMonth.month + 1, 1)),
                           onDayTap: (d) => _showDayDetails(d),
                         ),
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Trackers section (averages + signals) ---
+                      // Trackers section (averages + signals)
                       _TrackersSection(
                         dark: dark,
                         range: _range,
+                        displayMode: _displayMode,
+                        emojiScale: _emojiScale,
                         onRangeChanged: (r) {
                           setState(() {
                             _range = r;
@@ -668,6 +658,8 @@ class _SummariesPageState extends State<SummariesPage> {
                                 _computeTrackerAveragesForRange(_range);
                           });
                         },
+                        onDisplayModeChanged: (m) =>
+                            setState(() => _displayMode = m),
                         rangeAverages: _rangeAverages,
                         bestTracker: _bestTracker,
                         worstTracker: _worstTracker,
@@ -702,10 +694,10 @@ class _CardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // glassy/translucent cards
+    // Make boxes more transparent than before
     final Color bg = dark
-        ? const Color(0xFF1F2E2C).withOpacity(0.6)
-        : Colors.white.withOpacity(0.6);
+        ? const Color(0xFF1F2E2C).withOpacity(0.45)
+        : Colors.white.withOpacity(0.5);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -713,24 +705,10 @@ class _CardShell extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(20),
         boxShadow: dark
-            ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                )
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
+            ? [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 8))]
+            : [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 22, offset: const Offset(0, 12))],
         border: Border.all(
-          color: dark
-              ? Colors.white.withOpacity(0.15)
-              : Colors.white.withOpacity(0.4),
+          color: dark ? Colors.white.withOpacity(0.14) : Colors.white.withOpacity(0.35),
           width: 1,
         ),
       ),
@@ -747,13 +725,14 @@ class _CardShell extends StatelessWidget {
               ),
             ),
             if (sectionSubtitle != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 sectionSubtitle!,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: (dark ? Colors.white : Colors.black).withOpacity(.6),
+                  height: 1.25,
+                  color: (dark ? Colors.white : Colors.black).withOpacity(.7),
                 ),
               ),
             ],
@@ -766,18 +745,18 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-// Header block that replaces the big title
+// Header block — removed "Avg score", replaced with clearer adherence metric
 class _HeaderSummary extends StatelessWidget {
   final String userName;
   final int streak;
-  final double avgLast7;
+  final int daysLogged14;
   final double adherencePct; // 0-100
   final bool dark;
 
   const _HeaderSummary({
     required this.userName,
     required this.streak,
-    required this.avgLast7,
+    required this.daysLogged14,
     required this.adherencePct,
     required this.dark,
   });
@@ -785,8 +764,7 @@ class _HeaderSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleColor = dark ? Colors.white : const Color(0xFF20312F);
-    final subColor =
-        (dark ? Colors.white : Colors.black).withOpacity(.65);
+    final subColor = (dark ? Colors.white : Colors.black).withOpacity(.65);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +783,7 @@ class _HeaderSummary extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                '$streak-day streak • Avg score ${avgLast7.toStringAsFixed(1)}',
+                '$streak-day streak • ${daysLogged14}/14 days logged',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -862,33 +840,20 @@ class _StatChipRow extends StatelessWidget {
       dir = pct >= 0 ? 1 : -1;
     }
 
-    final Color accent = dir == 1
-        ? up
-        : (dir == -1 ? down : flat);
-    final IconData icon = dir == 1
-        ? Icons.trending_up_rounded
-        : (dir == -1
-            ? Icons.trending_down_rounded
-            : Icons.trending_flat_rounded);
+    final Color accent = dir == 1 ? up : (dir == -1 ? down : flat);
+    final IconData icon =
+        dir == 1 ? Icons.trending_up_rounded : (dir == -1 ? Icons.trending_down_rounded : Icons.trending_flat_rounded);
 
-    final pctTxt =
-        '${_sign(pct)}${(pct.abs() * 100).toStringAsFixed(0)}%';
-    final deltaTxt =
-        '${_sign(deltaPts)}${deltaPts.abs().toStringAsFixed(1)} pts';
+    final pctTxt = '${_sign(pct)}${(pct.abs() * 100).toStringAsFixed(0)}%';
+    final deltaTxt = '${_sign(deltaPts)}${deltaPts.abs().toStringAsFixed(1)} pts';
 
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           color: accent.withOpacity(.07),
-          border: Border.all(
-            color: accent.withOpacity(.3),
-            width: 1,
-          ),
+          border: Border.all(color: accent.withOpacity(.3), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -900,12 +865,7 @@ class _StatChipRow extends StatelessWidget {
                 Flexible(
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: accent,
-                      height: 1.2,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accent, height: 1.2),
                   ),
                 ),
               ],
@@ -913,22 +873,12 @@ class _StatChipRow extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               pctTxt,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: accent,
-                height: 1.0,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: accent, height: 1.0),
             ),
             const SizedBox(height: 4),
             Text(
               deltaTxt,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: accent.withOpacity(.8),
-                height: 1.1,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent.withOpacity(.8), height: 1.1),
             ),
           ],
         ),
@@ -940,17 +890,9 @@ class _StatChipRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _buildChip(
-          label: 'Last 7 days',
-          pct: pct7,
-          deltaPts: delta7,
-        ),
+        _buildChip(label: 'Last 7 days', pct: pct7, deltaPts: delta7),
         const SizedBox(width: 12),
-        _buildChip(
-          label: 'Last 30 days',
-          pct: pct30,
-          deltaPts: delta30,
-        ),
+        _buildChip(label: 'Last 30 days', pct: pct30, deltaPts: delta30),
       ],
     );
   }
@@ -961,6 +903,11 @@ class _TrackersSection extends StatelessWidget {
   final bool dark;
   final _Range range;
   final ValueChanged<_Range> onRangeChanged;
+
+  final _DisplayMode displayMode;
+  final ValueChanged<_DisplayMode> onDisplayModeChanged;
+  final List<String> emojiScale;
+
   final List<_TrackerStat> rangeAverages;
   final _TrackerStat? bestTracker;
   final _TrackerStat? worstTracker;
@@ -969,6 +916,9 @@ class _TrackersSection extends StatelessWidget {
     required this.dark,
     required this.range,
     required this.onRangeChanged,
+    required this.displayMode,
+    required this.onDisplayModeChanged,
+    required this.emojiScale,
     required this.rangeAverages,
     required this.bestTracker,
     required this.worstTracker,
@@ -984,18 +934,30 @@ class _TrackersSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // RANGE PICKER
-          _RangePicker(
-            range: range,
-            onChanged: onRangeChanged,
+          _RangePicker(range: range, onChanged: onRangeChanged),
+          const SizedBox(height: 12),
+
+          // MODE TOGGLE (Numbers vs Emojis)
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Emojis'),
+                selected: displayMode == _DisplayMode.emoji,
+                onSelected: (_) => onDisplayModeChanged(_DisplayMode.emoji),
+              ),
+              ChoiceChip(
+                label: const Text('Numbers'),
+                selected: displayMode == _DisplayMode.number,
+                onSelected: (_) => onDisplayModeChanged(_DisplayMode.number),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
           // AVERAGES LIST
           if (rangeAverages.isEmpty)
-            _EmptyLine(
-              text: 'No data yet. Log a few check-ins first.',
-              dark: dark,
-            )
+            _EmptyLine(text: 'No data yet. Log a few check-ins first.', dark: dark)
           else
             Column(
               children: [
@@ -1005,16 +967,15 @@ class _TrackersSection extends StatelessWidget {
                     child: _TrackerAverageRow(
                       stat: s,
                       dark: dark,
+                      mode: displayMode,
+                      emojiScale: emojiScale,
                     ),
                   ),
               ],
             ),
 
           const SizedBox(height: 20),
-          const Divider(
-            thickness: 0.6,
-            height: 0,
-          ),
+          const Divider(thickness: 0.6, height: 0),
           const SizedBox(height: 16),
 
           // SIGNALS / CALL OUTS
@@ -1031,23 +992,12 @@ class _TrackersSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               if (bestTracker != null)
-                _SignalRow(
-                  label: 'Improving the most',
-                  stat: bestTracker!,
-                  dark: dark,
-                )
+                _SignalRow(label: 'Improving the most', stat: bestTracker!, dark: dark)
               else
-                _EmptyLine(
-                  text: 'Keep logging to spot improvements.',
-                  dark: dark,
-                ),
+                _EmptyLine(text: 'Keep logging to spot improvements.', dark: dark),
               const SizedBox(height: 12),
               if (worstTracker != null)
-                _SignalRow(
-                  label: 'Needs attention',
-                  stat: worstTracker!,
-                  dark: dark,
-                ),
+                _SignalRow(label: 'Needs attention', stat: worstTracker!, dark: dark),
             ],
           ),
         ],
@@ -1061,11 +1011,7 @@ class _MiniPill extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool dark;
-  const _MiniPill({
-    required this.icon,
-    required this.label,
-    required this.dark,
-  });
+  const _MiniPill({required this.icon, required this.label, required this.dark});
 
   @override
   Widget build(BuildContext context) {
@@ -1078,28 +1024,16 @@ class _MiniPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: border,
-          width: 1,
-        ),
+        border: Border.all(color: border, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: textColor.withOpacity(.8),
-          ),
+          Icon(icon, size: 12, color: textColor.withOpacity(.8)),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: textColor,
-              height: 1.1,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor, height: 1.1),
           ),
         ],
       ),
@@ -1171,10 +1105,7 @@ class _EmptyLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 12,
-        color: (dark ? Colors.white : Colors.black).withOpacity(.6),
-      ),
+      style: TextStyle(fontSize: 12, color: (dark ? Colors.white : Colors.black).withOpacity(.6)),
     );
   }
 }
@@ -1202,11 +1133,7 @@ class _LoggingCalendar extends StatelessWidget {
     final gridStart = monthStart.subtract(Duration(days: startWeekday));
     final days = List<DateTime>.generate(
       42,
-      (i) => DateTime(
-        gridStart.year,
-        gridStart.month,
-        gridStart.day + i,
-      ),
+      (i) => DateTime(gridStart.year, gridStart.month, gridStart.day + i),
     );
     final isDark = app.ThemeControllerScope.of(context).isDark;
 
@@ -1220,22 +1147,9 @@ class _LoggingCalendar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              onPressed: onPrev,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Text(
-              DateFormat('MMMM yyyy').format(monthStart),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              onPressed: onNext,
-              icon: const Icon(Icons.chevron_right),
-            ),
+            IconButton(visualDensity: VisualDensity.compact, onPressed: onPrev, icon: const Icon(Icons.chevron_left)),
+            Text(DateFormat('MMMM yyyy').format(monthStart), style: const TextStyle(fontWeight: FontWeight.w800)),
+            IconButton(visualDensity: VisualDensity.compact, onPressed: onNext, icon: const Icon(Icons.chevron_right)),
           ],
         ),
         const SizedBox(height: 4),
@@ -1247,11 +1161,7 @@ class _LoggingCalendar extends StatelessWidget {
                 child: Center(
                   child: Text(
                     d,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: onSurface.withOpacity(.6),
-                    ),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: onSurface.withOpacity(.6)),
                   ),
                 ),
               ),
@@ -1274,57 +1184,37 @@ class _LoggingCalendar extends StatelessWidget {
             final inMonth = day.month == monthStart.month;
             final logged = isLogged(day);
 
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final side = constraints.biggest.shortestSide;
-                final dia = side * 0.72;
-                final bgColor = logged
-                    ? loggedColor
-                    : (isDark
-                        ? Colors.white.withOpacity(.06)
-                        : Colors.black12.withOpacity(.08));
-                final border = logged
-                    ? null
-                    : Border.all(
-                        color: Colors.black12,
-                        width: 0.6,
-                      );
-                final textColor = inMonth
-                    ? (logged ? Colors.white : onSurface)
-                    : outMonthText;
+            return LayoutBuilder(builder: (context, constraints) {
+              final side = constraints.biggest.shortestSide;
+              final dia = side * 0.72;
+              final bgColor = logged
+                  ? loggedColor
+                  : (isDark ? Colors.white.withOpacity(.06) : Colors.black12.withOpacity(.08));
+              final border = logged ? null : Border.all(color: Colors.black12, width: 0.6);
+              final textColor = inMonth ? (logged ? Colors.white : onSurface) : outMonthText;
 
-                final circle = Center(
-                  child: Container(
-                    width: dia,
-                    height: dia,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      shape: BoxShape.circle,
-                      border: border,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${day.day}',
-                      style: TextStyle(
-                        fontSize: dia * 0.45,
-                        fontWeight: FontWeight.w800,
-                        color: textColor,
-                        height: 1.0,
-                      ),
-                    ),
+              final circle = Center(
+                child: Container(
+                  width: dia,
+                  height: dia,
+                  decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle, border: border),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(fontSize: dia * 0.45, fontWeight: FontWeight.w800, color: textColor, height: 1.0),
                   ),
-                );
+                ),
+              );
 
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(dia / 2),
-                    onTap: onDayTap == null ? null : () => onDayTap!(day),
-                    child: circle,
-                  ),
-                );
-              },
-            );
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(dia / 2),
+                  onTap: onDayTap == null ? null : () => onDayTap!(day),
+                  child: circle,
+                ),
+              );
+            });
           },
         ),
       ],
@@ -1337,69 +1227,32 @@ class _SignalRow extends StatelessWidget {
   final _TrackerStat stat;
   final bool dark;
 
-  const _SignalRow({
-    required this.label,
-    required this.stat,
-    required this.dark,
-  });
+  const _SignalRow({required this.label, required this.stat, required this.dark});
 
   @override
   Widget build(BuildContext context) {
-    final chipBg =
-        dark ? stat.color.withOpacity(.25) : stat.color.withOpacity(.12);
+    final chipBg = dark ? stat.color.withOpacity(.25) : stat.color.withOpacity(.12);
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color:
-                  (dark ? Colors.white : Colors.black).withOpacity(.8),
-            ),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: (dark ? Colors.white : Colors.black).withOpacity(.8)),
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: chipBg,
-            borderRadius: BorderRadius.circular(999),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(999)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: stat.color,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: stat.color, shape: BoxShape.circle)),
               const SizedBox(width: 8),
-              Text(
-                stat.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color:
-                      dark ? Colors.white : const Color(0xFF20312F),
-                ),
-              ),
+              Text(stat.label,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: dark ? Colors.white : const Color(0xFF20312F))),
               const SizedBox(width: 10),
-              Text(
-                stat.mean.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color:
-                      dark ? Colors.white : const Color(0xFF20312F),
-                ),
-              ),
+              Text(stat.mean.toStringAsFixed(1),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: dark ? Colors.white : const Color(0xFF20312F))),
             ],
           ),
         ),
@@ -1411,79 +1264,53 @@ class _SignalRow extends StatelessWidget {
 class _TrackerAverageRow extends StatelessWidget {
   final _TrackerStat stat;
   final bool dark;
+  final _DisplayMode mode;
+  final List<String> emojiScale;
+
   const _TrackerAverageRow({
     required this.stat,
     required this.dark,
+    required this.mode,
+    required this.emojiScale,
   });
 
-  // Map 0–10 score to a single emoji. Tweak thresholds to match your slider.
-  String _emojiForScore(double v) {
-    final s = v.clamp(0.0, 10.0);
-    if (s >= 9.0) return '🤩';
-    if (s >= 8.0) return '😄';
-    if (s >= 7.0) return '😊';
-    if (s >= 6.0) return '🙂';
-    if (s >= 5.0) return '😐';
-    if (s >= 4.0) return '😕';
-    if (s >= 3.0) return '☹️';
-    if (s >= 2.0) return '😣';
-    return '😫';
+  String _emojiFromScale(double v) {
+    // Round to nearest 0..10 index, clamp to emojiScale length
+    final idx = v.clamp(0, 10).round();
+    if (emojiScale.isEmpty) return '🙂';
+    if (idx < emojiScale.length) return emojiScale[idx];
+    return emojiScale.last;
   }
 
   @override
   Widget build(BuildContext context) {
-    final chipBg =
-        dark ? stat.color.withOpacity(.20) : stat.color.withOpacity(.12);
-    final emoji = _emojiForScore(stat.mean);
+    final chipBg = dark ? stat.color.withOpacity(.20) : stat.color.withOpacity(.12);
+    final badge = mode == _DisplayMode.emoji
+        ? Text(_emojiFromScale(stat.mean), style: const TextStyle(fontSize: 18))
+        : Text(stat.mean.toStringAsFixed(1),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: dark ? Colors.white : const Color(0xFF20312F)));
 
     return Row(
       children: [
         Expanded(
           child: Row(
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: stat.color,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              Container(width: 10, height: 10, decoration: BoxDecoration(color: stat.color, shape: BoxShape.circle)),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   stat.label,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color:
-                        dark ? Colors.white : const Color(0xFF20312F),
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: dark ? Colors.white : const Color(0xFF20312F)),
                 ),
               ),
             ],
           ),
         ),
-        // Emoji badge (no numeric average shown)
-        Semantics(
-          label: 'Average ${stat.mean.toStringAsFixed(1)}',
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: chipBg,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              emoji,
-              style: const TextStyle(
-                fontSize: 18, // nice, readable size
-              ),
-            ),
-          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(999)),
+          child: badge,
         ),
       ],
     );
@@ -1521,10 +1348,5 @@ class _TrackerStat {
   final String label;
   final Color color;
   final double mean;
-  _TrackerStat({
-    required this.id,
-    required this.label,
-    required this.color,
-    required this.mean,
-  });
+  _TrackerStat({required this.id, required this.label, required this.color, required this.mean});
 }
