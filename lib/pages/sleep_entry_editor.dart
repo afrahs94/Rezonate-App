@@ -166,10 +166,10 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFFDFBFF),
-                    Color(0xFFEAD7FF),
-                    Color(0xFFC7DDEA),
-                    Color(0xFF57C4B3),
+                    Color(0xFFFDFBFF), // near-white
+                    Color(0xFFEAD7FF), // lavender
+                    Color(0xFFC7DDEA), // misty blue
+                    Color(0xFF57C4B3), // teal
                   ],
                   stops: [0.00, 0.32, 0.66, 1.00],
                 ),
@@ -254,45 +254,48 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
 
                 const SizedBox(height: 16),
                 const _SectionHeader('Metrics'),
-                _NumberField(
+
+                // --- Labeled metric rows (always-visible labels) ---
+                _NumberFieldTile(
                   icon: Icons.bed_rounded,
                   label: 'Awakenings',
+                  suffix: '',
                   initial: _awakenings,
                   min: 0,
                   max: 20,
                   onChanged: (v) => _awakenings = v,
                 ),
-                const SizedBox(height: 8),
-                _NumberField(
+                _NumberFieldTile(
                   icon: Icons.airline_seat_individual_suite_rounded,
                   label: 'Naps (min)',
+                  suffix: 'm',
                   initial: _napMin,
                   min: 0,
                   max: 600,
                   onChanged: (v) => _napMin = v,
                 ),
-                const SizedBox(height: 8),
-                _NumberField(
+                _NumberFieldTile(
                   icon: Icons.percent_rounded,
                   label: 'Efficiency %',
+                  suffix: '%',
                   initial: _efficiency < 0 ? 0 : _efficiency,
                   min: 0,
                   max: 100,
                   onChanged: (v) => _efficiency = v,
                 ),
-                const SizedBox(height: 8),
-                _NumberField(
+                _NumberFieldTile(
                   icon: Icons.phone_android_rounded,
                   label: 'Screen time (min)',
+                  suffix: 'm',
                   initial: _screenTimeMin,
                   min: 0,
                   max: 600,
                   onChanged: (v) => _screenTimeMin = v,
                 ),
-                const SizedBox(height: 8),
-                _NumberField(
+                _NumberFieldTile(
                   icon: Icons.thermostat_rounded,
                   label: 'Room temp (°F)',
+                  suffix: '°F',
                   initial: _roomTempF,
                   min: 40,
                   max: 95,
@@ -326,7 +329,6 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     filled: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
 
@@ -353,7 +355,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
   }
 }
 
-// ------- UI bits -------
+/* ---------- Small shared UI bits ---------- */
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);
@@ -460,18 +462,22 @@ class _ToggleChip extends StatelessWidget {
   }
 }
 
-class _NumberField extends StatelessWidget {
-  const _NumberField({
+/// Labeled number input row: icon + label on the left, compact numeric
+/// TextField on the right. Keeps labels always visible.
+class _NumberFieldTile extends StatelessWidget {
+  const _NumberFieldTile({
     required this.icon,
     required this.label,
     required this.initial,
     required this.min,
     required this.max,
     required this.onChanged,
+    this.suffix = '',
   });
 
   final IconData icon;
   final String label;
+  final String suffix;
   final int initial;
   final int min;
   final int max;
@@ -480,23 +486,41 @@ class _NumberField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ctl = TextEditingController(text: '$initial');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: TextField(
-        controller: ctl,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.numbers_rounded, color: Color(0xFF0D7C66)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-          filled: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF0D7C66)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            SizedBox(
+              width: 96,
+              child: TextField(
+                controller: ctl,
+                textAlign: TextAlign.right,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  isDense: true,
+                  filled: true,
+                  suffixText: suffix,
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                ),
+                onChanged: (s) {
+                  final v = int.tryParse(s.replaceAll(RegExp(r'[^0-9]'), '')) ?? initial;
+                  onChanged(v.clamp(min, max));
+                },
+              ),
+            ),
+          ],
         ),
-        onChanged: (s) {
-          final v = int.tryParse(s) ?? initial;
-          onChanged(v.clamp(min, max));
-        },
       ),
     );
   }
