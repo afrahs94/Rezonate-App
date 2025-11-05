@@ -144,19 +144,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          widget.sessionId == null ? 'Add Sleep' : 'Edit Sleep',
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w800),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(onPressed: _save, icon: const Icon(Icons.check_rounded)),
-        ],
-      ),
+      // App bar now scrolls with content via SliverAppBar below
       body: Stack(
         children: [
           const Positioned.fill(
@@ -176,178 +164,205 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
               ),
             ),
           ),
-          SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              children: [
-                const _SectionHeader('When'),
-                _PickerTile(
-                  icon: Icons.calendar_month_rounded,
-                  label: 'Date',
-                  trailing: fmt.format(_date),
-                  onTap: _pickDate,
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                centerTitle: true,
+                floating: false,
+                pinned: false, // header scrolls away
+                snap: false,
+                automaticallyImplyLeading: true,
+                iconTheme: const IconThemeData(color: Colors.black),
+                title: Text(
+                  widget.sessionId == null ? 'Add Sleep' : 'Edit Sleep',
+                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w800),
                 ),
-                _PickerTile(
-                  icon: Icons.nightlight_round,
-                  label: 'Sleep time',
-                  trailing: _sleepTime.format(context),
-                  onTap: () => _pickTime(sleep: true),
-                ),
-                _PickerTile(
-                  icon: Icons.wb_sunny_rounded,
-                  label: 'Wake time',
-                  trailing: _wakeTime.format(context),
-                  onTap: () => _pickTime(sleep: false),
-                ),
+                actions: [
+                  IconButton(onPressed: _save, icon: const Icon(Icons.check_rounded)),
+                ],
+              ),
+              SliverToBoxAdapter(
+                child: SafeArea(
+                  top: false, // SliverAppBar already accounts for status bar
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _SectionHeader('When'),
+                        _PickerTile(
+                          icon: Icons.calendar_month_rounded,
+                          label: 'Date',
+                          trailing: fmt.format(_date),
+                          onTap: _pickDate,
+                        ),
+                        _PickerTile(
+                          icon: Icons.nightlight_round,
+                          label: 'Sleep time',
+                          trailing: _sleepTime.format(context),
+                          onTap: () => _pickTime(sleep: true),
+                        ),
+                        _PickerTile(
+                          icon: Icons.wb_sunny_rounded,
+                          label: 'Wake time',
+                          trailing: _wakeTime.format(context),
+                          onTap: () => _pickTime(sleep: false),
+                        ),
 
-                const SizedBox(height: 16),
-                const _SectionHeader('Quality'),
-                _StarsPicker(
-                  value: _quality,
-                  onChanged: (v) => setState(() => _quality = v),
-                ),
+                        const SizedBox(height: 16),
+                        const _SectionHeader('Quality'),
+                        _StarsPicker(
+                          value: _quality,
+                          onChanged: (v) => setState(() => _quality = v),
+                        ),
 
-                const SizedBox(height: 16),
-                const _SectionHeader('Habits & Environment'),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _ToggleChip(
-                      icon: Icons.coffee_rounded,
-                      label: 'Caffeine',
-                      value: _caffeine,
-                      onChanged: (v) => setState(() => _caffeine = v),
-                    ),
-                    _ToggleChip(
-                      icon: Icons.local_bar_rounded,
-                      label: 'Alcohol',
-                      value: _alcohol,
-                      onChanged: (v) => setState(() => _alcohol = v),
-                    ),
-                    _ToggleChip(
-                      icon: Icons.fitness_center_rounded,
-                      label: 'Exercise',
-                      value: _exercise,
-                      onChanged: (v) => setState(() => _exercise = v),
-                    ),
-                    _ToggleChip(
-                      icon: Icons.light_mode_rounded,
-                      label: 'Blue light',
-                      value: _blueLight,
-                      onChanged: (v) => setState(() => _blueLight = v),
-                    ),
-                    _ToggleChip(
-                      icon: Icons.medication_rounded,
-                      label: 'Medication',
-                      value: _medication,
-                      onChanged: (v) => setState(() => _medication = v),
-                    ),
-                    _ToggleChip(
-                      icon: Icons.restaurant_rounded,
-                      label: 'Late meal',
-                      value: _lateMeal,
-                      onChanged: (v) => setState(() => _lateMeal = v),
-                    ),
-                  ],
-                ),
+                        const SizedBox(height: 16),
+                        const _SectionHeader('Habits & Environment'),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            _ToggleChip(
+                              icon: Icons.coffee_rounded,
+                              label: 'Caffeine',
+                              value: _caffeine,
+                              onChanged: (v) => setState(() => _caffeine = v),
+                            ),
+                            _ToggleChip(
+                              icon: Icons.local_bar_rounded,
+                              label: 'Alcohol',
+                              value: _alcohol,
+                              onChanged: (v) => setState(() => _alcohol = v),
+                            ),
+                            _ToggleChip(
+                              icon: Icons.fitness_center_rounded,
+                              label: 'Exercise',
+                              value: _exercise,
+                              onChanged: (v) => setState(() => _exercise = v),
+                            ),
+                            _ToggleChip(
+                              icon: Icons.light_mode_rounded,
+                              label: 'Blue light',
+                              value: _blueLight,
+                              onChanged: (v) => setState(() => _blueLight = v),
+                            ),
+                            _ToggleChip(
+                              icon: Icons.medication_rounded,
+                              label: 'Medication',
+                              value: _medication,
+                              onChanged: (v) => setState(() => _medication = v),
+                            ),
+                            _ToggleChip(
+                              icon: Icons.restaurant_rounded,
+                              label: 'Late meal',
+                              value: _lateMeal,
+                              onChanged: (v) => setState(() => _lateMeal = v),
+                            ),
+                          ],
+                        ),
 
-                const SizedBox(height: 16),
-                const _SectionHeader('Metrics'),
+                        const SizedBox(height: 16),
+                        const _SectionHeader('Metrics'),
 
-                // --- Labeled metric rows (always-visible labels) ---
-                _NumberFieldTile(
-                  icon: Icons.bed_rounded,
-                  label: 'Awakenings',
-                  suffix: '',
-                  initial: _awakenings,
-                  min: 0,
-                  max: 20,
-                  onChanged: (v) => _awakenings = v,
-                ),
-                _NumberFieldTile(
-                  icon: Icons.airline_seat_individual_suite_rounded,
-                  label: 'Naps (min)',
-                  suffix: 'm',
-                  initial: _napMin,
-                  min: 0,
-                  max: 600,
-                  onChanged: (v) => _napMin = v,
-                ),
-                _NumberFieldTile(
-                  icon: Icons.percent_rounded,
-                  label: 'Efficiency %',
-                  suffix: '%',
-                  initial: _efficiency < 0 ? 0 : _efficiency,
-                  min: 0,
-                  max: 100,
-                  onChanged: (v) => _efficiency = v,
-                ),
-                _NumberFieldTile(
-                  icon: Icons.phone_android_rounded,
-                  label: 'Screen time (min)',
-                  suffix: 'm',
-                  initial: _screenTimeMin,
-                  min: 0,
-                  max: 600,
-                  onChanged: (v) => _screenTimeMin = v,
-                ),
-                _NumberFieldTile(
-                  icon: Icons.thermostat_rounded,
-                  label: 'Room temp (°F)',
-                  suffix: '°F',
-                  initial: _roomTempF,
-                  min: 40,
-                  max: 95,
-                  onChanged: (v) => _roomTempF = v,
-                ),
+                        // --- Labeled metric rows (always-visible labels) ---
+                        _NumberFieldTile(
+                          icon: Icons.bed_rounded,
+                          label: 'Awakenings',
+                          suffix: '',
+                          initial: _awakenings,
+                          min: 0,
+                          max: 20,
+                          onChanged: (v) => _awakenings = v,
+                        ),
+                        _NumberFieldTile(
+                          icon: Icons.airline_seat_individual_suite_rounded,
+                          label: 'Naps (min)',
+                          suffix: 'm',
+                          initial: _napMin,
+                          min: 0,
+                          max: 600,
+                          onChanged: (v) => _napMin = v,
+                        ),
+                        _NumberFieldTile(
+                          icon: Icons.percent_rounded,
+                          label: 'Efficiency %',
+                          suffix: '%',
+                          initial: _efficiency < 0 ? 0 : _efficiency,
+                          min: 0,
+                          max: 100,
+                          onChanged: (v) => _efficiency = v,
+                        ),
+                        _NumberFieldTile(
+                          icon: Icons.phone_android_rounded,
+                          label: 'Screen time (min)',
+                          suffix: 'm',
+                          initial: _screenTimeMin,
+                          min: 0,
+                          max: 600,
+                          onChanged: (v) => _screenTimeMin = v,
+                        ),
+                        _NumberFieldTile(
+                          icon: Icons.thermostat_rounded,
+                          label: 'Room temp (°F)',
+                          suffix: '°F',
+                          initial: _roomTempF,
+                          min: 40,
+                          max: 95,
+                          onChanged: (v) => _roomTempF = v,
+                        ),
 
-                const SizedBox(height: 12),
-                const _SectionHeader('Scores'),
-                _SliderRow(
-                  icon: Icons.mood_rounded,
-                  label: 'Mood',
-                  value: _mood.toDouble(),
-                  onChanged: (d) => setState(() => _mood = d.round()),
-                ),
-                _SliderRow(
-                  icon: Icons.psychology_rounded,
-                  label: 'Stress',
-                  value: _stress.toDouble(),
-                  onChanged: (d) => setState(() => _stress = d.round()),
-                ),
+                        const SizedBox(height: 12),
+                        const _SectionHeader('Scores'),
+                        _SliderRow(
+                          icon: Icons.mood_rounded,
+                          label: 'Mood',
+                          value: _mood.toDouble(),
+                          onChanged: (d) => setState(() => _mood = d.round()),
+                        ),
+                        _SliderRow(
+                          icon: Icons.psychology_rounded,
+                          label: 'Stress',
+                          value: _stress.toDouble(),
+                          onChanged: (d) => setState(() => _stress = d.round()),
+                        ),
 
-                const SizedBox(height: 16),
-                const _SectionHeader('Notes'),
-                TextField(
-                  controller: _notesCtl,
-                  minLines: 3,
-                  maxLines: 6,
-                  decoration: const InputDecoration(
-                    hintText: 'How did you sleep?',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                        const SizedBox(height: 16),
+                        const _SectionHeader('Notes'),
+                        TextField(
+                          controller: _notesCtl,
+                          minLines: 3,
+                          maxLines: 6,
+                          decoration: const InputDecoration(
+                            hintText: 'How did you sleep?',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                            ),
+                            filled: true,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: _save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D7C66),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(Icons.save_rounded),
+                          label: const Text('Save'),
+                        ),
+                      ],
                     ),
-                    filled: true,
                   ),
                 ),
-
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  onPressed: _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D7C66),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  icon: const Icon(Icons.save_rounded),
-                  label: const Text('Save'),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
