@@ -124,23 +124,26 @@ class WordSearchPage extends StatefulWidget {
   State<WordSearchPage> createState() => _WordSearchPageState();
 }
 
-class _WordSearchPageState extends State<WordSearchPage> {
-  // Word pools (unchanged content; trimmed for brevity here)
+class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStateMixin {
+  // Expanded word pools (added more words)
   static const Map<_WsDifficulty, List<List<String>>> _pools = {
     _WsDifficulty.easy: [
-      ['CALM', 'BREATHE', 'FOCUS', 'PAUSE', 'SMILE'],
-      ['PEACE', 'REST', 'KIND', 'WARM', 'SOFT'],
-      ['OCEAN', 'CLOUD', 'LEAF', 'QUIET', 'EASE'],
+      ['CALM', 'BREATHE', 'FOCUS', 'PAUSE', 'SMILE', 'REST', 'NAP', 'EASY'],
+      ['PEACE', 'REST', 'KIND', 'WARM', 'SOFT', 'JOY', 'HUG', 'NICE'],
+      ['OCEAN', 'CLOUD', 'LEAF', 'QUIET', 'EASE', 'BIRD', 'LILY', 'MILD'],
+      ['COZY', 'SLOW', 'ZEN', 'CARE', 'KINDLY', 'SUN', 'MOON', 'RAIN'],
     ],
     _WsDifficulty.medium: [
-      ['BALANCE', 'GROUND', 'MINDFUL', 'RELAX'],
-      ['GRATITUDE', 'SERENITY', 'STEADY'],
-      ['SUNLIGHT', 'BREEZE', 'GENTLE', 'CENTER'],
+      ['BALANCE', 'GROUND', 'MINDFUL', 'RELAX', 'GENTLE', 'CENTER', 'STEADY'],
+      ['GRATITUDE', 'SERENITY', 'STEADY', 'BREATHER', 'FEATHER', 'SUNLIGHT'],
+      ['SUNLIGHT', 'BREEZE', 'GENTLE', 'CENTER', 'HARMONY', 'SOOTHING'],
+      ['KINDNESS', 'PAUSING', 'REFRESH', 'RECENTER', 'SOFTNESS'],
     ],
     _WsDifficulty.hard: [
-      ['RESILIENCE', 'TRANQUIL', 'PATIENCE', 'HARMONY'],
-      ['COMPOSURE', 'BREATHWORK', 'EQUANIMITY'],
-      ['MEDITATION', 'STILLNESS', 'PRESENCE'],
+      ['RESILIENCE', 'TRANQUIL', 'PATIENCE', 'HARMONY', 'CONTENTMENT'],
+      ['COMPOSURE', 'BREATHWORK', 'EQUANIMITY', 'STILLNESS', 'PRESENCE'],
+      ['MEDITATION', 'STILLNESS', 'PRESENCE', 'ACCEPTANCE', 'ATTUNEMENT'],
+      ['TRANQUILITY', 'EVENHANDED', 'MINDFULNESS', 'REFLECTION'],
     ],
   };
 
@@ -160,17 +163,20 @@ class _WordSearchPageState extends State<WordSearchPage> {
   /// Persistent strike-throughs (each is an ordered list of points).
   final List<List<Point<int>>> _foundPaths = [];
 
-  // Persistence keys (added ws_paths)
+  // Persistence keys
   static const _saveKey = 'ws_active';
   static const _saveDiff = 'ws_active_diff';
   static const _saveWords = 'ws_active_words';
   static const _saveGrid = 'ws_active_grid';
-  static const _savePaths = 'ws_active_paths'; // NEW: List<String> of serialized paths
+  static const _savePaths = 'ws_active_paths'; // List<String> of serialized paths
 
   // Timer (score)
   late DateTime _startTime;
 
   final rnd = Random();
+
+  // Win animation overlay
+  OverlayEntry? _winOverlay;
 
   @override
   void initState() {
@@ -180,7 +186,6 @@ class _WordSearchPageState extends State<WordSearchPage> {
 
   /* ─────────── Persistence helpers ─────────── */
 
-  // Serialize a path: "x0,y0|x1,y1|..."
   String _encodePath(List<Point<int>> p) =>
       p.map((pt) => '${pt.x},${pt.y}').join('|');
 
@@ -206,7 +211,6 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final flat = <String>[];
     for (final r in grid) { flat.addAll(r); }
     await p.setStringList(_saveGrid, flat);
-    // Save found paths
     final enc = _foundPaths.map(_encodePath).toList();
     await p.setStringList(_savePaths, enc);
   }
@@ -234,19 +238,16 @@ class _WordSearchPageState extends State<WordSearchPage> {
       remaining = p.getStringList(_saveKey)?.toSet() ?? words.toSet();
       _foundPaths.clear();
       if (pathsSaved != null && pathsSaved.isNotEmpty) {
-        // New save format: restore exact lines
         for (final s in pathsSaved) {
           final path = _decodePath(s);
           if (path.isNotEmpty) _foundPaths.add(path);
         }
       } else {
-        // Old save format: reconstruct lines from found words
         final foundWords = words.where((w) => !remaining.contains(w)).toList();
         for (final w in foundWords) {
           final path = _findWordPath(w);
           if (path != null) _foundPaths.add(path);
         }
-        // Persist forward so we won’t need to reconstruct next time.
         await _persistActive();
       }
       _startTime = DateTime.now();
@@ -263,13 +264,17 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final pool = _pools[difficulty]!;
     final list = List<List<String>>.from(pool)..shuffle(rnd);
     words = List<String>.from(list.first)..shuffle(rnd);
+
     size = (difficulty == _WsDifficulty.easy)
         ? 12
         : (difficulty == _WsDifficulty.medium ? 13 : 14);
+
     grid = List.generate(size, (_) => List.filled(size, ''));
+    // placeWords now returns the actually placed words to avoid "overfill" issues
+    words = _placeWords(words);
     remaining = words.toSet();
-    _placeWords();
     _fillRandom();
+
     _selCells.clear();
     _lastCell = null;
     _foundPaths.clear();
@@ -279,10 +284,10 @@ class _WordSearchPageState extends State<WordSearchPage> {
   }
 
   void _resetCurrent() {
-    // Rebuild same words on a fresh grid
     grid = List.generate(size, (_) => List.filled(size, ''));
+    // Re-place only the current words; keep only those that fit to prevent overfill
+    words = _placeWords(words);
     remaining = words.toSet();
-    _placeWords();
     _fillRandom();
     _selCells.clear();
     _lastCell = null;
@@ -294,14 +299,17 @@ class _WordSearchPageState extends State<WordSearchPage> {
 
   /* ─────────── Grid gen ─────────── */
 
-  void _placeWords() {
+  /// Places as many words as fit. Returns the list of actually placed words.
+  List<String> _placeWords(List<String> source) {
     final dirs = [
       const Point(1,0), const Point(0,1), const Point(1,1), const Point(-1,1),
       const Point(-1,0), const Point(0,-1), const Point(-1,-1), const Point(1,-1),
     ];
-    for (final w in words) {
+    final placedWords = <String>[];
+
+    for (final w in source) {
       bool placed = false;
-      for (int tries = 0; tries < 400 && !placed; tries++) {
+      for (int tries = 0; tries < 500 && !placed; tries++) {
         final d = dirs[rnd.nextInt(dirs.length)];
         final r0 = rnd.nextInt(size), c0 = rnd.nextInt(size);
         int r = r0, c = c0;
@@ -316,8 +324,10 @@ class _WordSearchPageState extends State<WordSearchPage> {
         r = r0; c = c0;
         for (int i = 0; i < w.length; i++) { grid[r][c] = w[i]; r += d.y; c += d.x; }
         placed = true;
+        placedWords.add(w);
       }
     }
+    return placedWords;
   }
 
   void _fillRandom() {
@@ -332,8 +342,6 @@ class _WordSearchPageState extends State<WordSearchPage> {
 
   /* ─────────── Restore helper for old saves ─────────── */
 
-  /// Find the unique path for [word] in the current grid (either direction).
-  /// Returns null if not found.
   List<Point<int>>? _findWordPath(String word) {
     final dirs = [
       const Point(1,0), const Point(0,1), const Point(1,1), const Point(-1,1),
@@ -341,7 +349,6 @@ class _WordSearchPageState extends State<WordSearchPage> {
     ];
     bool inBounds(int r, int c) => r >= 0 && r < size && c >= 0 && c < size;
 
-    // try both normal and reversed
     for (final target in [word, String.fromCharCodes(word.runes.toList().reversed)]) {
       for (int r0 = 0; r0 < size; r0++) {
         for (int c0 = 0; c0 < size; c0++) {
@@ -362,7 +369,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
     return null;
   }
 
-  /* ─────────── Gesture → selection ─────────── */
+  /* ─────────── Gesture → selection (only exact squares under pointer) ─────────── */
 
   void _onPanStart(Offset pos, BoxConstraints cons) {
     _dragging = true;
@@ -389,7 +396,10 @@ class _WordSearchPageState extends State<WordSearchPage> {
     final gx = (pos.dx / cellSize).floor();
     final gy = (pos.dy / cellSize).floor();
     if (gx < 0 || gx >= size || gy < 0 || gy >= size) return;
+
     final pt = Point(gx, gy);
+
+    // Only add the exact cell currently under the pointer; no interpolation to neighbors.
     if (_lastCell == null || _lastCell != pt) {
       _selCells.add(pt);
       _lastCell = pt;
@@ -424,35 +434,60 @@ class _WordSearchPageState extends State<WordSearchPage> {
 
     if (found != null) {
       remaining.remove(found);
-      if (foundPath != null) _foundPaths.add(foundPath);      // record for strike-through
-      await _persistActive();                                  // persist paths immediately
+      if (foundPath != null) _foundPaths.add(foundPath);
+      await _persistActive();
       setState(() {});
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Found: $found')));
       }
       if (remaining.isEmpty) {
-        await _clearPersisted();
-        final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
-        final score = words.length / secs; // words per second
-        await ScoreStore.instance.add('wordsearch', score);
-        final isHigh = await ScoreStore.instance.reportBest('wordsearch', score);
-        if (!mounted) return;
-        await showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: Text(isHigh ? 'New High Score!' : 'Puzzle Complete'),
-            content: Text(isHigh
-                ? 'Speed: ${score.toStringAsFixed(3)} words/sec'
-                : 'Nice work! Want a fresh grid?'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-              FilledButton(onPressed: () { Navigator.pop(context); _newPuzzle(); }, child: const Text('New')),
-            ],
-          ),
-        );
+        await _onWin();
       }
     }
+  }
+
+  Future<void> _onWin() async {
+    await _clearPersisted();
+    final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
+    final score = words.length / secs; // words per second
+    await ScoreStore.instance.add('wordsearch', score);
+    final isHigh = await ScoreStore.instance.reportBest('wordsearch', score);
+
+    _showWinAnimation();
+    await Future.delayed(const Duration(milliseconds: 1400));
+    _hideWinAnimation();
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isHigh ? 'New High Score!' : 'Puzzle Complete'),
+        content: Text(isHigh
+            ? 'Speed: ${score.toStringAsFixed(3)} words/sec'
+            : 'Nice work! Want a fresh grid?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          FilledButton(onPressed: () { Navigator.pop(context); _newPuzzle(); }, child: const Text('New')),
+        ],
+      ),
+    );
+  }
+
+  /* ─────────── Win animation (confetti-like burst) ─────────── */
+
+  void _showWinAnimation() {
+    if (_winOverlay != null) return;
+    final entry = OverlayEntry(
+      builder: (ctx) => _WinConfettiOverlay(vsync: this),
+    );
+    _winOverlay = entry;
+    Overlay.of(context).insert(entry);
+  }
+
+  void _hideWinAnimation() {
+    _winOverlay?.remove();
+    _winOverlay = null;
   }
 
   /* ─────────── UI ─────────── */
@@ -598,4 +633,126 @@ class _WsPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _WsPainter old) =>
       old.g != g || old.sel != sel || old.foundPaths != foundPaths;
+}
+
+/* ─────────── Win confetti overlay ─────────── */
+
+class _WinConfettiOverlay extends StatefulWidget {
+  final TickerProvider vsync;
+  const _WinConfettiOverlay({required this.vsync});
+
+  @override
+  State<_WinConfettiOverlay> createState() => _WinConfettiOverlayState();
+}
+
+class _WinConfettiOverlayState extends State<_WinConfettiOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+  final _particles = <_Particle>[];
+  final _rnd = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: widget.vsync,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _spawn();
+    _ctrl.forward();
+  }
+
+  void _spawn() {
+    // spawn a handful of particles
+    for (int i = 0; i < 60; i++) {
+      _particles.add(
+        _Particle(
+          dx: (_rnd.nextDouble() * 2 - 1) * 180,
+          dy: (_rnd.nextDouble() * 2 - 1) * 180,
+          size: 6 + _rnd.nextDouble() * 10,
+          rotation: _rnd.nextDouble() * pi,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (_, __) {
+          final double t = _anim.value;
+          final double clamped = (t.clamp(0.0, 1.0) as double);
+          final double opacity = 1.0 - clamped;
+
+          return Positioned.fill(
+            child: Opacity(
+              opacity: opacity,
+              child: Stack(
+                children: [
+                  // subtle backdrop flash
+                  Container(color: const Color(0xFFFFFFFF).withOpacity(0.2 * opacity)),
+                  // burst from center
+                  ..._particles.map((p) {
+                    final dx = p.dx * t;
+                    final dy = p.dy * t;
+                    final scale = 0.6 + 0.6 * (1 - (t - 0.3).abs());
+                    return Align(
+                      alignment: Alignment.center,
+                      child: Transform.translate(
+                        offset: Offset(dx, dy),
+                        child: Transform.rotate(
+                          angle: p.rotation * (1 + t),
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Container(
+                              width: p.size,
+                              height: p.size,
+                              decoration: BoxDecoration(
+                                color: _randColor(p.hashCode),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  // center trophy
+                  Align(
+                    alignment: Alignment.center,
+                    child: Transform.scale(
+                      scale: 0.6 + 0.4 * (1 - (t - 0.2).abs()),
+                      child: const Icon(Icons.emoji_events_rounded, size: 96, color: Color(0xFF0D7C66)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Color _randColor(int seed) {
+    final r = (seed * 97) % 255;
+    final g = (seed * 57) % 255;
+    final b = (seed * 127) % 255;
+    return Color.fromARGB(255, r, g, b);
+  }
+}
+
+class _Particle {
+  final double dx, dy, size, rotation;
+  _Particle({required this.dx, required this.dy, required this.size, required this.rotation});
 }
