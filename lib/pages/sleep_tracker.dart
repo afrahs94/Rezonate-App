@@ -47,26 +47,6 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text('Sleep Tracker',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
-        iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            tooltip: 'Add sleep',
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SleepEntryEditorPage()),
-              );
-            },
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           const Positioned.fill(
@@ -100,9 +80,33 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
 
                 return CustomScrollView(
                   slivers: [
+                    // Scrollable header (title scrolls away)
+                    SliverAppBar(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      centerTitle: true,
+                      floating: false,
+                      pinned: false,
+                      snap: false,
+                      title: const Text('Sleep Tracker',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+                      actions: [
+                        IconButton(
+                          tooltip: 'Add sleep',
+                          icon: const Icon(Icons.add_rounded, color: Colors.black),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const SleepEntryEditorPage()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: _StatsCard(
                           nights: nights,
                           avgStr: _durationString(avg),
@@ -268,14 +272,13 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Spaced-out, visually balanced header with dynamic moon
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.78),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.black12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: Offset(0, 4))],
       ),
       child: Row(
         children: [
@@ -323,23 +326,38 @@ class _StatBlock extends StatelessWidget {
   }
 }
 
-/// Draws a waxing moon that grows *in size* and *illumination* with the number
-/// of nights logged in the last 7 days:
-/// - 1 night → small crescent
-/// - 7 nights → large full moon
-class _MoonProgress extends StatelessWidget {
+/// Animated moon: smoothly animates size and phase when `nights` changes.
+class _MoonProgress extends StatefulWidget {
   const _MoonProgress({required this.nights});
   final int nights;
 
   @override
+  State<_MoonProgress> createState() => _MoonProgressState();
+}
+
+class _MoonProgressState extends State<_MoonProgress> {
+  double _prevPhase = 0;
+
+  @override
+  void didUpdateWidget(covariant _MoonProgress oldWidget) {
+    _prevPhase = oldWidget.nights.clamp(0, 7) / 7.0;
+    super.didUpdateWidget(oldWidget);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final n = nights.clamp(0, 7);
-    final phase = n / 7.0; // 0..1
-    // Size grows noticeably from ~18 → ~46 px.
-    final size = ui.lerpDouble(18, 46, phase)!;
-    return CustomPaint(
-      painter: _MoonPainter(phase: phase),
-      size: Size.square(size),
+    final targetPhase = widget.nights.clamp(0, 7) / 7.0;
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeInOut,
+      tween: Tween(begin: _prevPhase, end: targetPhase),
+      builder: (context, phase, _) {
+        final size = ui.lerpDouble(18, 46, phase)!;
+        return CustomPaint(
+          painter: _MoonPainter(phase: phase),
+          size: Size.square(size),
+        );
+      },
     );
   }
 }
@@ -353,39 +371,35 @@ class _MoonPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     final r = size.width / 2;
 
-    // Soft background glow
+    // Soft glow
     final glow = Paint()
       ..color = const Color(0xFFFFF8E1).withOpacity(.25)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawCircle(center, r * 0.92, glow);
 
-    // Border ring
+    // Ring
     final ring = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
       ..color = const Color(0xFF37474F).withOpacity(.9);
 
-    // Lit base disk (full moon)
+    // Lit base
     final lit = Paint()..color = const Color(0xFFFFF8E1);
     canvas.drawCircle(center, r * 0.92, lit);
 
-    // Apply shadow mask to create crescent/gibbous unless phase is full
+    // Crescent/gibbous mask
     if (phase < 0.999) {
-      // Move the shadow circle from far right (small crescent) toward the left
-      // as phase increases. Slight radius growth keeps the edge pleasing.
       final maskRadius = r * ui.lerpDouble(0.90, 1.02, phase)!;
       final offsetX = ui.lerpDouble(r * 0.95, -r * 0.95, phase)!;
 
-      // Cut the overlapping area out of the lit disk.
       final layerBounds = Rect.fromCircle(center: center, radius: r);
       canvas.saveLayer(layerBounds, Paint());
-      canvas.drawCircle(center, r * 0.92, lit); // re-draw lit on layer
+      canvas.drawCircle(center, r * 0.92, lit);
       final mask = Paint()..blendMode = BlendMode.dstOut;
       canvas.drawCircle(Offset(center.dx + offsetX, center.dy), maskRadius, mask);
       canvas.restore();
     }
 
-    // Draw the ring last so it’s crisp.
     canvas.drawCircle(center, r * 0.92, ring);
   }
 
@@ -415,7 +429,7 @@ class _TrendCard extends StatelessWidget {
         color: Colors.white.withOpacity(0.78),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.black12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -500,6 +514,8 @@ class _SleepChart extends StatelessWidget {
 class _ChartPainter extends CustomPainter {
   _ChartPainter(this.points);
   final List<_Point> points;
+
+  static const _purple = Color(0xFF7E3FF2); // chart line + dots
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -594,17 +610,19 @@ class _ChartPainter extends CustomPainter {
       );
     canvas.drawPath(area, areaPaint);
 
+    // PURPLE LINE
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF0D7C66)
+        ..color = _purple
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
 
-    final dotPaint = Paint()..color = const Color(0xFF0D7C66);
+    // PURPLE DOTS
+    final dotPaint = Paint()..color = _purple;
     for (int i = 0; i < count; i++) {
       final p = pt(i);
       canvas.drawCircle(p, 3.2, dotPaint);

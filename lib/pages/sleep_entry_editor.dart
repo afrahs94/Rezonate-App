@@ -166,10 +166,10 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFFDFBFF), // near-white
-                    Color(0xFFEAD7FF), // lavender
-                    Color(0xFFC7DDEA), // misty blue
-                    Color(0xFF57C4B3), // teal
+                    Color(0xFFFDFBFF),
+                    Color(0xFFEAD7FF),
+                    Color(0xFFC7DDEA),
+                    Color(0xFF57C4B3),
                   ],
                   stops: [0.00, 0.32, 0.66, 1.00],
                 ),
@@ -262,6 +262,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                   max: 20,
                   onChanged: (v) => _awakenings = v,
                 ),
+                const SizedBox(height: 8),
                 _NumberField(
                   icon: Icons.airline_seat_individual_suite_rounded,
                   label: 'Naps (min)',
@@ -270,6 +271,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                   max: 600,
                   onChanged: (v) => _napMin = v,
                 ),
+                const SizedBox(height: 8),
                 _NumberField(
                   icon: Icons.percent_rounded,
                   label: 'Efficiency %',
@@ -278,6 +280,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                   max: 100,
                   onChanged: (v) => _efficiency = v,
                 ),
+                const SizedBox(height: 8),
                 _NumberField(
                   icon: Icons.phone_android_rounded,
                   label: 'Screen time (min)',
@@ -286,6 +289,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                   max: 600,
                   onChanged: (v) => _screenTimeMin = v,
                 ),
+                const SizedBox(height: 8),
                 _NumberField(
                   icon: Icons.thermostat_rounded,
                   label: 'Room temp (°F)',
@@ -322,6 +326,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     filled: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
 
@@ -348,7 +353,7 @@ class _SleepEntryEditorPageState extends State<SleepEntryEditorPage> {
   }
 }
 
-// ------- UI bits (unchanged in behavior) -------
+// ------- UI bits -------
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);
@@ -476,17 +481,17 @@ class _NumberField extends StatelessWidget {
   Widget build(BuildContext context) {
     final ctl = TextEditingController(text: '$initial');
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 2),
       child: TextField(
         controller: ctl,
         keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: const Color(0xFF0D7C66)),
-          labelText: label,
-          border: const OutlineInputBorder(
+        decoration: const InputDecoration(
+          prefixIcon: Icon(Icons.numbers_rounded, color: Color(0xFF0D7C66)),
+          border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
           filled: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
         onChanged: (s) {
           final v = int.tryParse(s) ?? initial;
