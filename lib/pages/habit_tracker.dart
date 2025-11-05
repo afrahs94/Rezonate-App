@@ -38,7 +38,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
       _logsCol.doc(DateFormat('yyyy-MM-dd').format(d));
 
   // ---------- Helpers ----------
-  String _formatDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
   String _docId(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
   Future<void> _toggleHabit(String habitId, DateTime day, bool value) async {
@@ -277,14 +276,11 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
                     const Text(
                       'Filter trackers on calendar',
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
-
-                    // Chips (scroll if many)
                     Flexible(
                       child: SingleChildScrollView(
                         child: Wrap(
@@ -327,12 +323,9 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
                     const Divider(height: 1, color: Color(0x1A000000)),
                     const SizedBox(height: 12),
-
-                    // Footer actions
                     Row(
                       children: [
                         TextButton(
@@ -398,9 +391,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Index of *today* in our Sun..Sat header (Mon=1..Sun=7 in Dart)
-    final todayIndex = DateTime.now().weekday % 7;
-
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
@@ -422,32 +412,21 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+        // Filters button in the top-right
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: TextButton(
-              onPressed: () {
-                setState(() {
-                  final today = DateTime.now();
-                  _focusedDay = today;
-                  _selectedDay = DateTime(today.year, today.month, today.day);
-                });
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.6),
+            child: OutlinedButton.icon(
+              onPressed: _openFilters,
+              icon: const Icon(Icons.filter_list_rounded, size: 16),
+              label: const Text('Filters', style: TextStyle(fontSize: 13)),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                side: BorderSide(color: Colors.black.withOpacity(0.12)),
                 shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-              ),
-              child: const Text(
-                'Today',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
+                backgroundColor: Colors.white.withOpacity(0.6),
+                foregroundColor: Colors.black,
               ),
             ),
           ),
@@ -463,25 +442,19 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           SafeArea(
             child: CustomScrollView(
               slivers: [
-                // >>> Combined line: Month/Year on LEFT + Filters button on RIGHT
+                // Centered month header (green text) with chevrons
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                   sliver: SliverToBoxAdapter(
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Left: month navigation + label
                         IconButton(
-                          icon: const Icon(
-                            Icons.chevron_left_rounded,
-                            color: Colors.black,
-                            size: 22,
-                          ),
+                          icon: const Icon(Icons.chevron_left_rounded,
+                              color: Colors.black, size: 22),
                           onPressed: () => setState(() {
-                            _focusedDay = DateTime(
-                              _focusedDay.year,
-                              _focusedDay.month - 1,
-                              1,
-                            );
+                            _focusedDay =
+                                DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
                           }),
                         ),
                         const SizedBox(width: 6),
@@ -490,54 +463,24 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                            color: Color(0xFF0D7C66), // <<< green month text
                           ),
                         ),
                         const SizedBox(width: 6),
                         IconButton(
-                          icon: const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.black,
-                            size: 22,
-                          ),
+                          icon: const Icon(Icons.chevron_right_rounded,
+                              color: Colors.black, size: 22),
                           onPressed: () => setState(() {
-                            _focusedDay = DateTime(
-                              _focusedDay.year,
-                              _focusedDay.month + 1,
-                              1,
-                            );
+                            _focusedDay =
+                                DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
                           }),
-                        ),
-
-                        const Spacer(),
-
-                        // Right: Filters button (unchanged)
-                        OutlinedButton.icon(
-                          onPressed: _openFilters,
-                          icon: const Icon(Icons.filter_list_rounded, size: 16),
-                          label: const Text(
-                            'Filters',
-                            style: TextStyle(fontSize: 13),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            side: BorderSide(
-                              color: Colors.black.withOpacity(0.12),
-                            ),
-                            shape: const StadiumBorder(),
-                            backgroundColor: Colors.white.withOpacity(0.6),
-                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                // Weekdays row (today highlighted)
+                // Weekdays row
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                   sliver: SliverToBoxAdapter(
@@ -556,9 +499,8 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
-                                    color: isToday
-                                        ? const Color(0xFF0D7C66)
-                                        : Colors.black87,
+                                    color:
+                                        isToday ? const Color(0xFF0D7C66) : Colors.black87,
                                   ),
                                 ),
                               ),
@@ -597,8 +539,8 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                               final colors = <Color>[];
                               data.forEach((key, value) {
                                 if (key == '_ts') return;
-                                final passesFilter = _visibleHabitIds.isEmpty ||
-                                    _visibleHabitIds.contains(key);
+                                final passesFilter =
+                                    _visibleHabitIds.isEmpty || _visibleHabitIds.contains(key);
                                 if (passesFilter &&
                                     value == true &&
                                     habitColor.containsKey(key)) {
@@ -611,12 +553,10 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                             }
                           }
 
-                          // >>> Square-cell sizing based on available width
                           return Padding(
                             padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
                             child: LayoutBuilder(
                               builder: (context, cons) {
-                                // cell margin = 4 (see _DayCell), 7 columns => total gaps ~ 8*4 = 32
                                 final cellSize = (cons.maxWidth - 32) / 7;
                                 return TableCalendar(
                                   firstDay: DateTime.utc(2010, 1, 1),
@@ -636,15 +576,10 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                                   onPageChanged: (f) =>
                                       setState(() => _focusedDay = f),
                                   startingDayOfWeek: StartingDayOfWeek.sunday,
-
-                                  // Square: rowHeight ~= cell width
                                   rowHeight: cellSize,
-
                                   daysOfWeekHeight: 20,
                                   calendarStyle: const CalendarStyle(
-                                    // reduced padding so cells can be square
-                                    cellPadding:
-                                        EdgeInsets.symmetric(horizontal: 2),
+                                    cellPadding: EdgeInsets.symmetric(horizontal: 2),
                                     outsideDaysVisible: false,
                                   ),
                                   calendarBuilders: CalendarBuilders(
@@ -823,10 +758,9 @@ Widget _buildMarkersSized(
   if (colors.length <= maxVisible) {
     children.addAll(colors.take(maxVisible).map((c) => _dotSized(c, dot)));
   } else {
-    // (maxVisible - 1) dots + "+N"
     final overflow = colors.length - (maxVisible - 1);
     children.addAll(colors.take(maxVisible - 1).map((c) => _dotSized(c, dot)));
-    children.add(_moreBadge(overflow, fontSize: dot + 4 /* ~10 */));
+    children.add(_moreBadge(overflow, fontSize: dot + 4));
   }
 
   return Padding(
@@ -861,14 +795,13 @@ class _DayCell extends StatelessWidget {
     final bgColor =
         overrideBackground ?? (isSelected ? const Color(0xFFDADADA) : baseColor);
 
-    // >>> Squared, calendar-like cell styling (tight radius, hairline grid)
     return Container(
-      margin: const EdgeInsets.all(4), // tighter gaps so cells read as a grid
+      margin: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(6), // closer to a square
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: Colors.black.withOpacity(0.08), // subtle grid lines
+          color: Colors.black.withOpacity(0.08),
           width: 1,
         ),
         boxShadow: [
@@ -1002,9 +935,7 @@ class _HabitCard extends StatelessWidget {
                 borderRadius: BorderRadius.all(Radius.circular(6)),
               ),
               side: BorderSide(
-                color: isFuture
-                    ? Colors.grey.withOpacity(0.5)
-                    : color,
+                color: isFuture ? Colors.grey.withOpacity(0.5) : color,
                 width: 1,
               ),
               fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
