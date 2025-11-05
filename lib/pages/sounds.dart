@@ -1,5 +1,6 @@
 // lib/pages/sounds.dart
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -25,16 +26,14 @@ class _SoundsPageState extends State<SoundsPage> {
   String? _currentId;
   bool _playing = false;
 
-  // Inline custom sleep timer
-  int _sleepMinutes = 0; // 0 = off
-  bool _sleepEnabled = false;
+  // Sleep timer (icon + iPhone-style picker)
   Timer? _sleepTimer;
+  Duration _sleepDuration = Duration.zero; // 0 = off
 
   static const _prefsRecentKey = 'recent_sounds_v1';
   List<String> _recentIds = const [];
 
-  // Tracks (NETWORK demo URLs; replace with AssetSource for local files)
-  // All audio links are from Pixabay (copyright-free / no attribution).
+  // Copyright-free tracks (Pixabay / CC0-like). Images corrected to match categories.
   final List<_SoundTrack> _tracks = const [
     // Focus
     _SoundTrack(
@@ -256,6 +255,7 @@ class _SoundsPageState extends State<SoundsPage> {
         await _player.pause();
         return;
       }
+      // Always stop before switching to a new source
       if (_currentId != t.id) {
         await _player.stop();
         setState(() {
@@ -263,10 +263,14 @@ class _SoundsPageState extends State<SoundsPage> {
           _pos = Duration.zero;
           _dur = Duration.zero;
         });
-        await _player.setSourceUrl(t.url);
       }
+
+      // Ensure release mode is set BEFORE play
       await _player.setReleaseMode(_looping ? ReleaseMode.loop : ReleaseMode.stop);
-      await _player.resume();
+
+      // Use UrlSource play() to avoid setSourceUrl/resume issues on some versions/platforms
+      await _player.play(UrlSource(t.url));
+
       _remember(t.id);
     } catch (_) {
       if (!mounted) return;
@@ -297,12 +301,97 @@ class _SoundsPageState extends State<SoundsPage> {
     await _player.setReleaseMode(v ? ReleaseMode.loop : ReleaseMode.stop);
   }
 
-  void _applySleepTimer() {
-    _sleepTimer?.cancel();
-    if (!_sleepEnabled || _sleepMinutes == 0) return;
+  void _openSleepTimer() async {
+    final picked = await showModalBottomSheet<Duration>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: false,
+      builder: (ctx) {
+        Duration temp = _sleepDuration == Duration.zero ? const Duration(minutes: 30) : _sleepDuration;
+        return Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.98),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Grabber
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text('Sleep Timer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 150,
+                  child: CupertinoTimerPicker(
+                    mode: CupertinoTimerPickerMode.hm,
+                    initialTimerDuration: temp,
+                    minuteInterval: 1,
+                    onTimerDurationChanged: (d) => temp = d,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0D7C66),
+                          side: const BorderSide(color: Color(0xFF0D7C66)),
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(Duration.zero),
+                        child: const Text('Off'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D7C66),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(temp),
+                        child: const Text('Set'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
-    _sleepTimer = Timer(Duration(minutes: _sleepMinutes), () {
-      _player.stop();
+    if (picked == null) return;
+
+    _sleepTimer?.cancel();
+    setState(() => _sleepDuration = picked);
+
+    if (picked == Duration.zero) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sleep timer off'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _sleepTimer = Timer(picked, () async {
+      await _player.stop();
       if (!mounted) return;
       setState(() {
         _playing = false;
@@ -310,11 +399,25 @@ class _SoundsPageState extends State<SoundsPage> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sleep timer: stopped after $_sleepMinutes minutes'),
+          content: Text('Sleep timer: stopped after ${_formatDuration(picked)}'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Sleep timer set for ${_formatDuration(picked)}'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    if (d.inHours >= 1 && d.inMinutes % 60 == 0) return '${d.inHours}h';
+    if (d.inHours >= 1) return '${d.inHours}h ${(d.inMinutes % 60)}m';
+    return '${d.inMinutes}m';
   }
 
   BoxDecoration _bg(BuildContext context) {
@@ -341,7 +444,7 @@ class _SoundsPageState extends State<SoundsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // ===== HEADER (no icon next to title)
+              // ===== HEADER (no icon next to title; timer as icon like iPhone)
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
                 child: SizedBox(
@@ -375,28 +478,17 @@ class _SoundsPageState extends State<SoundsPage> {
                               ),
                               onPressed: () => _setLoop(!_looping),
                             ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Sleep timer',
+                              icon: const Icon(Icons.timer_rounded, color: Color(0xFF0D7C66)),
+                              onPressed: _openSleepTimer,
+                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-
-              // Inline custom sleep timer (always visible)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: _InlineSleepTimer(
-                  minutes: _sleepMinutes,
-                  enabled: _sleepEnabled,
-                  onToggle: (v) {
-                    setState(() => _sleepEnabled = v);
-                    _applySleepTimer();
-                  },
-                  onMinutesChanged: (m) {
-                    setState(() => _sleepMinutes = m);
-                    _applySleepTimer();
-                  },
                 ),
               ),
 
@@ -488,109 +580,6 @@ class _SoundsPageState extends State<SoundsPage> {
 }
 
 /* ─────────────────── Reusable UI ─────────────────── */
-
-class _InlineSleepTimer extends StatefulWidget {
-  const _InlineSleepTimer({
-    required this.minutes,
-    required this.enabled,
-    required this.onToggle,
-    required this.onMinutesChanged,
-  });
-
-  final int minutes;
-  final bool enabled;
-  final ValueChanged<bool> onToggle;
-  final ValueChanged<int> onMinutesChanged;
-
-  @override
-  State<_InlineSleepTimer> createState() => _InlineSleepTimerState();
-}
-
-class _InlineSleepTimerState extends State<_InlineSleepTimer> {
-  late double _value;
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.minutes.toDouble();
-  }
-
-  @override
-  void didUpdateWidget(covariant _InlineSleepTimer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.minutes != widget.minutes) {
-      _value = widget.minutes.toDouble();
-    }
-  }
-
-  String _label(int m) {
-    if (m == 0) return 'Off';
-    if (m % 60 == 0) return '${(m / 60).round()}h';
-    return '${m}m';
-    }
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final bg = (dark ? Colors.white : Colors.white).withOpacity(0.30);
-    final border = (dark ? Colors.white : Colors.black).withOpacity(0.16);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border, width: 0.9),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.timer_rounded, color: Color(0xFF0D7C66)),
-              const SizedBox(width: 8),
-              const Text('Sleep timer',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              const Spacer(),
-              Switch(
-                value: widget.enabled,
-                activeColor: const Color(0xFF0D7C66),
-                onChanged: (v) => widget.onToggle(v),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Text(
-                _label(_value.round()),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              Expanded(
-                child: Slider(
-                  value: _value,
-                  min: 0,
-                  max: 120,
-                  divisions: 24, // 5-minute steps
-                  onChanged: (v) {
-                    setState(() => _value = v);
-                    widget.onMinutesChanged(v.round());
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SearchBar extends StatefulWidget {
   const _SearchBar({required this.onChanged});
@@ -787,9 +776,7 @@ class _SoundTileState extends State<_SoundTile> {
           clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
-              // Image with graceful error handling (no red X)
               Positioned.fill(child: _NetImage(url: widget.track.imageUrl)),
-              // Overlay for readability
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -804,7 +791,6 @@ class _SoundTileState extends State<_SoundTile> {
                   ),
                 ),
               ),
-              // Content
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -876,7 +862,6 @@ class _NetImage extends StatelessWidget {
         );
       },
       errorBuilder: (ctx, _, __) {
-        // Graceful fallback – soft gradient + music note
         return Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
