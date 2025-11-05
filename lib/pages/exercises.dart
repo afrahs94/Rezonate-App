@@ -2,14 +2,9 @@
 import 'dart:async';
 import 'package:vibration/vibration.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // for HapticFeedback.vibrate()
+import 'package:flutter/services.dart'; 
 import 'package:new_rezonate/main.dart' as app;
-import 'package:shared_preferences/shared_preferences.dart'; // ⚠️ Add shared_preferences to pubspec.yaml
-
-/// Mental Health Exercises
-/// - 81 guided exercises total
-/// - Filter by condition
-/// - Tap "Play" to follow a timed tutorial (step-by-step)
+import 'package:shared_preferences/shared_preferences.dart'; 
 
 class ExercisesPage extends StatefulWidget {
   const ExercisesPage({super.key});
