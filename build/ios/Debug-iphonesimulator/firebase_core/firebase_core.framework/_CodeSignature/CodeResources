@@ -30,7 +30,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		H5ahfESNzm1CM5ALTMmfrKLUi0Y=
+		quoytH4VYbjdVo99bSbWilIRxDI=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -41,6 +41,10 @@
 	<dict>
 		<key>Headers/FLTFirebaseCorePlugin.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			YEYDh2MZ+QMoD8+BtR/CA82ggyA=
+			</data>
 			<key>hash2</key>
 			<data>
 			qrj/7FJc6Hxcud1WoU8rWTafvADOanHSCP2REc+FpAk=
@@ -48,6 +52,10 @@
 		</dict>
 		<key>Headers/FLTFirebasePlugin.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			snfpemVdxv1F8wPcv+obeU57zm0=
+			</data>
 			<key>hash2</key>
 			<data>
 			ht0NeM9JO5qPYWdRT5UI179vjEPUeoDcF2xsD/NBSvQ=
@@ -55,6 +63,10 @@
 		</dict>
 		<key>Headers/FLTFirebasePluginRegistry.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			aUYszQe+qvqVcUXrNyhIvA4v00g=
+			</data>
 			<key>hash2</key>
 			<data>
 			8Kk7LfApy8MQldjt4bveNWz7H19jZoBSyC5GoURqj8o=
@@ -62,6 +74,10 @@
 		</dict>
 		<key>Headers/dummy.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			MjCr7s/pVjidi/yPujaWQOsPWeA=
+			</data>
 			<key>hash2</key>
 			<data>
 			95LxlLYuHF1YMOIAbpCWCfFu/io3Vz/hcg9N2B7NAts=
@@ -69,6 +85,10 @@
 		</dict>
 		<key>Headers/firebase_core-umbrella.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			h7Q2685gK3TsrxAbSO/qKxdciM4=
+			</data>
 			<key>hash2</key>
 			<data>
 			36QjlgxsyiH1VRQGintrKz5E8KimedJUgRtr0HdVfDE=
@@ -76,6 +96,10 @@
 		</dict>
 		<key>Headers/messages.g.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			mT5GskNPdxW8c3cEYtLFEkTdBhM=
+			</data>
 			<key>hash2</key>
 			<data>
 			PlbdOUJkubPy6SznCzh8Pv7H4FzHkeFvl8WcR+rmVwc=
@@ -83,6 +107,10 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			z8Xwzs+B9M89S2pBBHblfD9L98w=
+			</data>
 			<key>hash2</key>
 			<data>
 			u+Mx31T5uqn18D0/a1grpwZaBXGTd+SNSXtjQTWiG9A=

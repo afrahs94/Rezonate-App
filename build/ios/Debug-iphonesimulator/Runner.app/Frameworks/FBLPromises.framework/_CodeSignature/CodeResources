@@ -6,7 +6,7 @@
 	<dict>
 		<key>FBLPromises_Privacy.bundle/Info.plist</key>
 		<data>
-		qtiFF/1FTraFa8tDzy/Zqg5SuCE=
+		m7TTnM2lqdTzLOEGHYX4O7v+em0=
 		</data>
 		<key>FBLPromises_Privacy.bundle/PrivacyInfo.xcprivacy</key>
 		<data>
@@ -14,20 +14,28 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		jAkPI9ZRsDnlNlCCaUod35/u/n0=
+		8C4A0Sr2/h2cZ5ELzjyQDMVsMG4=
 		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
 		<key>FBLPromises_Privacy.bundle/Info.plist</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			m7TTnM2lqdTzLOEGHYX4O7v+em0=
+			</data>
 			<key>hash2</key>
 			<data>
-			5zD007QUvBSURi4etZyEGL4W4r+DuiYoeAqisNIlToc=
+			TsIs+5+rpKC33bA1IWdLKtW2fGFE6dtqrPIkQXzwfIg=
 			</data>
 		</dict>
 		<key>FBLPromises_Privacy.bundle/PrivacyInfo.xcprivacy</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			ZajnvEs/MYRS3X4TPLAhBWi8mc4=
+			</data>
 			<key>hash2</key>
 			<data>
 			dLDNcvwjwe8wLyLuJ1P2GBfNxa8P96fy0GMrUk+4rOo=

@@ -6,7 +6,7 @@
 	<dict>
 		<key>Headers/local_auth_darwin-Swift.h</key>
 		<data>
-		2B2WNj66pKS3LLBZXfgn5ibIFi8=
+		eOEkitzGoPNwG31SxoccsCaxQyI=
 		</data>
 		<key>Headers/local_auth_darwin-umbrella.h</key>
 		<data>
@@ -14,15 +14,15 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		543wZhOFo5HRxM6juCGBswhvIuU=
+		Wk66ZS7eqF+lVpmzsIcIMwrJDU4=
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		XaXQfYFfQewWuznk9QIHNTUrCZI=
+		Mc+fwMiTDoJDC+3Z5ViFjhDdQt4=
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		JMXHnhjEOlHyefQ9tioH9tsAeVY=
+		jjshkpvAkT8w75jUXFC5pquuQpY=
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -30,11 +30,11 @@
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		/wZawgeGcpX0zEGtVqrK2eJPSlc=
+		CONQ7Zu54IA16aUT9bOxkpQgHAI=
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		NLVOA6cJCq/dxa9KYOl098oAH6g=
+		h50tmHLFjTmzNebZqDKBV1wU3Us=
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -42,11 +42,11 @@
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		+3FEHPRG27/YnTvsnkYA2Rgkkqs=
+		8h7LiolYWJsvNeD/XRsIivAhA/g=
 		</data>
 		<key>Modules/local_auth_darwin.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		btXkKn90vn8JHBZR+PM39pt8+m0=
+		eP6Lrse1Wg599D2o/Ao5SY285fI=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -54,7 +54,7 @@
 		</data>
 		<key>local_auth_darwin_privacy.bundle/Info.plist</key>
 		<data>
-		9i6OI+hPa53FeV4CRptQnCs2yaA=
+		phEg/QsZxqsbC5ytq7+JgklBXMQ=
 		</data>
 		<key>local_auth_darwin_privacy.bundle/PrivacyInfo.xcprivacy</key>
 		<data>
@@ -67,7 +67,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			d8bR3P1Z1dgPcAFLtUkxVzelelLDIQeVyyU6AePgohk=
+			YqnLDa0+F2G2crXYWpgE8jGKPilKMi2jgxSMBg1MeyI=
 			</data>
 		</dict>
 		<key>Headers/local_auth_darwin-umbrella.h</key>
@@ -81,14 +81,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			cKo5X5z6REZObeY6EAzb4rqRKs1i6aFtXd9woPl48HI=
+			h+snruGB0BNAUgaOezDYInvrAVsFml1fIN9SBhrmAOQ=
 			</data>
 		</dict>
 		<key>Modules/local_auth_darwin.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			MOuecw+jLMUxCo48C/LixXk/wfYdioS9jcc9OE69Ejo=
+			gF71us4kVfM+XjRY8Bzwn6UtnOv63FMtwX8t/EH5daY=
 			</data>
 		</dict>
 		<key>Modules/local_auth_darwin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -102,14 +102,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			ATDcli2TEaQUaPxJS1L4NOf1UdZrJ+Djhr9QdGZSlB8=
+			usQrCKXKngzT9siusQX6mBM3Pl6BbQTZEZ5s5arrjx4=
 			</data>
 		</dict>
 		<key>Modules/local_auth_darwin.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			gUKghKYhz+wlptJhQg43XEgbRUGYhoNjMWhs1YkNhz0=
+			jyyAudky1LS0vTJo4Pjt3B2VvwV+CEDF0JCYUqX0njM=
 			</data>
 		</dict>
 		<key>Modules/local_auth_darwin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -123,14 +123,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			pPUj85Jt+PmiPN5KhS6inPFaZEZugx7CBNdjN9tRWcQ=
+			xJh1fh7k/peK9jVZr/fCZ0xz2yThF2GTTmbW9pOZ/Mk=
 			</data>
 		</dict>
 		<key>Modules/local_auth_darwin.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			vih/0jfSLaQBaUbX0dppH6O4VkRhc7zDSPNaUFlq6os=
+			2NHV8vH27DjCq3WRwxWCs4Ht6k9EVusxM5oPlnkPAFw=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
@@ -144,7 +144,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			+7EjTSr1g8e34HjuGOyEGvp2mGEeHrt5zRN5PKO71W8=
+			WOB0b1xc17UkOqoj4sLQTIfCMlDfKEB8AIT5eJg4eQQ=
 			</data>
 		</dict>
 		<key>local_auth_darwin_privacy.bundle/PrivacyInfo.xcprivacy</key>

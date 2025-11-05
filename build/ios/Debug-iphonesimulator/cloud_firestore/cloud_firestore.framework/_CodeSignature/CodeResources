@@ -62,7 +62,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		30NtmbxAsN8+stcdR0uPNg3VgGI=
+		xZ7PDJMCh4pRzoS71uZbR+gSDp4=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -73,6 +73,10 @@
 	<dict>
 		<key>Headers/CustomPigeonHeaderFirestore.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			xJNLadzLhZVCDEhqYwIG9P3NdCE=
+			</data>
 			<key>hash2</key>
 			<data>
 			R1M7wbN/yHN10ho8TJqz7ztYSMnqB9xNfOTI/2LHj20=
@@ -80,6 +84,10 @@
 		</dict>
 		<key>Headers/FLTDocumentSnapshotStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			ASjxT03ITgHTkvPL0KlRMwpJCxY=
+			</data>
 			<key>hash2</key>
 			<data>
 			qa8LKaez8cjIHkNV8vnDJZUHueIx04m3h6i3f6kzvx8=
@@ -87,6 +95,10 @@
 		</dict>
 		<key>Headers/FLTFirebaseFirestoreExtension.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			d8T8sjAuB6X+HYkiIGUGw8XQb6s=
+			</data>
 			<key>hash2</key>
 			<data>
 			RAczZqjdBVDOZxaK+WCBs4Uxzcor8FaLCzeOzh3u5Lk=
@@ -94,6 +106,10 @@
 		</dict>
 		<key>Headers/FLTFirebaseFirestorePlugin.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			RZgVBLpmlzyEcwmPqN5611LayxQ=
+			</data>
 			<key>hash2</key>
 			<data>
 			ZwQ0Vpc0ty+SEMYad8VHO5R04p7e42oe4EV3Cwy1eCs=
@@ -101,6 +117,10 @@
 		</dict>
 		<key>Headers/FLTFirebaseFirestoreReader.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			DsBZL81QMh58mBeRG/9XjT7Z0YA=
+			</data>
 			<key>hash2</key>
 			<data>
 			MLtkwTadlEMr6Z632Je6radaJe3Z6dMZH45l0r5RxNU=
@@ -108,6 +128,10 @@
 		</dict>
 		<key>Headers/FLTFirebaseFirestoreUtils.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			XTCFgGqLa212E9CatKHHy+7OEP8=
+			</data>
 			<key>hash2</key>
 			<data>
 			uqSwqtqpeZo86hvmmpCD/DXDBM7RQuOZfhx0kR7FsBY=
@@ -115,6 +139,10 @@
 		</dict>
 		<key>Headers/FLTFirebaseFirestoreWriter.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			q/OVzbj9gU69Rbc+x0yeVmypw8M=
+			</data>
 			<key>hash2</key>
 			<data>
 			a+liyvmKEvTnTEtrM497X4b4cvKrWS3GTzvqh99Babs=
@@ -122,6 +150,10 @@
 		</dict>
 		<key>Headers/FLTLoadBundleStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			uwmzAhohtAIj8lLEB343UbzCohs=
+			</data>
 			<key>hash2</key>
 			<data>
 			MsoCv3h+T/8Y8J09hu7F+Nm0VUkFkIT2O7DgIHC9zDU=
@@ -129,6 +161,10 @@
 		</dict>
 		<key>Headers/FLTQuerySnapshotStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			DFHNvq034hRgFQJsm2nHRKn9eIY=
+			</data>
 			<key>hash2</key>
 			<data>
 			w7xBhkSq0/yqe+tVnpe0sv46jyJmK+STQuA7vynXAd4=
@@ -136,6 +172,10 @@
 		</dict>
 		<key>Headers/FLTSnapshotsInSyncStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			QXHtbq1raOiZykgaBGOu4TwZRws=
+			</data>
 			<key>hash2</key>
 			<data>
 			IDa4k7qs8jaUungFqMOR0wf6jRHGCyUx+Nu2iNOBv+8=
@@ -143,6 +183,10 @@
 		</dict>
 		<key>Headers/FLTTransactionStreamHandler.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			Ng5SSl9GH0DR9FBgDW1/IIwlpTc=
+			</data>
 			<key>hash2</key>
 			<data>
 			Lz3tiG1W4QiA4xTSlvXww0+EZf3X4ZjxFFnufoojvZw=
@@ -150,6 +194,10 @@
 		</dict>
 		<key>Headers/FirestoreMessages.g.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			X8/Y2KFYxj7Dx9Z0QBYceuKS2hk=
+			</data>
 			<key>hash2</key>
 			<data>
 			sRhKRpbwzNk7Y9eVlx8Cr6YGJeMH2IyHhj3QVr6Tb+E=
@@ -157,6 +205,10 @@
 		</dict>
 		<key>Headers/FirestorePigeonParser.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			+HfapPHbY7edBuRBbFeK83a+Nhg=
+			</data>
 			<key>hash2</key>
 			<data>
 			cjpwREVH9oCJ/bE5KEj+k2T0oTPhUBtlJ3Z+IOeWYb0=
@@ -164,6 +216,10 @@
 		</dict>
 		<key>Headers/cloud_firestore-umbrella.h</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			Lle0aRGBh9MD3AY6EZ4QNvUJKjE=
+			</data>
 			<key>hash2</key>
 			<data>
 			FkLCAtjDu1hx+/m4GS+wIZHVlOyiaKoaEY3ixyNa9so=
@@ -171,6 +227,10 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
+			<key>hash</key>
+			<data>
+			Vl3m0rSDDmJlp+vefpRprN5+wXc=
+			</data>
 			<key>hash2</key>
 			<data>
 			tuO1dI0xNcHsdP4lplrNeAYDD3spREhgBiMfQ1VnJ/s=

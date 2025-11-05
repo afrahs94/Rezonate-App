@@ -10,7 +10,7 @@
 		</data>
 		<key>Headers/audioplayers_darwin-Swift.h</key>
 		<data>
-		4eVt82XtaxEqdMkOvj80OWV7xGY=
+		mT+knmeeyVeqkdDE970SNIQ/2MU=
 		</data>
 		<key>Headers/audioplayers_darwin-umbrella.h</key>
 		<data>
@@ -18,15 +18,15 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		aLIovmm7UbPpgJpabVBVQN0BrJk=
+		4cezP/lCjrpS27t4f9SgLafOqbE=
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		m6jSW20qSd+InEHok6qa0m0W15Q=
+		OwjYWUZxe5midSgost1vz+8KIf8=
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<data>
-		ruaF7Qn+AQeXwR+D5e45Fz+lGFI=
+		aZ48dtKHdGTVfS/jMB9N+HStlRs=
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -34,11 +34,11 @@
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		oob4QNxPacbz0I43lzmiz8fRMr8=
+		TkZ7jTqfh2avEhaXLxB3aTalguw=
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		FX28WfE6vUam8nNzU64BFveQI5g=
+		m7MnruYysSjIkUTe/2bCd+BuMDg=
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
@@ -46,11 +46,11 @@
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		uDQI53tnRUUsVv3mozaJHLIAVMg=
+		FcTMagttine/CZtdO8DHCl7OTvo=
 		</data>
 		<key>Modules/audioplayers_darwin.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		jqbIEEAIN/UWx8oRolwfS9Gq2o4=
+		bCCAP8TbE/xRxghwB25P9euQsPU=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -70,7 +70,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			dA+48jO9S1PxVmT1qzhCMUC49Q30ruCqDtOoQwv+D0w=
+			9InsJzjhChhGi6Ws5jLQHcqGAMwIIPnJ/fBzRjT24pk=
 			</data>
 		</dict>
 		<key>Headers/audioplayers_darwin-umbrella.h</key>
@@ -84,14 +84,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			l7CF2yrmHk6OPgt7G8u67EEauEy0Qum51pyZASyBOu0=
+			7ffHAil9zlBjBhtoY6OXjzrL5yqQGbRAvRYdqqXnfww=
 			</data>
 		</dict>
 		<key>Modules/audioplayers_darwin.swiftmodule/Project/x86_64-apple-ios-simulator.swiftsourceinfo</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			KJwzvyGdC14LldfTIoOVy7t84J/YHiQRopKd/AtLHqY=
+			pS9OF5YypcTgS+QTR5YGtBLdQw0F+kI1IW8nNc3KBig=
 			</data>
 		</dict>
 		<key>Modules/audioplayers_darwin.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
@@ -105,14 +105,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			z9X1OHKaEeArR8NuIovB52WK449hQCrKok4/DPAGp2k=
+			4VefH4lZPeYF7fKyLb62wjaZAMf/0dOhgLeUH1XrnB0=
 			</data>
 		</dict>
 		<key>Modules/audioplayers_darwin.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			lTTJAAF0MI60OqXrnyglF9PGtUe9xC57lqvjJBSl8A0=
+			KY8GQgcb6w6dMA4Jvshfyk+6kL+G+vhvX2tM70Ufijw=
 			</data>
 		</dict>
 		<key>Modules/audioplayers_darwin.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
@@ -126,14 +126,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			eQK9HbWLW5pI57qGlVRt196PeOl769l5JGORPSEHLms=
+			zU1hn1UG/U1UqGZNFnAo4cZ0/IJQiAkNPzUTaaBQ03k=
 			</data>
 		</dict>
 		<key>Modules/audioplayers_darwin.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			OEP30VUyUWvShJsa7Q6Ee7HyKjR7nFNglCCd8ZT6q7s=
+			CuucV0b+uTE5vNKgfRUt7BmHeVyq0dqXT+sNk19bkfU=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

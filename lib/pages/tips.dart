@@ -1,5 +1,4 @@
 // lib/pages/tips.dart
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:new_rezonate/main.dart' as app;
@@ -11,20 +10,20 @@ class TipsPage extends StatefulWidget {
   State<TipsPage> createState() => _TipsPageState();
 }
 
-class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin {
+class _TipsPageState extends State<TipsPage> {
   int _index = 0;
   bool _showBack = false;
   final _rng = Random();
 
-  // Search (single button -> bottom sheet)
   String _query = '';
 
   List<_Tip> get _filtered {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return _allTips;
     return _allTips.where((t) {
-      final hay = '${t.condition} ${t.short} ${t.details} ${t.tips.join(" ")} ${t.keywords.join(" ")}'
-          .toLowerCase();
+      final hay =
+          '${t.condition} ${t.short} ${t.details} ${t.tips.join(" ")} ${t.keywords.join(" ")}'
+              .toLowerCase();
       return hay.contains(q);
     }).toList();
   }
@@ -76,15 +75,18 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Search Flashcards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const Text('Search Flashcards',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'e.g., “panic”, “sleep”, “OCD”, “trauma”, “ADHD focus”, …',
+                  hintText:
+                      'e.g., “panic”, “sleep”, “OCD”, “trauma”, “ADHD focus”…',
                   prefixIcon: const Icon(Icons.search_rounded),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -155,165 +157,228 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  double _topPadding(BuildContext context) {
-    final status = MediaQuery.of(context).padding.top;
-    const appBar = kToolbarHeight;
-    const extra = 24.0;
-    return status + appBar + extra;
-  }
-
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
     final tip = list.isEmpty ? null : list[_index.clamp(0, list.length - 1)];
     const green = Color(0xFF0D7C66);
 
+    // Fixed height generous enough for the header (prevents pixel overflows).
+    const double stickyHeight = 224; // ↑ bump if you add more header content
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Tips',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
-        ),
-      ),
       body: Container(
         decoration: _bg(context),
         child: SafeArea(
           top: false,
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(16, _topPadding(context), 16, 24),
-            children: [
-              // Controls
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.78),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.black, width: 1),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                centerTitle: true,
+                pinned: true,
+                floating: true,
+                snap: true,
+                expandedHeight: 80,
+                leading: IconButton(
+                  tooltip: 'Back',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
                 ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Previous',
-                      onPressed: list.isEmpty ? null : _applyPrev,
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                    ),
-                    const SizedBox(width: 4),
-                    FilledButton.icon(
-                      onPressed: list.isEmpty ? null : _applyShuffle,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: green,
-                        foregroundColor: Colors.white,
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                flexibleSpace: const FlexibleSpaceBar(
+                  centerTitle: true,
+                  titlePadding: EdgeInsets.only(bottom: 10),
+                  title: Text(
+                    'Tips',
+                    style: TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .2),
+                  ),
+                ),
+              ),
+
+              // Sticky header with controls + search
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyHeaderDelegate(
+                  minExtent: stickyHeight,
+                  maxExtent: stickyHeight,
+                  builder: (context, shrinkOffset, overlaps) {
+                    return Container(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      color: Colors.white.withOpacity(.12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Controls
+                          Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(.78),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.black, width: 1),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black12, blurRadius: 6)
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  tooltip: 'Previous',
+                                  onPressed: list.isEmpty ? null : _applyPrev,
+                                  icon:
+                                      const Icon(Icons.arrow_back_ios_new_rounded),
+                                ),
+                                const SizedBox(width: 4),
+                                FilledButton.icon(
+                                  onPressed: list.isEmpty ? null : _applyShuffle,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: green,
+                                    foregroundColor: Colors.white,
+                                    shape: const StadiumBorder(),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    minimumSize: const Size(0, 40),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  icon:
+                                      const Icon(Icons.shuffle_rounded, size: 18),
+                                  label: const Text('Shuffle'),
+                                ),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  tooltip: 'Next',
+                                  onPressed: list.isEmpty ? null : _applyNext,
+                                  icon:
+                                      const Icon(Icons.arrow_forward_ios_rounded),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  list.isEmpty
+                                      ? '0/0'
+                                      : '${_index + 1}/${list.length}',
+                                  style:
+                                      const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Search
+                          SizedBox(
+                            height: 52,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _openSearchSheet,
+                                    icon: const Icon(Icons.search_rounded),
+                                    label: Text(_query.isEmpty
+                                        ? 'Search flashcards'
+                                        : 'Search: “$_query” (tap to change)'),
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor:
+                                          Colors.white.withOpacity(.78),
+                                      side: const BorderSide(color: Colors.black),
+                                      shape: const StadiumBorder(),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 8),
+                                      minimumSize: const Size(0, 44),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  ),
+                                ),
+                                if (_query.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  IconButton.filledTonal(
+                                    tooltip: 'Clear search',
+                                    onPressed: () => setState(() {
+                                      _query = '';
+                                      _index = 0;
+                                      _showBack = false;
+                                    }),
+                                    icon: const Icon(Icons.clear_rounded),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      icon: const Icon(Icons.shuffle_rounded, size: 18),
-                      label: const Text('Shuffle'),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      tooltip: 'Next',
-                      onPressed: list.isEmpty ? null : _applyNext,
-                      icon: const Icon(Icons.arrow_forward_ios_rounded),
-                    ),
-                    const Spacer(),
-                    Text(
-                      list.isEmpty ? '0/0' : '${_index + 1}/${list.length}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    );
+                  },
+                ),
+              ),
+
+              // Body
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                sliver: SliverList.list(
+                  children: [
+                    if (tip == null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.85),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.black, width: 1),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 8)
+                          ],
+                        ),
+                        child: const Text(
+                          'No results. Try changing your search.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      )
+                    else
+                      GestureDetector(
+                        onTap: () => setState(() => _showBack = !_showBack),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          transitionBuilder: (child, anim) => ScaleTransition(
+                              scale: Tween<double>(begin: .98, end: 1)
+                                  .animate(anim),
+                              child: child),
+                          child: _showBack
+                              ? _BackCard(key: const ValueKey('back'), tip: tip)
+                              : _FrontCard(
+                                  key: const ValueKey('front'), tip: tip),
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    // Crash courses (added OCD, Sleep, Substance)
+                    const _CrashCourses(),
+
+                    const SizedBox(height: 20),
+
+                    // Disclaimer
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.black12),
+                      ),
+                      child: const Text(
+                        'These cards are educational only and not medical advice. '
+                        'If you’re in crisis, call your local emergency number or a crisis hotline.',
+                        style:
+                            TextStyle(fontSize: 12.5, color: Colors.black87),
+                      ),
                     ),
                   ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Single Search Button (no chips)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _openSearchSheet,
-                      icon: const Icon(Icons.search_rounded),
-                      label: Text(_query.isEmpty ? 'Search flashcards' : 'Search: “$_query” (tap to change)'),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(.78),
-                        side: const BorderSide(color: Colors.black),
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                      ),
-                    ),
-                  ),
-                  if (_query.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      tooltip: 'Clear search',
-                      onPressed: () => setState(() {
-                        _query = '';
-                        _index = 0;
-                        _showBack = false;
-                      }),
-                      icon: const Icon(Icons.clear_rounded),
-                    )
-                  ]
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Flashcard
-              if (tip == null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(.85),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.black, width: 1),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-                  ),
-                  child: const Text(
-                    'No results. Try changing your search.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                )
-              else
-                GestureDetector(
-                  onTap: () => setState(() => _showBack = !_showBack),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    transitionBuilder: (child, anim) =>
-                        ScaleTransition(scale: Tween<double>(begin: .98, end: 1).animate(anim), child: child),
-                    child: _showBack
-                        ? _BackCard(key: const ValueKey('back'), tip: tip)
-                        : _FrontCard(key: const ValueKey('front'), tip: tip),
-                  ),
-                ),
-
-              const SizedBox(height: 20),
-
-              // Interactive Crash Courses (launch as pop-ups)
-              const _CrashCourses(),
-
-              const SizedBox(height: 20),
-
-              // Disclaimer
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: const Text(
-                  'These cards are educational only and not medical advice. '
-                  'If you’re in crisis, call your local emergency number or a crisis hotline.',
-                  style: TextStyle(fontSize: 12.5, color: Colors.black87),
                 ),
               ),
             ],
@@ -324,6 +389,41 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
   }
 }
 
+// ---------- Sticky header delegate ----------
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _StickyHeaderDelegate({
+    required this.minExtent,
+    required this.maxExtent,
+    required this.builder,
+  });
+
+  @override
+  final double minExtent;
+  @override
+  final double maxExtent;
+
+  final Widget Function(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) builder;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(
+      child: builder(context, shrinkOffset, overlapsContent),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) =>
+      oldDelegate.minExtent != minExtent ||
+      oldDelegate.maxExtent != maxExtent ||
+      oldDelegate.builder != builder;
+}
+
+// ---------- Flashcard faces ----------
 class _FrontCard extends StatelessWidget {
   const _FrontCard({super.key, required this.tip});
   final _Tip tip;
@@ -344,7 +444,8 @@ class _FrontCard extends StatelessWidget {
           Text(
             tip.condition,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, height: 1.2),
+            style: const TextStyle(
+                fontSize: 26, fontWeight: FontWeight.w900, height: 1.2),
           ),
           const SizedBox(height: 8),
           Text(
@@ -355,7 +456,8 @@ class _FrontCard extends StatelessWidget {
           const SizedBox(height: 18),
           const Icon(Icons.touch_app_rounded, color: Colors.black45),
           const SizedBox(height: 4),
-          const Text('Tap to flip', style: TextStyle(fontSize: 12, color: Colors.black45)),
+          const Text('Tap to flip',
+              style: TextStyle(fontSize: 12, color: Colors.black45)),
         ],
       ),
     );
@@ -380,7 +482,9 @@ class _BackCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tip.condition, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          Text(tip.condition,
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
           Text(tip.details),
           const SizedBox(height: 10),
@@ -409,7 +513,11 @@ class _CrashCourses extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget box({required String title, required String subtitle, required _CourseData data}) => Container(
+    Widget box(
+            {required String title,
+            required String subtitle,
+            required _CourseData data}) =>
+        Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(.78),
@@ -418,7 +526,9 @@ class _CrashCourses extends StatelessWidget {
             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
           ),
           child: ListTile(
-            title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            title: Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             subtitle: Text(subtitle),
             trailing: const Icon(Icons.play_circle_fill_rounded),
             onTap: () => _openCourse(context, data),
@@ -430,7 +540,8 @@ class _CrashCourses extends StatelessWidget {
       children: [
         box(
           title: 'Crash Course: Depression',
-          subtitle: '15 slides • Practice-focused • Quiz after every 2 slides',
+          subtitle:
+              '15 slides • Practice-focused • Quiz after every 2 slides',
           data: _depressionCourse,
         ),
         box(
@@ -445,8 +556,27 @@ class _CrashCourses extends StatelessWidget {
         ),
         box(
           title: 'Crash Course: PTSD',
-          subtitle: '15 slides • Grounding + exposure • Quiz after every 2 slides',
+          subtitle:
+              '15 slides • Grounding + exposure • Quiz after every 2 slides',
           data: _ptsdCourse,
+        ),
+        // NEW courses
+        box(
+          title: 'Crash Course: OCD (ERP)',
+          subtitle:
+              '15 slides • Exposure & Response Prevention • Quiz after every 2 slides',
+          data: _ocdCourse,
+        ),
+        box(
+          title: 'Crash Course: Sleep & Insomnia',
+          subtitle: '15 slides • CBT-I essentials • Quiz after every 2 slides',
+          data: _sleepCourse,
+        ),
+        box(
+          title: 'Crash Course: Substance Use',
+          subtitle:
+              '15 slides • Triggers, urges, plans • Quiz after every 2 slides',
+          data: _substanceCourse,
         ),
       ],
     );
@@ -455,9 +585,10 @@ class _CrashCourses extends StatelessWidget {
   Future<void> _openCourse(BuildContext context, _CourseData data) async {
     await showDialog(
       context: context,
-      barrierDismissible: false, // explicit X/Done to close
+      barrierDismissible: false,
       builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        insetPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -480,13 +611,13 @@ class _CourseModal extends StatefulWidget {
 class _CourseModalState extends State<_CourseModal> {
   late final List<_Slide> _slides;
   int _i = 0;
-  int? _selected; // for quiz slides
-  bool _checked = false; // quiz checked
+  int? _selected;
+  bool _checked = false;
 
   @override
   void initState() {
     super.initState();
-    _slides = widget.data.mergedSlides; // 15 slides total (10 content + 5 quiz)
+    _slides = widget.data.mergedSlides;
   }
 
   void _next() {
@@ -516,105 +647,100 @@ class _CourseModalState extends State<_CourseModal> {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 720, minHeight: 420),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          children: [
+            Row(
               children: [
-                // Header with title + progress + close X
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.data.title,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: pct,
-                              minHeight: 10,
-                              backgroundColor: Colors.black12,
-                              valueColor: const AlwaysStoppedAnimation(Color(0xFF0D7C66)),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text('Slide ${_i + 1}/${_slides.length}',
-                              style: const TextStyle(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // Slide body
                 Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(.9),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.black, width: 1),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-                    ),
-                    child: slide.map(
-                      content: (c) => _ContentSlideView(content: c),
-                      quiz: (q) => _QuizSlideView(
-                        quiz: q,
-                        selected: _selected,
-                        checked: _checked,
-                        onSelect: (v) => setState(() => _selected = v),
-                        onCheck: () => setState(() => _checked = true),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.data.title,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 10,
+                          backgroundColor: Colors.black12,
+                          valueColor:
+                              const AlwaysStoppedAnimation(Color(0xFF0D7C66)),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text('Slide ${_i + 1}/${_slides.length}',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ],
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Footer nav
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _i > 0 ? _prev : null,
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-                      label: const Text('Back'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: (_i < _slides.length - 1)
-                          ? () {
-                              // For quiz slides, require check before continuing
-                              final isQuiz = slide.when(quiz: (_) => true, content: (_) => false);
-                              if (isQuiz && !_checked) return;
-                              _next();
-                            }
-                          : null,
-                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                      label: const Text('Next'),
-                    ),
-                    const Spacer(),
-                    if (_i == _slides.length - 1)
-                      FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Done'),
-                      ),
-                  ],
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.9),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.black, width: 1),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 8)
+                  ],
+                ),
+                child: slide.map(
+                  content: (c) => _ContentSlideView(content: c),
+                  quiz: (q) => _QuizSlideView(
+                    quiz: q,
+                    selected: _selected,
+                    checked: _checked,
+                    onSelect: (v) => setState(() => _selected = v),
+                    onCheck: () => setState(() => _checked = true),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _i > 0 ? _prev : null,
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+                  label: const Text('Back'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: (_i < _slides.length - 1)
+                      ? () {
+                          final isQuiz =
+                              slide.when(quiz: (_) => true, content: (_) => false);
+                          if (isQuiz && !_checked) return;
+                          _next();
+                        }
+                      : null,
+                  icon:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  label: const Text('Next'),
+                ),
+                const Spacer(),
+                if (_i == _slides.length - 1)
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Done'),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -632,7 +758,9 @@ class _ContentSlideView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(content.heading, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(content.heading,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           ...content.bullets.map((b) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -651,7 +779,8 @@ class _ContentSlideView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D7C66).withOpacity(.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF0D7C66).withOpacity(.3)),
+                border: Border.all(
+                    color: const Color(0xFF0D7C66).withOpacity(.3)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,7 +824,8 @@ class _QuizSlideView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Pop Quiz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text('Pop Quiz',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         Text(quiz.question),
         const SizedBox(height: 8),
@@ -766,15 +896,11 @@ class _CourseData {
   }
 }
 
-/// Base slide type (content or quiz)
 abstract class _Slide {
   const _Slide();
-
-  /// Factory helpers so `_Slide.content(...)` / `_Slide.quiz(...)` return a valid instance.
   static _Slide content(_ContentSlide contentSlide) => contentSlide;
   static _Slide quiz(_QuizData quiz) => _QuizSlide(quiz);
 
-  /// Map this slide to a value based on its concrete type.
   T map<T>({
     required T Function(_ContentSlide) content,
     required T Function(_QuizData) quiz,
@@ -783,7 +909,6 @@ abstract class _Slide {
     return quiz((this as _QuizSlide).data);
   }
 
-  /// Like `map`, but with slightly different call style.
   T when<T>({
     required T Function(_QuizData) quiz,
     required T Function(_ContentSlide) content,
@@ -796,15 +921,14 @@ class _ContentSlide extends _Slide {
   final String heading;
   final List<String> bullets;
   final String? tip;
-  const _ContentSlide({required this.heading, required this.bullets, this.tip});
+  const _ContentSlide(
+      {required this.heading, required this.bullets, this.tip});
 }
 
 class _QuizSlide extends _Slide {
   final _QuizData data;
   const _QuizSlide(this.data);
 }
-
-// ---------------- QUIZ DATA TYPE ----------------
 
 class _QuizData {
   final String question;
@@ -821,7 +945,7 @@ class _QuizData {
 
 // ---------------- COURSE CONTENT ----------------
 
-// Depression (10 content, 5 quizzes)
+// Depression
 final _CourseData _depressionCourse = _CourseData(
   title: 'Crash Course: Depression',
   contentSlides: const [
@@ -924,7 +1048,8 @@ final _CourseData _depressionCourse = _CourseData(
         'Avoiding routines to stay flexible.',
       ],
       correctIndex: 1,
-      rationale: 'Small, scheduled actions create mastery/pleasure loops that lift mood.',
+      rationale:
+          'Small, scheduled actions create mastery/pleasure loops that lift mood.',
     ),
     _QuizData(
       question: 'Which is most likely a thinking trap?',
@@ -946,7 +1071,8 @@ final _CourseData _depressionCourse = _CourseData(
         'Drink strong coffee late to ensure focus.',
       ],
       correctIndex: 2,
-      rationale: 'Stable wake times and low light cues support circadian regulation.',
+      rationale:
+          'Stable wake times and low light cues support circadian regulation.',
     ),
     _QuizData(
       question: 'Which social step best breaks isolation?',
@@ -957,7 +1083,8 @@ final _CourseData _depressionCourse = _CourseData(
         'Only messaging when you have “big news.”',
       ],
       correctIndex: 1,
-      rationale: 'Gentle, predictable contact rebuilds connection without overwhelm.',
+      rationale:
+          'Gentle, predictable contact rebuilds connection without overwhelm.',
     ),
     _QuizData(
       question: 'Values work focuses on…',
@@ -968,7 +1095,8 @@ final _CourseData _depressionCourse = _CourseData(
         'Avoiding all uncomfortable feelings.',
       ],
       correctIndex: 2,
-      rationale: 'Values-aligned micro-steps restore meaning and momentum.',
+      rationale:
+          'Values-aligned micro-steps restore meaning and momentum.',
     ),
   ],
 );
@@ -1070,7 +1198,8 @@ final _CourseData _anxietyCourse = _CourseData(
         'Scheduling a worry window.',
       ],
       correctIndex: 1,
-      rationale: 'Avoidance/reassurance give short relief but reinforce threat beliefs.',
+      rationale:
+          'Avoidance/reassurance give short relief but reinforce threat beliefs.',
     ),
     _QuizData(
       question: 'Interoceptive exposure targets…',
@@ -1081,7 +1210,8 @@ final _CourseData _anxietyCourse = _CourseData(
         'Sleep timing.',
       ],
       correctIndex: 1,
-      rationale: 'Practicing feared sensations reduces fear-of-fear.',
+      rationale:
+          'Practicing feared sensations reduces fear-of-fear.',
     ),
     _QuizData(
       question: 'Effective breathing pattern here is…',
@@ -1092,7 +1222,8 @@ final _CourseData _anxietyCourse = _CourseData(
         'Very rapid breaths.',
       ],
       correctIndex: 1,
-      rationale: 'Longer exhale activates parasympathetic calming.',
+      rationale:
+          'Longer exhale activates parasympathetic calming.',
     ),
     _QuizData(
       question: 'A worry window helps by…',
@@ -1114,7 +1245,8 @@ final _CourseData _anxietyCourse = _CourseData(
         'Replace therapy.',
       ],
       correctIndex: 1,
-      rationale: 'Small tests often show feared outcomes are less likely/severe.',
+      rationale:
+          'Small tests often show feared outcomes are less likely/severe.',
     ),
   ],
 );
@@ -1216,7 +1348,8 @@ final _CourseData _adhdCourse = _CourseData(
         'Work where distractions are highest.',
       ],
       correctIndex: 1,
-      rationale: 'External timers + short sprints lower activation barriers.',
+      rationale:
+          'External timers + short sprints lower activation barriers.',
     ),
     _QuizData(
       question: 'Point-of-performance means…',
@@ -1260,7 +1393,8 @@ final _CourseData _adhdCourse = _CourseData(
         'Only work in long marathons.',
       ],
       correctIndex: 1,
-      rationale: 'Timing tasks to energy improves output and reduces friction.',
+      rationale:
+          'Timing tasks to energy improves output and reduces friction.',
     ),
   ],
 );
@@ -1411,7 +1545,319 @@ final _CourseData _ptsdCourse = _CourseData(
   ],
 );
 
-// ---------------- DATA TYPES & FLASHCARDS (50 total) ----------------
+// OCD (new)
+final _CourseData _ocdCourse = _CourseData(
+  title: 'Crash Course: OCD (ERP)',
+  contentSlides: const [
+    _ContentSlide(heading: 'OCD Basics', bullets: [
+      'Intrusive thoughts/images/urges (obsessions) + rituals/avoidance (compulsions).',
+      'Short-term relief from rituals strengthens the loop.',
+      'ERP = Exposure & Response Prevention (approach trigger, block ritual).',
+    ]),
+    _ContentSlide(heading: 'Fear Hierarchies', bullets: [
+      'List triggers from easiest → hardest with SUDS (0–100).',
+      'Start in the middle; repeat until anxiety falls.',
+      'Move up gradually with support/accountability.',
+    ]),
+    _ContentSlide(heading: 'Response Prevention', bullets: [
+      'Delay/shorten rituals first, then drop them.',
+      'Plan “if-then” for urges (timer, opposite action).',
+      'Track wins; expect urges to spike then fall.',
+    ]),
+    _ContentSlide(heading: 'Contamination Theme', bullets: [
+      'Touch feared objects; prevent washing.',
+      'Let hands dry naturally; notice anxiety drop.',
+      'Generalize to real-world contexts.',
+    ]),
+    _ContentSlide(heading: 'Checking Theme', bullets: [
+      'Lock door once, say “locked.” Take a single photo if needed.',
+      'Practice leaving despite uncertainty.',
+      'Review data: nothing bad happened most times.',
+    ]),
+    _ContentSlide(heading: 'Harm/Taboo Thoughts', bullets: [
+      'Label as “sticky thoughts,” not danger.',
+      'Intentionally bring up thoughts during ERP without neutralizing.',
+      'Let anxiety peak and fall on its own.',
+    ]),
+    _ContentSlide(heading: 'Mental Rituals & Reassurance', bullets: [
+      'Notice covert rituals (counting, reviewing, praying “just right”).',
+      'Block reassurance-seeking; set limits with supporters.',
+      'Use “maybe, maybe not” acceptance.',
+    ]),
+    _ContentSlide(heading: 'Uncertainty Training', bullets: [
+      'Practice living with “good enough.”',
+      'Accept that certainty is impossible.',
+      'Choose valued actions despite doubt.',
+    ]),
+    _ContentSlide(heading: 'Lifestyle Supports', bullets: [
+      'Sleep/regularity lower baseline anxiety.',
+      'Limit compulsive researching.',
+      'Schedule fun/connection alongside ERP.',
+    ]),
+    _ContentSlide(heading: 'When to Get Help', bullets: [
+      'If rituals consume hours or cause impairment.',
+      'ERP-trained therapists can guide safely.',
+      'Medication can help for many.',
+    ]),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'ERP means…',
+      options: [
+        'Avoid triggers.',
+        'Approach triggers while preventing rituals.',
+        'Replace rituals with new rituals.',
+        'Only change thoughts.',
+      ],
+      correctIndex: 1,
+      rationale: 'ERP is exposure to triggers with response prevention.',
+    ),
+    _QuizData(
+      question: 'A “hierarchy” is…',
+      options: [
+        'A list of rituals.',
+        'A ranked list of triggers from easy to hard.',
+        'A list of medications.',
+        'Steps to avoid anxiety.',
+      ],
+      correctIndex: 1,
+      rationale: 'Hierarchies structure exposure progression.',
+    ),
+    _QuizData(
+      question: 'For checking OCD, a helpful step is…',
+      options: [
+        'Check until it “feels right.”',
+        'Lock once and leave despite doubt.',
+        'Ask for reassurance repeatedly.',
+        'Never leave the house.',
+      ],
+      correctIndex: 1,
+      rationale: 'Response prevention breaks the loop.',
+    ),
+    _QuizData(
+      question: 'Mental rituals include…',
+      options: [
+        'Counting/reviewing in your head.',
+        'Taking a walk.',
+        'Calling a friend for fun.',
+        'Eating lunch.',
+      ],
+      correctIndex: 0,
+      rationale: 'Covert rituals also maintain OCD.',
+    ),
+    _QuizData(
+      question: 'Uncertainty training aims to…',
+      options: [
+        'Achieve perfect certainty.',
+        'Tolerate “good enough” and act by values.',
+        'Eliminate all anxiety forever.',
+        'Force positivity.',
+      ],
+      correctIndex: 1,
+      rationale: 'ERP builds willingness to live with uncertainty.',
+    ),
+  ],
+);
+
+// Sleep (new)
+final _CourseData _sleepCourse = _CourseData(
+  title: 'Crash Course: Sleep & Insomnia',
+  contentSlides: const [
+    _ContentSlide(heading: 'Insomnia Basics', bullets: [
+      'Trouble falling/staying asleep or early waking with daytime impact.',
+      'CBT-I is first-line treatment.',
+      'Goal: strengthen sleep drive and circadian rhythm.',
+    ]),
+    _ContentSlide(heading: 'Fixed Wake Time', bullets: [
+      'Pick a realistic, consistent wake time (7 days/week).',
+      'Get bright light within an hour of waking.',
+      'Anchor meals and movement.',
+    ]),
+    _ContentSlide(heading: 'Stimulus Control', bullets: [
+      'Bed = sleep/intimacy only.',
+      'If awake >20 min, get up to a low-light chair.',
+      'Return when sleepy; repeat as needed.',
+    ]),
+    _ContentSlide(heading: 'Sleep Window', bullets: [
+      'Match time in bed to average sleep (temporarily).',
+      'Extend by 15 minutes when sleep efficiency >85%.',
+      'Avoid daytime naps early on.',
+    ]),
+    _ContentSlide(heading: 'Wind-Down Routine', bullets: [
+      'Last hour: dim lights, quiet activities.',
+      'No heavy meals, intense exercise, or doomscrolling.',
+      'Warm shower then cool bedroom helps.',
+    ]),
+    _ContentSlide(heading: 'Caffeine/Alcohol', bullets: [
+      'Limit caffeine after early afternoon.',
+      'Alcohol fragments sleep; avoid as a sedative.',
+      'Hydration earlier in the day.',
+    ]),
+    _ContentSlide(heading: 'Thoughts About Sleep', bullets: [
+      'Catastrophic beliefs worsen arousal.',
+      'Aim for “rest is helpful even if I don’t sleep yet.”',
+      'Track real outcomes vs fears.',
+    ]),
+    _ContentSlide(heading: 'Environment', bullets: [
+      'Cool, dark, quiet; white noise if useful.',
+      'Comfortable bedding; reserve for sleep.',
+      'Remove visible clocks to reduce clock-watching.',
+    ]),
+    _ContentSlide(heading: 'Jet Lag / Shift Work', bullets: [
+      'Gradually shift schedule; control light/dark.',
+      'Short strategic naps may help shift workers.',
+      'Consistency beats perfection.',
+    ]),
+    _ContentSlide(heading: 'When to Seek Help', bullets: [
+      'Persistent insomnia, snoring/pauses (possible apnea), safety concerns.',
+      'CBT-I providers and sleep clinics can help.',
+      'Discuss meds with a clinician if needed.',
+    ]),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'First-line approach for chronic insomnia?',
+      options: ['CBT-I', 'Alcohol before bed', 'Long daytime naps', 'Random bed/wake times'],
+      correctIndex: 0,
+      rationale: 'CBT-I has the strongest evidence.',
+    ),
+    _QuizData(
+      question: 'Stimulus control says…',
+      options: [
+        'Stay in bed no matter what.',
+        'Use bed for work to get tired.',
+        'Get out of bed if awake >20 min.',
+        'Drink coffee late to power through.',
+      ],
+      correctIndex: 2,
+      rationale: 'Leaving bed breaks the wakefulness-in-bed association.',
+    ),
+    _QuizData(
+      question: 'Sleep window is…',
+      options: [
+        'Going to bed whenever.',
+        'Matching time in bed to actual sleep time and adjusting.',
+        'Napping all afternoon.',
+        'Watching TV in bed.',
+      ],
+      correctIndex: 1,
+      rationale: 'It increases sleep drive and efficiency.',
+    ),
+    _QuizData(
+      question: 'Good wind-down includes…',
+      options: ['Bright lights and intense exercise', 'Doomscrolling', 'Dim light and relaxing cues', 'Heavy meal'],
+      correctIndex: 2,
+      rationale: 'Calming routine lowers arousal.',
+    ),
+    _QuizData(
+      question: 'Morning step that helps circadian rhythm?',
+      options: ['Bright light exposure', 'Skip breakfast forever', 'Random naps', 'Stare at clock at night'],
+      correctIndex: 0,
+      rationale: 'Light anchors the clock.',
+    ),
+  ],
+);
+
+// Substance Use (new)
+final _CourseData _substanceCourse = _CourseData(
+  title: 'Crash Course: Substance Use',
+  contentSlides: const [
+    _ContentSlide(heading: 'Understanding Urges', bullets: [
+      'Urges rise, peak, and fall like waves.',
+      'Delay + alternative actions reduce harm.',
+      'Track triggers (HALT: hungry, angry, lonely, tired).',
+    ]),
+    _ContentSlide(heading: 'Trigger Plan', bullets: [
+      'List high-risk people/places/times.',
+      'Create if-then actions (leave, call, walk, drink water).',
+      'Keep supports on speed dial.',
+    ]),
+    _ContentSlide(heading: 'Environment Design', bullets: [
+      'Remove substances/paraphernalia from home.',
+      'Avoid “just in case” stashes.',
+      'Change routes and routines at first.',
+    ]),
+    _ContentSlide(heading: 'Urge Surfing', bullets: [
+      'Notice sensations and thoughts without acting.',
+      'Breathe in 4 / out 6 while riding the wave.',
+      'Most urges fade in 20–30 minutes.',
+    ]),
+    _ContentSlide(heading: 'Delay & Distraction', bullets: [
+      'Use 10-minute delay paired with competing activities.',
+      'Text a support person; go to public spaces.',
+      'Small wins stack up.',
+    ]),
+    _ContentSlide(heading: 'Social Support', bullets: [
+      'Identify two safe contacts and times to reach out.',
+      'Consider mutual-help groups or counseling.',
+      'Set boundaries with using peers.',
+    ]),
+    _ContentSlide(heading: 'Coping Cards', bullets: [
+      'Write top reasons to change and carry them.',
+      'Read during high-risk moments.',
+      'Pair with breathing or a brief walk.',
+    ]),
+    _ContentSlide(heading: 'Slip vs Relapse', bullets: [
+      'A slip is a data point, not a failure.',
+      'Debrief quickly and restart the plan.',
+      'Avoid “what the hell” effect.',
+    ]),
+    _ContentSlide(heading: 'Health & Mood', bullets: [
+      'Sleep/food/water stabilize cravings.',
+      'Exercise improves mood and reduces urges.',
+      'Limit caffeine/nicotine spikes when sensitive.',
+    ]),
+    _ContentSlide(heading: 'When to Seek More Help', bullets: [
+      'If use continues despite harm or safety concerns.',
+      'Medications and therapy can help; ask a clinician.',
+      'In emergencies, call your local emergency number.',
+    ]),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'Urges often behave like…',
+      options: ['Permanent mountains', 'Waves that rise and fall', 'Random dots', 'Unchangeable traits'],
+      correctIndex: 1,
+      rationale: 'They peak and pass when not acted upon.',
+    ),
+    _QuizData(
+      question: 'Good “if-then” example:',
+      options: [
+        'If I pass the bar, I walk in.',
+        'If I crave, I wait 10 minutes and text Sam.',
+        'If I’m lonely, I scroll feeds.',
+        'If I’m tempted, I keep it secret.',
+      ],
+      correctIndex: 1,
+      rationale: 'Concrete alternative action beats vague intentions.',
+    ),
+    _QuizData(
+      question: 'A slip should be…',
+      options: ['Hidden', 'Viewed as total failure', 'Debriefed and used to adjust the plan', 'Ignored'],
+      correctIndex: 2,
+      rationale: 'Learning from slips prevents spirals.',
+    ),
+    _QuizData(
+      question: 'Environment design includes…',
+      options: [
+        'Keeping “backup” stashes',
+        'Removing paraphernalia and changing routes',
+        'Visiting high-risk places to test yourself',
+        'Carrying cash for triggers',
+      ],
+      correctIndex: 1,
+      rationale: 'Reduce exposure to cues early on.',
+    ),
+    _QuizData(
+      question: 'Which helps cravings most?',
+      options: ['Sleep and meals', 'Skipping water', 'Isolating', 'Catastrophizing'],
+      correctIndex: 0,
+      rationale: 'Basics stabilize mood/urges.',
+    ),
+  ],
+);
+
+// ---------------- DATA TYPES & FLASHCARDS (same content you provided earlier) ----------------
 
 class _Tip {
   final String condition;
@@ -1436,15 +1882,27 @@ _Tip T({
   required List<String> tips,
   List<String> k = const [],
 }) =>
-    _Tip(condition: condition, short: short, details: details, tips: tips, keywords: k);
+    _Tip(
+      condition: condition,
+      short: short,
+      details: details,
+      tips: tips,
+      keywords: k,
+    );
 
+// 55 cards (unchanged from your file). Paste kept intact below.
 final List<_Tip> _allTips = [
   // Mood (8)
   T(
     condition: 'Major Depressive Disorder',
     short: 'Persistent low mood, anhedonia, sleep/appetite changes.',
-    details: 'Treatable with therapy and sometimes medication; action often precedes motivation.',
-    tips: ['5-minute rule to start a tiny task.', 'Morning light or short outdoor walk.', 'Text one supportive person.'],
+    details:
+        'Treatable with therapy and sometimes medication; action often precedes motivation.',
+    tips: [
+      '5-minute rule to start a tiny task.',
+      'Morning light or short outdoor walk.',
+      'Text one supportive person.'
+    ],
     k: ['MDD', 'depression'],
   ),
   T(
