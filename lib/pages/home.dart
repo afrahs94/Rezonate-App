@@ -1,3 +1,4 @@
+// lib/pages/home.dart
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui' show FontFeature, ImageFilter;
@@ -475,52 +476,44 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// STREAK: counts consecutive **calendar** days of logging,
+  /// ending at **yesterday** if you’ve logged today; otherwise at the most recent log day.
+  /// This way, a 1-day streak appears after logging on two consecutive days.
   int get _streak {
     if (_daysWithAnyLog.isEmpty) return 0;
 
-    final now = DateTime.now();
-    final todayKey = _dayKey(now);
+    final today = DateTime.now();
+    final todayKey = _dayKey(today);
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
-    String? anchorKey;
+    // Build a set of DateTimes from the keys for quick contains() checks
+    final loggedDates = _daysWithAnyLog.map((k) => DateTime.parse(k)).toSet();
+
+    // Choose the anchor day to end the streak window:
+    // - If logged today, streak ends at yesterday (don’t count same-day progress).
+    // - Else, end at the latest day with any log.
+    DateTime anchor;
     if (hasToday) {
-      bool tooSoonFromYesterday = false;
-      if (_firstLogTodayAt != null && _lastLogBeforeTodayAt != null) {
-        final gapHrs = _firstLogTodayAt!.difference(_lastLogBeforeTodayAt!).inHours;
-        if (gapHrs < 24) {
-          tooSoonFromYesterday = true;
-        }
-      }
-      if (tooSoonFromYesterday) {
-        final y = now.subtract(const Duration(days: 1));
-        final yKey = _dayKey(y);
-        if (_daysWithAnyLog.contains(yKey)) {
-          anchorKey = yKey;
-        } else {
-          return 0;
-        }
-      } else {
-        anchorKey = todayKey;
-      }
+      anchor = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 1));
     } else {
-      if (_lastLogAt != null && now.difference(_lastLogAt!).inHours < 24) {
-        anchorKey = _dayKey(_lastLogAt!);
-      } else {
-        return 0;
-      }
+      // Find most recent logged day
+      final all = loggedDates.toList()..sort();
+      anchor = all.last;
     }
 
+    // If there was no log yesterday (and you logged today), streak is 0.
+    if (!loggedDates.contains(DateTime(anchor.year, anchor.month, anchor.day))) {
+      return 0;
+    }
+
+    // Walk backwards day-by-day counting consecutive days present.
     int count = 0;
-    DateTime d = DateTime.parse(anchorKey!);
-    while (true) {
-      final key = _dayKey(d);
-      if (!_daysWithAnyLog.contains(key)) break;
+    DateTime d = anchor;
+    while (loggedDates.contains(DateTime(d.year, d.month, d.day))) {
       count++;
       d = d.subtract(const Duration(days: 1));
     }
-
-    if (count <= 1) return 0;
-    return count - 1;
+    return count; // already excludes today by construction
   }
 
   LinearGradient _bg(BuildContext context) {
@@ -813,7 +806,7 @@ class _HomePageState extends State<HomePage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _FrostedCircleIcon(
+                              _HeaderShadowIcon(
                                 icon: Icons.settings_outlined,
                                 tooltip: 'Settings',
                                 onTap: () => Navigator.push(
@@ -821,7 +814,7 @@ class _HomePageState extends State<HomePage> {
                                   NoTransitionPageRoute(builder: (_) => SettingsPage(userName: widget.userName)),
                                 ),
                               ),
-                              _FrostedCircleIcon(
+                              _HeaderShadowIcon(
                                 icon: Icons.person_outline_rounded,
                                 tooltip: 'Edit profile',
                                 onTap: () => Navigator.push(
@@ -1731,7 +1724,47 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// Sleek themed icon badge for the header row.
+/// White icon with a soft green drop shadow (no frosted background).
+class _HeaderShadowIcon extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _HeaderShadowIcon({required this.icon, required this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF0D7C66);
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Green drop shadow behind the white icon
+              Positioned(
+                left: 1.5,
+                top: 1.5,
+                child: Icon(icon, size: 22, color: green.withOpacity(0.7)),
+              ),
+              const Icon(Icons.circle, size: 0), // layout stabilizer
+              Icon(icon, size: 22, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Sleek themed icon badge for the header row. (Kept for compatibility if you use elsewhere)
 class _FrostedCircleIcon extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -1740,26 +1773,35 @@ class _FrostedCircleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final bg = dark ? Colors.white.withOpacity(.08) : Colors.white.withOpacity(.6);
-    final border = dark ? Colors.white.withOpacity(.18) : Colors.black12.withOpacity(.25);
-    final tint = dark ? Colors.white : const Color(0xFF0D7C66);
-
+    // Re-implemented as a white icon with a green drop shadow.
+    const green = Color(0xFF0D7C66);
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
           width: 36,
           height: 36,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: border),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 8)],
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
+            shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 22, color: tint),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Green shadow behind the white icon
+              Positioned(
+                left: 1.2,
+                top: 1.2,
+                child: Icon(icon, size: 22, color: green.withOpacity(0.85)),
+              ),
+              const Icon(Icons.circle, size: 0), // layout stabilizer
+              const Icon(null), // noop
+              const SizedBox.shrink(),
+              Icon(icon, size: 22, color: Colors.white),
+            ],
+          ),
         ),
       ),
     );
