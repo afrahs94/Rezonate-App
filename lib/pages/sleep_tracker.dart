@@ -326,7 +326,7 @@ class _StatBlock extends StatelessWidget {
   }
 }
 
-/// Animated moon: smoothly animates size and phase when `nights` changes.
+/// Animated crescent moon that grows with `nights`.
 class _MoonProgress extends StatefulWidget {
   const _MoonProgress({required this.nights});
   final int nights;
@@ -377,30 +377,32 @@ class _MoonPainter extends CustomPainter {
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawCircle(center, r * 0.92, glow);
 
-    // Ring
-    final ring = Paint()
+    // Colors
+    const ringColor = Color(0xFF37474F);
+    const litColor = Color(0xFFFFF8E1);
+
+    // Build paths
+    final base = Path()..addOval(Rect.fromCircle(center: center, radius: r * 0.92));
+
+    // Overlap circle to carve the crescent (moves left as phase increases)
+    final maskRadius = r * ui.lerpDouble(0.90, 1.02, phase)!;
+    final offsetX = ui.lerpDouble(r * 0.95, -r * 0.95, phase)!;
+    final mask = Path()
+      ..addOval(Rect.fromCircle(center: Offset(center.dx + offsetX, center.dy), radius: maskRadius));
+
+    // Crescent = base MINUS mask
+    final crescent = Path.combine(PathOperation.difference, base, mask);
+
+    // Fill crescent
+    final litPaint = Paint()..color = litColor;
+    canvas.drawPath(crescent, litPaint);
+
+    // Stroke crescent outer edge for definition
+    final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
-      ..color = const Color(0xFF37474F).withOpacity(.9);
-
-    // Lit base
-    final lit = Paint()..color = const Color(0xFFFFF8E1);
-    canvas.drawCircle(center, r * 0.92, lit);
-
-    // Crescent/gibbous mask
-    if (phase < 0.999) {
-      final maskRadius = r * ui.lerpDouble(0.90, 1.02, phase)!;
-      final offsetX = ui.lerpDouble(r * 0.95, -r * 0.95, phase)!;
-
-      final layerBounds = Rect.fromCircle(center: center, radius: r);
-      canvas.saveLayer(layerBounds, Paint());
-      canvas.drawCircle(center, r * 0.92, lit);
-      final mask = Paint()..blendMode = BlendMode.dstOut;
-      canvas.drawCircle(Offset(center.dx + offsetX, center.dy), maskRadius, mask);
-      canvas.restore();
-    }
-
-    canvas.drawCircle(center, r * 0.92, ring);
+      ..color = ringColor.withOpacity(.9);
+    canvas.drawPath(crescent, ringPaint);
   }
 
   @override
@@ -515,7 +517,7 @@ class _ChartPainter extends CustomPainter {
   _ChartPainter(this.points);
   final List<_Point> points;
 
-  static const _purple = Color(0xFF7E3FF2); // chart line + dots
+  static const _purple = Color(0xFF7E3FF2);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -542,7 +544,7 @@ class _ChartPainter extends CustomPainter {
     final chart = Rect.fromLTWH(left, top, size.width - left - right, size.height - top - bottom);
 
     double maxMin = points.fold<double>(0, (m, p) => math.max(m, p.minutes));
-    maxMin = math.max(480, maxMin); // ensure at least 8h scale
+    maxMin = math.max(480, maxMin); // at least 8h
     const yStep = 120.0; // 2h steps
 
     final grid = Paint()
@@ -610,7 +612,7 @@ class _ChartPainter extends CustomPainter {
       );
     canvas.drawPath(area, areaPaint);
 
-    // PURPLE LINE
+    // Purple line + dots
     canvas.drawPath(
       path,
       Paint()
@@ -620,8 +622,6 @@ class _ChartPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
-
-    // PURPLE DOTS
     final dotPaint = Paint()..color = _purple;
     for (int i = 0; i < count; i++) {
       final p = pt(i);
