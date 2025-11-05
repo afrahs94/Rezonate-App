@@ -33,7 +33,7 @@ class _SoundsPageState extends State<SoundsPage> {
   static const _prefsRecentKey = 'recent_sounds_v1';
   List<String> _recentIds = const [];
 
-  // Copyright-free tracks (Pixabay). Images corrected.
+  // Reliable demo MP3 streams (royalty-free) + stable Unsplash images
   final List<_SoundTrack> _tracks = const [
     // Focus
     _SoundTrack(
@@ -42,28 +42,24 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Focus',
       imageUrl:
           'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2023/01/16/audio_0f5f6f62e8.mp3?filename=deep-focus-ambient-133281.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     ),
     _SoundTrack(
       id: 'focus_alpha',
       title: 'Alpha Waves',
       category: 'Focus',
       imageUrl:
-          // abstract waves/lines (reliable Unsplash image)
           'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/10/24/audio_947bdc2a8f.mp3?filename=alpha-waves-ambient-124008.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
     ),
     _SoundTrack(
       id: 'focus_binaural',
       title: 'Binaural Beats',
       category: 'Focus',
+      // changed away from pasta image
       imageUrl:
-          // per request: pasta photo
-          'https://images.unsplash.com/photo-1529042410759-befb1204b468?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b8e3d7e9a.mp3?filename=binaural-beats-ambient-18491.mp3',
+          'https://images.unsplash.com/photo-1527443224154-c4f2a9b1d67a?q=80&w=1200&auto=format&fit=crop',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     ),
 
     // Sleep
@@ -73,8 +69,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Sleep',
       imageUrl:
           'https://images.unsplash.com/photo-1503435824048-a799a3a84bf7?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_2e1f3a4e7f.mp3?filename=rain-ambient-9816.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
     ),
     _SoundTrack(
       id: 'sleep_ocean',
@@ -82,8 +77,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Sleep',
       imageUrl:
           'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4bff7f8e77.mp3?filename=sea-waves-ambient-10378.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
     ),
     _SoundTrack(
       id: 'sleep_white',
@@ -91,8 +85,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Sleep',
       imageUrl:
           'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4d4b6339f6.mp3?filename=white-noise-ambient-9991.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
     ),
 
     // Study
@@ -102,8 +95,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Study',
       imageUrl:
           'https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_8d2b3f9f30.mp3?filename=lofi-study-ambient-19150.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
     ),
     _SoundTrack(
       id: 'study_piano',
@@ -111,8 +103,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Study',
       imageUrl:
           'https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_48453b8244.mp3?filename=soft-piano-ambient-19144.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
     ),
     _SoundTrack(
       id: 'study_strings',
@@ -120,8 +111,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Study',
       imageUrl:
           'https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/03/09/audio_4d8e1e9a51.mp3?filename=calm-strings-ambient-18366.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
     ),
 
     // Nature
@@ -131,8 +121,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Nature',
       imageUrl:
           'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_9a39e4fa0a.mp3?filename=forest-birds-ambient-10976.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
     ),
     _SoundTrack(
       id: 'nature_stream',
@@ -140,18 +129,15 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Nature',
       imageUrl:
           'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/11/08/audio_7a0c0aa1a3.mp3?filename=stream-ambient-12028.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3',
     ),
     _SoundTrack(
       id: 'nature_fire',
       title: 'Campfire',
       category: 'Nature',
       imageUrl:
-          // new campfire image
           'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4a22d5b355.mp3?filename=campfire-ambient-9748.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3',
     ),
 
     // Extra styles
@@ -161,8 +147,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Meditation',
       imageUrl:
           'https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/03/31/audio_6a7b8e9e3f.mp3?filename=om-meditation-ambient-23004.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3',
     ),
     _SoundTrack(
       id: 'nature_thunder',
@@ -170,8 +155,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Nature',
       imageUrl:
           'https://images.unsplash.com/photo-1500674425229-f692875b0ab7?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/09/28/audio_5a0d3a6d9a.mp3?filename=distant-thunder-ambient-8353.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3',
     ),
     _SoundTrack(
       id: 'sci_fi_drone',
@@ -179,8 +163,7 @@ class _SoundsPageState extends State<SoundsPage> {
       category: 'Focus',
       imageUrl:
           'https://images.unsplash.com/photo-1462332420958-a05d1e002413?q=80&w=1200&auto=format&fit=crop',
-      url:
-          'https://cdn.pixabay.com/download/audio/2021/08/08/audio_0f9e1f66a1.mp3?filename=sci-fi-drone-ambient-6076.mp3',
+      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3',
     ),
   ];
 
@@ -258,7 +241,6 @@ class _SoundsPageState extends State<SoundsPage> {
         await _player.pause();
         return;
       }
-      // Always stop before switching to a new source
       if (_currentId != t.id) {
         await _player.stop();
         setState(() {
@@ -268,10 +250,9 @@ class _SoundsPageState extends State<SoundsPage> {
         });
       }
 
-      // Ensure release mode is set BEFORE play
       await _player.setReleaseMode(_looping ? ReleaseMode.loop : ReleaseMode.stop);
 
-      // Use UrlSource play() to avoid setSourceUrl/resume issues on some versions/platforms
+      // Direct streaming
       await _player.play(UrlSource(t.url));
 
       _remember(t.id);
@@ -310,7 +291,8 @@ class _SoundsPageState extends State<SoundsPage> {
       backgroundColor: Colors.transparent,
       isScrollControlled: false,
       builder: (ctx) {
-        Duration temp = _sleepDuration == Duration.zero ? const Duration(minutes: 30) : _sleepDuration;
+        Duration temp =
+            _sleepDuration == Duration.zero ? const Duration(minutes: 30) : _sleepDuration;
         return Container(
           margin: const EdgeInsets.all(12),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -333,7 +315,8 @@ class _SoundsPageState extends State<SoundsPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Sleep Timer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                const Text('Sleep Timer',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                 const SizedBox(height: 4),
                 SizedBox(
                   height: 150,
@@ -426,12 +409,10 @@ class _SoundsPageState extends State<SoundsPage> {
   BoxDecoration _bg(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
     return BoxDecoration(
-      gradient: LinearGradient(
+      gradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: dark
-            ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-            : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+        colors: [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
       ),
     );
   }
