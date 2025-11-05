@@ -24,34 +24,45 @@ class _SoundsPageState extends State<SoundsPage> {
   Duration _dur = Duration.zero;
   String? _currentId;
   bool _playing = false;
+
+  // Inline custom sleep timer
+  int _sleepMinutes = 0; // 0 = off
+  bool _sleepEnabled = false;
   Timer? _sleepTimer;
 
   static const _prefsRecentKey = 'recent_sounds_v1';
   List<String> _recentIds = const [];
 
   // Tracks (NETWORK demo URLs; replace with AssetSource for local files)
+  // All audio links are from Pixabay (copyright-free / no attribution).
   final List<_SoundTrack> _tracks = const [
     // Focus
     _SoundTrack(
       id: 'focus_deep',
       title: 'Deep Focus',
       category: 'Focus',
-      imageUrl: 'https://picsum.photos/id/1003/1200/800',
-      url: 'https://cdn.pixabay.com/download/audio/2023/01/16/audio_0f5f6f62e8.mp3?filename=deep-focus-ambient-133281.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2023/01/16/audio_0f5f6f62e8.mp3?filename=deep-focus-ambient-133281.mp3',
     ),
     _SoundTrack(
       id: 'focus_alpha',
       title: 'Alpha Waves',
       category: 'Focus',
-      imageUrl: 'https://picsum.photos/id/1015/1200/800',
-      url: 'https://cdn.pixabay.com/download/audio/2022/10/24/audio_947bdc2a8f.mp3?filename=alpha-waves-ambient-124008.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1465066989788-52dab6c29c64?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/10/24/audio_947bdc2a8f.mp3?filename=alpha-waves-ambient-124008.mp3',
     ),
     _SoundTrack(
       id: 'focus_binaural',
       title: 'Binaural Beats',
       category: 'Focus',
-      imageUrl: 'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b8e3d7e9a.mp3?filename=binaural-beats-ambient-18491.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b8e3d7e9a.mp3?filename=binaural-beats-ambient-18491.mp3',
     ),
 
     // Sleep
@@ -59,22 +70,28 @@ class _SoundsPageState extends State<SoundsPage> {
       id: 'sleep_rain',
       title: 'Soft Rain',
       category: 'Sleep',
-      imageUrl: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_2e1f3a4e7f.mp3?filename=rain-ambient-9816.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1503435824048-a799a3a84bf7?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_2e1f3a4e7f.mp3?filename=rain-ambient-9816.mp3',
     ),
     _SoundTrack(
       id: 'sleep_ocean',
       title: 'Ocean Waves',
       category: 'Sleep',
-      imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4bff7f8e77.mp3?filename=sea-waves-ambient-10378.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4bff7f8e77.mp3?filename=sea-waves-ambient-10378.mp3',
     ),
     _SoundTrack(
       id: 'sleep_white',
       title: 'White Noise',
       category: 'Sleep',
-      imageUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4d4b6339f6.mp3?filename=white-noise-ambient-9991.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4d4b6339f6.mp3?filename=white-noise-ambient-9991.mp3',
     ),
 
     // Study
@@ -82,22 +99,28 @@ class _SoundsPageState extends State<SoundsPage> {
       id: 'study_lofi',
       title: 'Lo-Fi Study',
       category: 'Study',
-      imageUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_8d2b3f9f30.mp3?filename=lofi-study-ambient-19150.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_8d2b3f9f30.mp3?filename=lofi-study-ambient-19150.mp3',
     ),
     _SoundTrack(
       id: 'study_piano',
       title: 'Soft Piano',
       category: 'Study',
-      imageUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_48453b8244.mp3?filename=soft-piano-ambient-19144.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_48453b8244.mp3?filename=soft-piano-ambient-19144.mp3',
     ),
     _SoundTrack(
       id: 'study_strings',
       title: 'Calm Strings',
       category: 'Study',
-      imageUrl: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/09/audio_4d8e1e9a51.mp3?filename=calm-strings-ambient-18366.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/09/audio_4d8e1e9a51.mp3?filename=calm-strings-ambient-18366.mp3',
     ),
 
     // Nature
@@ -105,22 +128,57 @@ class _SoundsPageState extends State<SoundsPage> {
       id: 'nature_forest',
       title: 'Forest Birds',
       category: 'Nature',
-      imageUrl: 'https://images.unsplash.com/photo-1472491235688-bdc81a63246e?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_9a39e4fa0a.mp3?filename=forest-birds-ambient-10976.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_9a39e4fa0a.mp3?filename=forest-birds-ambient-10976.mp3',
     ),
     _SoundTrack(
       id: 'nature_stream',
       title: 'Mountain Stream',
       category: 'Nature',
-      imageUrl: 'https://picsum.photos/id/1056/1200/800',
-      url: 'https://cdn.pixabay.com/download/audio/2021/11/08/audio_7a0c0aa1a3.mp3?filename=stream-ambient-12028.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/11/08/audio_7a0c0aa1a3.mp3?filename=stream-ambient-12028.mp3',
     ),
     _SoundTrack(
       id: 'nature_fire',
       title: 'Campfire',
       category: 'Nature',
-      imageUrl: 'https://images.unsplash.com/photo-1500043357865-c6b8827edf39?q=80&w=1200&auto=format&fit=crop',
-      url: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4a22d5b355.mp3?filename=campfire-ambient-9748.mp3',
+      imageUrl:
+          'https://images.unsplash.com/photo-1500043357865-c6b8827edf39?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4a22d5b355.mp3?filename=campfire-ambient-9748.mp3',
+    ),
+
+    // Extra styles
+    _SoundTrack(
+      id: 'meditation_om',
+      title: 'Meditation Om',
+      category: 'Meditation',
+      imageUrl:
+          'https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/31/audio_6a7b8e9e3f.mp3?filename=om-meditation-ambient-23004.mp3',
+    ),
+    _SoundTrack(
+      id: 'nature_thunder',
+      title: 'Distant Thunder',
+      category: 'Nature',
+      imageUrl:
+          'https://images.unsplash.com/photo-1500674425229-f692875b0ab7?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/09/28/audio_5a0d3a6d9a.mp3?filename=distant-thunder-ambient-8353.mp3',
+    ),
+    _SoundTrack(
+      id: 'sci_fi_drone',
+      title: 'Sci-Fi Drone',
+      category: 'Focus',
+      imageUrl:
+          'https://images.unsplash.com/photo-1462332420958-a05d1e002413?q=80&w=1200&auto=format&fit=crop',
+      url:
+          'https://cdn.pixabay.com/download/audio/2021/08/08/audio_0f9e1f66a1.mp3?filename=sci-fi-drone-ambient-6076.mp3',
     ),
   ];
 
@@ -239,41 +297,24 @@ class _SoundsPageState extends State<SoundsPage> {
     await _player.setReleaseMode(v ? ReleaseMode.loop : ReleaseMode.stop);
   }
 
-  void _openSleepTimer() async {
-    final choice = await showModalBottomSheet<_SleepChoice>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _SleepTimerSheet(),
-    );
-    if (choice == null) return;
-
+  void _applySleepTimer() {
     _sleepTimer?.cancel();
-    if (choice.minutes == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sleep timer off'), behavior: SnackBarBehavior.floating),
-      );
-      return;
-    }
-    _sleepTimer = Timer(Duration(minutes: choice.minutes), () {
+    if (!_sleepEnabled || _sleepMinutes == 0) return;
+
+    _sleepTimer = Timer(Duration(minutes: _sleepMinutes), () {
       _player.stop();
+      if (!mounted) return;
       setState(() {
         _playing = false;
         _pos = Duration.zero;
       });
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sleep timer: stopped after ${choice.label.toLowerCase()}'),
+          content: Text('Sleep timer: stopped after $_sleepMinutes minutes'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sleep timer set for ${choice.label.toLowerCase()}'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   BoxDecoration _bg(BuildContext context) {
@@ -300,7 +341,7 @@ class _SoundsPageState extends State<SoundsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // ===== HEADER styled like Sleep Tracker (chevron left, centered title, icons right)
+              // ===== HEADER (no icon next to title)
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
                 child: SizedBox(
@@ -308,7 +349,6 @@ class _SoundsPageState extends State<SoundsPage> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Left back chevron (matches other pages)
                       Align(
                         alignment: Alignment.centerLeft,
                         child: IconButton(
@@ -317,20 +357,10 @@ class _SoundsPageState extends State<SoundsPage> {
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
-                      // Center title
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.music_note_rounded, size: 18, color: Color(0xFF0D7C66)),
-                          SizedBox(width: 6),
-                          Text(
-                            'Sounds',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
-                          ),
-                        ],
+                      const Text(
+                        'Sounds',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
                       ),
-                      // Right controls (Loop + Sleep) like the plus on Sleep Tracker
                       Align(
                         alignment: Alignment.centerRight,
                         child: Row(
@@ -345,17 +375,28 @@ class _SoundsPageState extends State<SoundsPage> {
                               ),
                               onPressed: () => _setLoop(!_looping),
                             ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              tooltip: 'Sleep timer',
-                              icon: const Icon(Icons.timer_rounded, color: Color(0xFF0D7C66)),
-                              onPressed: _openSleepTimer,
-                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
+                ),
+              ),
+
+              // Inline custom sleep timer (always visible)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: _InlineSleepTimer(
+                  minutes: _sleepMinutes,
+                  enabled: _sleepEnabled,
+                  onToggle: (v) {
+                    setState(() => _sleepEnabled = v);
+                    _applySleepTimer();
+                  },
+                  onMinutesChanged: (m) {
+                    setState(() => _sleepMinutes = m);
+                    _applySleepTimer();
+                  },
                 ),
               ),
 
@@ -448,6 +489,109 @@ class _SoundsPageState extends State<SoundsPage> {
 
 /* ─────────────────── Reusable UI ─────────────────── */
 
+class _InlineSleepTimer extends StatefulWidget {
+  const _InlineSleepTimer({
+    required this.minutes,
+    required this.enabled,
+    required this.onToggle,
+    required this.onMinutesChanged,
+  });
+
+  final int minutes;
+  final bool enabled;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<int> onMinutesChanged;
+
+  @override
+  State<_InlineSleepTimer> createState() => _InlineSleepTimerState();
+}
+
+class _InlineSleepTimerState extends State<_InlineSleepTimer> {
+  late double _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.minutes.toDouble();
+  }
+
+  @override
+  void didUpdateWidget(covariant _InlineSleepTimer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.minutes != widget.minutes) {
+      _value = widget.minutes.toDouble();
+    }
+  }
+
+  String _label(int m) {
+    if (m == 0) return 'Off';
+    if (m % 60 == 0) return '${(m / 60).round()}h';
+    return '${m}m';
+    }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    final bg = (dark ? Colors.white : Colors.white).withOpacity(0.30);
+    final border = (dark ? Colors.white : Colors.black).withOpacity(0.16);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border, width: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.timer_rounded, color: Color(0xFF0D7C66)),
+              const SizedBox(width: 8),
+              const Text('Sleep timer',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+              const Spacer(),
+              Switch(
+                value: widget.enabled,
+                activeColor: const Color(0xFF0D7C66),
+                onChanged: (v) => widget.onToggle(v),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Text(
+                _label(_value.round()),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Expanded(
+                child: Slider(
+                  value: _value,
+                  min: 0,
+                  max: 120,
+                  divisions: 24, // 5-minute steps
+                  onChanged: (v) {
+                    setState(() => _value = v);
+                    widget.onMinutesChanged(v.round());
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SearchBar extends StatefulWidget {
   const _SearchBar({required this.onChanged});
   final ValueChanged<String> onChanged;
@@ -520,7 +664,7 @@ class _CategoryBar extends StatelessWidget {
   final String active;
   final ValueChanged<String> onChanged;
 
-  static const _cats = ['All', 'Focus', 'Sleep', 'Study', 'Nature'];
+  static const _cats = ['All', 'Focus', 'Sleep', 'Study', 'Nature', 'Meditation'];
 
   @override
   Widget build(BuildContext context) {
@@ -959,70 +1103,4 @@ class _SoundTrack {
     required this.imageUrl,
     required this.url,
   });
-}
-
-/* ─────────────────── Sleep Timer ─────────────────── */
-
-class _SleepChoice {
-  final String label;
-  final int minutes; // 0 = off
-  const _SleepChoice(this.label, this.minutes);
-}
-
-class _SleepTimerSheet extends StatelessWidget {
-  _SleepTimerSheet({super.key});
-
-  final _choices = const <_SleepChoice>[
-    _SleepChoice('Off', 0),
-    _SleepChoice('15 minutes', 15),
-    _SleepChoice('30 minutes', 30),
-    _SleepChoice('45 minutes', 45),
-    _SleepChoice('60 minutes', 60),
-    _SleepChoice('90 minutes', 90),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-
-    return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-      decoration: BoxDecoration(
-        color: (dark ? Colors.white : Colors.white).withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const _SheetGrabber(),
-          const SizedBox(height: 6),
-          const Text('Sleep Timer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-          const SizedBox(height: 10),
-          ..._choices.map((c) => ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: const Icon(Icons.timer_rounded, color: Color(0xFF0D7C66)),
-                title: Text(c.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                onTap: () => Navigator.of(context).pop(c),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-class _SheetGrabber extends StatelessWidget {
-  const _SheetGrabber();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 5,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
-    );
-  }
 }
