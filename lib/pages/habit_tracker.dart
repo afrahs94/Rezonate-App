@@ -463,56 +463,76 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           SafeArea(
             child: CustomScrollView(
               slivers: [
-                // Month header "October 2025"
+                // >>> Combined line: Month/Year on LEFT + Filters button on RIGHT
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                   sliver: SliverToBoxAdapter(
-                    child: _MonthHeader(
-                      focusedDay: _focusedDay,
-                      onPrev: () => setState(() {
-                        _focusedDay = DateTime(
-                          _focusedDay.year,
-                          _focusedDay.month - 1,
-                          1,
-                        );
-                      }),
-                      onNext: () => setState(() {
-                        _focusedDay = DateTime(
-                          _focusedDay.year,
-                          _focusedDay.month + 1,
-                          1,
-                        );
-                      }),
-                    ),
-                  ),
-                ),
+                    child: Row(
+                      children: [
+                        // Left: month navigation + label
+                        IconButton(
+                          icon: const Icon(
+                            Icons.chevron_left_rounded,
+                            color: Colors.black,
+                            size: 22,
+                          ),
+                          onPressed: () => setState(() {
+                            _focusedDay = DateTime(
+                              _focusedDay.year,
+                              _focusedDay.month - 1,
+                              1,
+                            );
+                          }),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          DateFormat('MMMM yyyy').format(_focusedDay),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.black,
+                            size: 22,
+                          ),
+                          onPressed: () => setState(() {
+                            _focusedDay = DateTime(
+                              _focusedDay.year,
+                              _focusedDay.month + 1,
+                              1,
+                            );
+                          }),
+                        ),
 
-                // Compact "Filters" button
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: _openFilters,
-                        icon: const Icon(Icons.filter_list_rounded, size: 16),
-                        label: const Text(
-                          'Filters',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                        const Spacer(),
+
+                        // Right: Filters button (unchanged)
+                        OutlinedButton.icon(
+                          onPressed: _openFilters,
+                          icon: const Icon(Icons.filter_list_rounded, size: 16),
+                          label: const Text(
+                            'Filters',
+                            style: TextStyle(fontSize: 13),
                           ),
-                          side: BorderSide(
-                            color: Colors.black.withOpacity(0.12),
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            side: BorderSide(
+                              color: Colors.black.withOpacity(0.12),
+                            ),
+                            shape: const StadiumBorder(),
+                            backgroundColor: Colors.white.withOpacity(0.6),
                           ),
-                          shape: const StadiumBorder(),
-                          backgroundColor: Colors.white.withOpacity(0.6),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -772,52 +792,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
 }
 
 // ===================== Small UI parts =====================
-
-class _MonthHeader extends StatelessWidget {
-  const _MonthHeader({
-    required this.focusedDay,
-    required this.onPrev,
-    required this.onNext,
-  });
-  final DateTime focusedDay;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(
-            Icons.chevron_left_rounded,
-            color: Colors.black,
-            size: 22,
-          ),
-          onPressed: onPrev,
-        ),
-        const SizedBox(width: 6),
-        Text(
-          DateFormat('MMMM yyyy').format(focusedDay), // "October 2025"
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(width: 6),
-        IconButton(
-          icon: const Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.black,
-            size: 22,
-          ),
-          onPressed: onNext,
-        ),
-      ],
-    );
-  }
-}
 
 Widget _dotSized(Color c, double size) => Container(
       width: size,
