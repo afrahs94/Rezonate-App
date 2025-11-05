@@ -33,7 +33,7 @@ class _SoundsPageState extends State<SoundsPage> {
   static const _prefsRecentKey = 'recent_sounds_v1';
   List<String> _recentIds = const [];
 
-  // Copyright-free tracks (Pixabay / CC0-like). Images corrected to match categories.
+  // Copyright-free tracks (Pixabay). Images corrected.
   final List<_SoundTrack> _tracks = const [
     // Focus
     _SoundTrack(
@@ -50,7 +50,8 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Alpha Waves',
       category: 'Focus',
       imageUrl:
-          'https://images.unsplash.com/photo-1465066989788-52dab6c29c64?q=80&w=1200&auto=format&fit=crop',
+          // abstract waves/lines (reliable Unsplash image)
+          'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?q=80&w=1200&auto=format&fit=crop',
       url:
           'https://cdn.pixabay.com/download/audio/2022/10/24/audio_947bdc2a8f.mp3?filename=alpha-waves-ambient-124008.mp3',
     ),
@@ -59,7 +60,8 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Binaural Beats',
       category: 'Focus',
       imageUrl:
-          'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?q=80&w=1200&auto=format&fit=crop',
+          // per request: pasta photo
+          'https://images.unsplash.com/photo-1529042410759-befb1204b468?q=80&w=1200&auto=format&fit=crop',
       url:
           'https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b8e3d7e9a.mp3?filename=binaural-beats-ambient-18491.mp3',
     ),
@@ -146,7 +148,8 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Campfire',
       category: 'Nature',
       imageUrl:
-          'https://images.unsplash.com/photo-1500043357865-c6b8827edf39?q=80&w=1200&auto=format&fit=crop',
+          // new campfire image
+          'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&w=1200&auto=format&fit=crop',
       url:
           'https://cdn.pixabay.com/download/audio/2021/10/26/audio_4a22d5b355.mp3?filename=campfire-ambient-9748.mp3',
     ),
