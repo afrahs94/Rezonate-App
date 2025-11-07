@@ -1,5 +1,5 @@
 // lib/pages/uplingo.dart
-// Uplingo – calm, enhanced Wordle-style game with gradient header + aligned keyboard.
+// Uplingo – Wordle-style game with refined compact keyboard layout and balanced board spacing.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -21,8 +21,8 @@ class _UplingoPageState extends State<UplingoPage> {
     'PEACE', 'CALM', 'BREATHE', 'SMILE', 'LIGHT', 'FOCUS', 'UNITY', 'TRUST', 'GRACE', 'DREAM',
     'HOPE', 'BLISS', 'ANGEL', 'HEART', 'NOBLE', 'HONOR', 'KIND', 'CLEAR', 'CLOUD', 'LUCKY',
     'FAITH', 'EAGER', 'SHINE', 'WORTH', 'ALIGN', 'ZENON', 'SOLAR', 'MIRTH', 'OASIS', 'CHARM',
-    'BRAVE', 'FRESH', 'RIVER', 'MUSIC', 'NURSE', 'PURE', 'HAPPY', 'QUIET', 'BLOOM', 'GREEN',
-    'RADIANT', 'SWEET', 'EQUAL', 'ANGEL', 'YOUTH', 'GLOW', 'SEREN', 'MINTY', 'CALMS', 'ALIGN'
+    'BRAVE', 'FRESH', 'RIVER', 'MUSIC', 'PURE', 'HAPPY', 'QUIET', 'BLOOM', 'GREEN', 'RADIANT',
+    'SWEET', 'EQUAL', 'YOUTH', 'GLOW', 'SEREN', 'MINTY', 'CALMS', 'ALIGN'
   ];
 
   late String _target;
@@ -101,103 +101,105 @@ class _UplingoPageState extends State<UplingoPage> {
     for (int i = 0; i < maxAttempts; i++) {
       String word = i < _guesses.length ? _guesses[i] : (i == _guesses.length ? _current : '');
       final letters = word.padRight(wordLength).split('');
-      rows.add(Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (int j = 0; j < wordLength; j++)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 52,
-              height: 52,
-              margin: const EdgeInsets.all(5),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: i < _guesses.length
-                    ? _tileColor(word, j)
-                    : Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: _hintPositions.contains(j)
-                      ? Colors.orange
-                      : Colors.black26,
-                  width: 1.2,
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (int j = 0; j < wordLength; j++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 54,
+                  height: 54,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: i < _guesses.length
+                        ? _tileColor(word, j)
+                        : Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _hintPositions.contains(j)
+                          ? Colors.orange
+                          : Colors.black26,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Text(
+                    letters[j],
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      color: _hintPositions.contains(j)
+                          ? Colors.orange.shade700
+                          : Colors.black,
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                letters[j],
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
-                  color: _hintPositions.contains(j)
-                      ? Colors.orange.shade700
-                      : Colors.black,
-                ),
-              ),
-            ),
-        ],
-      ));
+            ],
+          ),
+        ),
+      );
     }
     return Column(children: rows);
   }
 
   Widget _buildKeyboard() {
-    const keys = [
+    const rows = [
       ['Q','W','E','R','T','Y','U','I','O','P'],
       ['A','S','D','F','G','H','J','K','L'],
-      ['Z','X','C','V','B','N','M']
+      ['Z','X','C','V','B','N','M'],
+      ['⌫','↵']
     ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (int i = 0; i < keys.length; i++)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: i == keys.length - 1 ? 10 : 8,
-                left: i == 1 ? 20 : (i == 2 ? 40 : 0),
+    return Flexible(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 8, bottom: 18),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (int i = 0; i < rows.length; i++)
+              Padding(
+                padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 8),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: rows[i].map((letter) => _key(letter)).toList(),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (final k in keys[i]) _key(k),
-                ],
-              ),
-            ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _key('⌫', wide: true),
-              const SizedBox(width: 8),
-              _key('↵', wide: true),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _key(String label, {bool wide = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-      child: SizedBox(
-        width: wide ? 66 : 36,
-        height: 48,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFBEE8DF),
-            elevation: 2,
-            shadowColor: Colors.black12,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+  Widget _key(String label) {
+    final bool wide = label == '⌫' || label == '↵';
+    return SizedBox(
+      width: wide ? 60 : 36,
+      height: 46,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFBEE8DF),
+          elevation: 1.5,
+          shadowColor: Colors.black26,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
-          onPressed: () => _onKey(label),
+        ),
+        onPressed: () => _onKey(label),
+        child: Center(
           child: Text(
             label,
             style: const TextStyle(
-                color: Colors.black, fontWeight: FontWeight.bold),
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: Colors.black,
+            ),
+            textAlign: TextAlign.center,
           ),
         ),
       ),
@@ -206,45 +208,50 @@ class _UplingoPageState extends State<UplingoPage> {
 
   Widget _buildControlButtons() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Wrap(
+        alignment: WrapAlignment.center,
         spacing: 10,
+        runSpacing: 8,
         children: [
           ElevatedButton.icon(
             onPressed: _newGame,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFB6E3FF),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.black, size: 18),
             label: const Text('New Game',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
           ),
           ElevatedButton.icon(
             onPressed: _useHint,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFFE5BA),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            icon: const Icon(Icons.lightbulb_rounded, color: Colors.black87),
+            icon: const Icon(Icons.lightbulb_rounded, color: Colors.black87, size: 18),
             label: Text(
               'Hint (${maxHints - _hintsUsed})',
               style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.black87),
+                  fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 14),
             ),
           ),
           ElevatedButton.icon(
             onPressed: () => setState(() => _current = ''),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE9FFFE),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            icon: const Icon(Icons.restart_alt_rounded, color: Colors.black),
+            icon: const Icon(Icons.restart_alt_rounded, color: Colors.black, size: 18),
             label: const Text('Reset Row',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
           ),
         ],
       ),
@@ -274,7 +281,7 @@ class _UplingoPageState extends State<UplingoPage> {
           'Uplingo',
           style: TextStyle(
             fontWeight: FontWeight.w900,
-            fontSize: 26,
+            fontSize: 22,
           ),
         ),
       ),
@@ -288,7 +295,7 @@ class _UplingoPageState extends State<UplingoPage> {
               _buildControlButtons(),
               const SizedBox(height: 8),
               _buildBoard(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               if (_won || _lost)
                 Column(
                   children: [
@@ -297,20 +304,21 @@ class _UplingoPageState extends State<UplingoPage> {
                           ? '✨ You guessed it! The word was $_target.'
                           : '💭 The word was $_target — try again!',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16),
+                          fontWeight: FontWeight.bold, fontSize: 14),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     ElevatedButton(
                       onPressed: _newGame,
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFB6E3FF)),
-                      child: const Text('Play Again'),
+                          backgroundColor: const Color(0xFFB6E3FF),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                      child: const Text('Play Again',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                     )
                   ],
                 ),
-              const Spacer(),
+              const SizedBox(height: 8),
               _buildKeyboard(),
-              const SizedBox(height: 20),
             ],
           ),
         ),
