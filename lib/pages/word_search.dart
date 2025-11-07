@@ -149,11 +149,11 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
 
   _WsDifficulty difficulty = _WsDifficulty.easy;
 
-  // Board
-  late int size;
-  late List<List<String>> grid;
-  late List<String> words;
-  late Set<String> remaining;
+  // Board (initialized to safe defaults to avoid LateInitializationError)
+  int size = 0;
+  List<List<String>> grid = const [];
+  List<String> words = const [];
+  Set<String> remaining = const <String>{};
 
   // Selection & found paths
   final _selCells = <Point<int>>{};
@@ -178,10 +178,16 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
   // Win animation overlay
   OverlayEntry? _winOverlay;
 
+  // Ready flag to guard build until puzzle is prepared
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
-    _tryRestoreOrNew();
+    // Start with an empty, safe screen; then restore or build a new puzzle.
+    _startTime = DateTime.now();
+    // Kick async restore/new
+    unawaited(_tryRestoreOrNew());
   }
 
   /* ─────────── Persistence helpers ─────────── */
@@ -204,12 +210,15 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
   }
 
   Future<void> _persistActive() async {
+    if (size == 0 || words.isEmpty || grid.isEmpty) return;
     final p = await SharedPreferences.getInstance();
     await p.setInt(_saveDiff, difficulty.index);
     await p.setStringList(_saveWords, words);
     await p.setStringList(_saveKey, remaining.toList());
     final flat = <String>[];
-    for (final r in grid) { flat.addAll(r); }
+    for (final r in grid) {
+      flat.addAll(r);
+    }
     await p.setStringList(_saveGrid, flat);
     final enc = _foundPaths.map(_encodePath).toList();
     await p.setStringList(_savePaths, enc);
@@ -230,30 +239,42 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
     final wordsSaved = p.getStringList(_saveWords);
     final gridSaved = p.getStringList(_saveGrid);
     final pathsSaved = p.getStringList(_savePaths);
+
     if (diffIdx != null && wordsSaved != null && gridSaved != null) {
       difficulty = _WsDifficulty.values[diffIdx];
-      size = sqrt(gridSaved.length).round();
-      grid = List.generate(size, (r) => List.generate(size, (c) => gridSaved[r * size + c]));
-      words = List.from(wordsSaved);
-      remaining = p.getStringList(_saveKey)?.toSet() ?? words.toSet();
-      _foundPaths.clear();
-      if (pathsSaved != null && pathsSaved.isNotEmpty) {
-        for (final s in pathsSaved) {
-          final path = _decodePath(s);
-          if (path.isNotEmpty) _foundPaths.add(path);
+      final calculatedSize = sqrt(gridSaved.length).round();
+      if (calculatedSize > 0) {
+        size = calculatedSize;
+        grid = List.generate(
+          size,
+          (r) => List.generate(size, (c) => gridSaved[r * size + c]),
+        );
+        words = List<String>.from(wordsSaved);
+        remaining = (p.getStringList(_saveKey)?.toSet() ?? words.toSet());
+
+        _foundPaths.clear();
+        if (pathsSaved != null && pathsSaved.isNotEmpty) {
+          for (final s in pathsSaved) {
+            final path = _decodePath(s);
+            if (path.isNotEmpty) _foundPaths.add(path);
+          }
+        } else {
+          // Old saves (pre-paths) — reconstruct
+          final foundWords = words.where((w) => !remaining.contains(w)).toList();
+          for (final w in foundWords) {
+            final path = _findWordPath(w);
+            if (path != null) _foundPaths.add(path);
+          }
+          await _persistActive();
         }
-      } else {
-        final foundWords = words.where((w) => !remaining.contains(w)).toList();
-        for (final w in foundWords) {
-          final path = _findWordPath(w);
-          if (path != null) _foundPaths.add(path);
-        }
-        await _persistActive();
+
+        _startTime = DateTime.now();
+        _initialized = true;
+        if (mounted) setState(() {});
+        return;
       }
-      _startTime = DateTime.now();
-      setState(() {});
-      return;
     }
+
     _newPuzzle(resetDifficulty: false);
   }
 
@@ -263,15 +284,15 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
     if (resetDifficulty) difficulty = _WsDifficulty.easy;
     final pool = _pools[difficulty]!;
     final list = List<List<String>>.from(pool)..shuffle(rnd);
-    words = List<String>.from(list.first)..shuffle(rnd);
+    var selected = List<String>.from(list.first)..shuffle(rnd);
 
     size = (difficulty == _WsDifficulty.easy)
         ? 12
         : (difficulty == _WsDifficulty.medium ? 13 : 14);
 
     grid = List.generate(size, (_) => List.filled(size, ''));
-    // placeWords now returns the actually placed words to avoid "overfill" issues
-    words = _placeWords(words);
+    selected = _placeWords(selected);
+    words = selected;
     remaining = words.toSet();
     _fillRandom();
 
@@ -279,13 +300,14 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
     _lastCell = null;
     _foundPaths.clear();
     _startTime = DateTime.now();
+    _initialized = true;
     _persistActive();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void _resetCurrent() {
+    if (size == 0) return;
     grid = List.generate(size, (_) => List.filled(size, ''));
-    // Re-place only the current words; keep only those that fit to prevent overfill
     words = _placeWords(words);
     remaining = words.toSet();
     _fillRandom();
@@ -302,8 +324,14 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
   /// Places as many words as fit. Returns the list of actually placed words.
   List<String> _placeWords(List<String> source) {
     final dirs = [
-      const Point(1,0), const Point(0,1), const Point(1,1), const Point(-1,1),
-      const Point(-1,0), const Point(0,-1), const Point(-1,-1), const Point(1,-1),
+      const Point(1, 0),
+      const Point(0, 1),
+      const Point(1, 1),
+      const Point(-1, 1),
+      const Point(-1, 0),
+      const Point(0, -1),
+      const Point(-1, -1),
+      const Point(1, -1),
     ];
     final placedWords = <String>[];
 
@@ -315,14 +343,26 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
         int r = r0, c = c0;
         bool ok = true;
         for (int i = 0; i < w.length; i++) {
-          if (r < 0 || r >= size || c < 0 || c >= size) { ok = false; break; }
+          if (r < 0 || r >= size || c < 0 || c >= size) {
+            ok = false;
+            break;
+          }
           final ch = grid[r][c];
-          if (ch.isNotEmpty && ch != w[i]) { ok = false; break; }
-          r += d.y; c += d.x;
+          if (ch.isNotEmpty && ch != w[i]) {
+            ok = false;
+            break;
+          }
+          r += d.y;
+          c += d.x;
         }
         if (!ok) continue;
-        r = r0; c = c0;
-        for (int i = 0; i < w.length; i++) { grid[r][c] = w[i]; r += d.y; c += d.x; }
+        r = r0;
+        c = c0;
+        for (int i = 0; i < w.length; i++) {
+          grid[r][c] = w[i];
+          r += d.y;
+          c += d.x;
+        }
         placed = true;
         placedWords.add(w);
       }
@@ -344,12 +384,19 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
 
   List<Point<int>>? _findWordPath(String word) {
     final dirs = [
-      const Point(1,0), const Point(0,1), const Point(1,1), const Point(-1,1),
-      const Point(-1,0), const Point(0,-1), const Point(-1,-1), const Point(1,-1),
+      const Point(1, 0),
+      const Point(0, 1),
+      const Point(1, 1),
+      const Point(-1, 1),
+      const Point(-1, 0),
+      const Point(0, -1),
+      const Point(-1, -1),
+      const Point(1, -1),
     ];
     bool inBounds(int r, int c) => r >= 0 && r < size && c >= 0 && c < size;
 
-    for (final target in [word, String.fromCharCodes(word.runes.toList().reversed)]) {
+    for (final target
+        in [word, String.fromCharCodes(word.runes.toList().reversed)]) {
       for (int r0 = 0; r0 < size; r0++) {
         for (int c0 = 0; c0 < size; c0++) {
           for (final d in dirs) {
@@ -357,9 +404,13 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
             bool ok = true;
             final path = <Point<int>>[];
             for (int i = 0; i < target.length; i++) {
-              if (!inBounds(r, c) || grid[r][c] != target[i]) { ok = false; break; }
+              if (!inBounds(r, c) || grid[r][c] != target[i]) {
+                ok = false;
+                break;
+              }
               path.add(Point(c, r));
-              r += d.y; c += d.x;
+              r += d.y;
+              c += d.x;
             }
             if (ok) return path;
           }
@@ -392,6 +443,7 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
   }
 
   void _addCellFromPosition(Offset pos, BoxConstraints cons) {
+    if (size == 0) return;
     final cellSize = cons.maxWidth / size;
     final gx = (pos.dx / cellSize).floor();
     final gy = (pos.dy / cellSize).floor();
@@ -408,13 +460,14 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
   }
 
   Future<void> _checkSelection() async {
-    if (_selCells.length < 2) return;
+    if (_selCells.length < 2 || size == 0) return;
     final a = _selCells.first;
     final b = _selCells.last;
     int dx = b.x - a.x, dy = b.y - a.y;
     final steps = max(dx.abs(), dy.abs());
     if (!(dx == 0 || dy == 0 || dx.abs() == dy.abs())) return; // straight/diag only
-    dx = dx.sign; dy = dy.sign;
+    dx = dx.sign;
+    dy = dy.sign;
 
     final buff = StringBuffer();
     final path = <Point<int>>[];
@@ -422,15 +475,21 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
     for (int i = 0; i <= steps; i++) {
       buff.write(grid[r][c]);
       path.add(Point(c, r));
-      r += dy; c += dx;
+      r += dy;
+      c += dx;
     }
     final s = buff.toString();
     final rs = s.split('').reversed.join();
 
     String? found;
     List<Point<int>>? foundPath;
-    if (remaining.contains(s)) { found = s; foundPath = path; }
-    else if (remaining.contains(rs)) { found = rs; foundPath = path.reversed.toList(); }
+    if (remaining.contains(s)) {
+      found = s;
+      foundPath = path;
+    } else if (remaining.contains(rs)) {
+      found = rs;
+      foundPath = path.reversed.toList();
+    }
 
     if (found != null) {
       remaining.remove(found);
@@ -449,8 +508,9 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
 
   Future<void> _onWin() async {
     await _clearPersisted();
-    final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
-    final score = words.length / secs; // words per second
+    final secs =
+        DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
+    final score = words.isEmpty ? 0.0 : words.length / secs; // words per second
     await ScoreStore.instance.add('wordsearch', score);
     final isHigh = await ScoreStore.instance.reportBest('wordsearch', score);
 
@@ -467,8 +527,15 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
             ? 'Speed: ${score.toStringAsFixed(3)} words/sec'
             : 'Nice work! Want a fresh grid?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-          FilledButton(onPressed: () { Navigator.pop(context); _newPuzzle(); }, child: const Text('New')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close')),
+          FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _newPuzzle();
+              },
+              child: const Text('New')),
         ],
       ),
     );
@@ -494,6 +561,15 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    // Loading/initializing guard to prevent scheduler/semantics spam & late-inits
+    if (!_initialized || size == 0 || grid.isEmpty) {
+      return _GameScaffold(
+        title: 'Word Search',
+        rule: 'Drag across letters in a straight line (any direction) to select a word.',
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final wordChips = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -504,7 +580,8 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
           label: Text(
             w,
             style: TextStyle(
-              decoration: found ? TextDecoration.lineThrough : TextDecoration.none,
+              decoration:
+                  found ? TextDecoration.lineThrough : TextDecoration.none,
               decorationThickness: 2,
               decorationColor: Colors.black,
               fontWeight: FontWeight.w800,
@@ -550,7 +627,8 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
 
     return _GameScaffold(
       title: 'Word Search',
-      rule: 'Drag across letters in a straight line (any direction) to select a word.',
+      rule:
+          'Drag across letters in a straight line (any direction) to select a word.',
       topBar: topControls,
       child: Column(
         children: [
@@ -592,22 +670,30 @@ class _WsPainter extends CustomPainter {
   @override
   void paint(Canvas c, Size s) {
     final n = g.length;
+    if (n == 0) return;
     final cell = s.width / n;
-    final border = Paint()..color = _ink.withOpacity(.25)..style = PaintingStyle.stroke;
+    final border =
+        Paint()..color = _ink.withOpacity(.25)..style = PaintingStyle.stroke;
     final selBg = Paint()..color = const Color(0xFFFFF1A6);
-    final txt = TextPainter(textAlign: TextAlign.center, textDirection: TextDirection.ltr);
+    final txt =
+        TextPainter(textAlign: TextAlign.center, textDirection: TextDirection.ltr);
 
     // grid + selection
     for (int y = 0; y < n; y++) {
       for (int x = 0; x < n; x++) {
         final r = Rect.fromLTWH(x * cell, y * cell, cell, cell);
-        c.drawRRect(RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)), border);
+        c.drawRRect(
+            RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)),
+            border);
         if (sel.contains(Point(x, y))) {
-          c.drawRRect(RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)), selBg);
+          c.drawRRect(
+              RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)),
+              selBg);
         }
         txt.text = TextSpan(
           text: g[y][x],
-          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black),
+          style: const TextStyle(
+              fontWeight: FontWeight.w800, color: Colors.black),
         );
         txt.layout(minWidth: cell, maxWidth: cell);
         txt.paint(c, Offset(x * cell, y * cell + (cell - txt.height) / 2));
@@ -700,7 +786,8 @@ class _WinConfettiOverlayState extends State<_WinConfettiOverlay>
               child: Stack(
                 children: [
                   // subtle backdrop flash
-                  Container(color: const Color(0xFFFFFFFF).withOpacity(0.2 * opacity)),
+                  Container(
+                      color: const Color(0xFFFFFFFF).withOpacity(0.2 * opacity)),
                   // burst from center
                   ..._particles.map((p) {
                     final dx = p.dx * t;
@@ -732,7 +819,8 @@ class _WinConfettiOverlayState extends State<_WinConfettiOverlay>
                     alignment: Alignment.center,
                     child: Transform.scale(
                       scale: 0.6 + 0.4 * (1 - (t - 0.2).abs()),
-                      child: const Icon(Icons.emoji_events_rounded, size: 96, color: Color(0xFF0D7C66)),
+                      child: const Icon(Icons.emoji_events_rounded,
+                          size: 96, color: Color(0xFF0D7C66)),
                     ),
                   ),
                 ],
@@ -754,5 +842,9 @@ class _WinConfettiOverlayState extends State<_WinConfettiOverlay>
 
 class _Particle {
   final double dx, dy, size, rotation;
-  _Particle({required this.dx, required this.dy, required this.size, required this.rotation});
+  _Particle(
+      {required this.dx,
+      required this.dy,
+      required this.size,
+      required this.rotation});
 }
