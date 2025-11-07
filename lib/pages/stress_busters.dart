@@ -11,7 +11,7 @@ import 'word_search.dart';
 import 'crossword.dart';
 import 'matching.dart';
 import 'sudoku.dart';
-import 'hangman.dart';
+import 'uplingo.dart'; // changed from wordle.dart
 import 'scramble.dart';
 
 /* ─────────────────── Shared theme helpers ─────────────────── */
@@ -72,7 +72,7 @@ class StressBustersPage extends StatelessWidget {
                       subtitle: 'Find all hidden words',
                       colors: const [Color(0xFFE8F8FF), Color(0xFFB6E3FF)],
                       icon: Icons.grid_on_rounded,
-                       iconColor: const Color(0xFF1C638C),
+                      iconColor: const Color(0xFF1C638C),
                       builder: (_) => const WordSearchPage(),
                     ),
                     _GameCard(
@@ -100,12 +100,12 @@ class StressBustersPage extends StatelessWidget {
                       builder: (_) => const SudokuPage(),
                     ),
                     _GameCard(
-                      title: 'Hangman',
+                      title: 'Uplingo', // changed
                       subtitle: 'Guess the calm word',
                       colors: const [Color(0xFFE9FFF4), Color(0xFFC9F2E7)],
                       icon: Icons.emoji_emotions_rounded,
                       iconColor: const Color(0xFF146548),
-                      builder: (_) => const HangmanPage(),
+                      builder: (_) => const UplingoPage(), // changed
                     ),
                     _GameCard(
                       title: 'Scramble',
@@ -135,7 +135,11 @@ class _CalmHeader extends StatefulWidget {
 class _CalmHeaderState extends State<_CalmHeader> {
   int plays = 0;
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+  }
+
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
     int total = 0;
@@ -163,7 +167,8 @@ class _CalmHeaderState extends State<_CalmHeader> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.self_improvement_rounded, size: 42, color: Color(0xFF0D7C66)),
+            const Icon(Icons.self_improvement_rounded,
+                size: 42, color: Color(0xFF0D7C66)),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -190,7 +195,7 @@ class _GameCard extends StatelessWidget {
     required this.colors,
     required this.icon,
     required this.builder,
-     this.iconColor,
+    this.iconColor,
   });
 
   @override
@@ -199,7 +204,8 @@ class _GameCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: builder)),
+        onTap: () =>
+            Navigator.of(context).push(MaterialPageRoute(builder: builder)),
         child: Ink(
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: colors),
@@ -212,29 +218,35 @@ class _GameCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 32, color: iconColor ?? const Color(0xFF0D7C66)),
+                Icon(icon,
+                    size: 32,
+                    color: iconColor ?? const Color(0xFF0D7C66)),
                 const SizedBox(height: 8),
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
                 Expanded(
                   child: Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                    style:
+                        const TextStyle(fontSize: 12, color: Colors.black87),
                   ),
                 ),
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: _ink),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text('Play', style: TextStyle(fontWeight: FontWeight.w800)),
+                    child: const Text('Play',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
                   ),
                 ),
               ],
