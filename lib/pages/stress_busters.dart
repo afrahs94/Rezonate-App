@@ -1,6 +1,6 @@
 // lib/pages/stress_busters.dart
 // Stress Busters – calm themed games, now each on its own page.
-// Only Flutter + shared_preferences (already in pubspec). No extra packages.
+// Updated: Word Search now uses category chooser (WordSearchCategoryPage).
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -47,8 +47,10 @@ class StressBustersPage extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text('Stress Busters',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        title: const Text(
+          'Stress Busters',
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+        ),
       ),
       body: Container(
         decoration: _bg(context),
@@ -73,7 +75,8 @@ class StressBustersPage extends StatelessWidget {
                       colors: const [Color(0xFFE8F8FF), Color(0xFFB6E3FF)],
                       icon: Icons.grid_on_rounded,
                       iconColor: const Color(0xFF1C638C),
-                      builder: (_) => const WordSearchPage(),
+                      builder: (_) =>
+                          const WordSearchCategoryPage(), // ✅ FIXED
                     ),
                     _GameCard(
                       title: 'Crossword',
@@ -126,6 +129,8 @@ class StressBustersPage extends StatelessWidget {
   }
 }
 
+/* ─────────────────── Calm header ─────────────────── */
+
 class _CalmHeader extends StatefulWidget {
   const _CalmHeader();
   @override
@@ -134,6 +139,7 @@ class _CalmHeader extends StatefulWidget {
 
 class _CalmHeaderState extends State<_CalmHeader> {
   int plays = 0;
+
   @override
   void initState() {
     super.initState();
@@ -167,8 +173,11 @@ class _CalmHeaderState extends State<_CalmHeader> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.self_improvement_rounded,
-                size: 42, color: Color(0xFF0D7C66)),
+            const Icon(
+              Icons.self_improvement_rounded,
+              size: 42,
+              color: Color(0xFF0D7C66),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -183,12 +192,15 @@ class _CalmHeaderState extends State<_CalmHeader> {
   }
 }
 
+/* ─────────────────── Game Card ─────────────────── */
+
 class _GameCard extends StatelessWidget {
   final String title, subtitle;
   final List<Color> colors;
   final IconData icon;
   final WidgetBuilder builder;
   final Color? iconColor;
+
   const _GameCard({
     required this.title,
     required this.subtitle,
@@ -218,35 +230,35 @@ class _GameCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon,
-                    size: 32,
-                    color: iconColor ?? const Color(0xFF0D7C66)),
+                Icon(icon, size: 32, color: iconColor ?? const Color(0xFF0D7C66)),
                 const SizedBox(height: 8),
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 4),
                 Expanded(
                   child: Text(
                     subtitle,
-                    style:
-                        const TextStyle(fontSize: 12, color: Colors.black87),
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
                   ),
                 ),
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: _ink),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text('Play',
-                        style: TextStyle(fontWeight: FontWeight.w800)),
+                    child: const Text(
+                      'Play',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ),
               ],

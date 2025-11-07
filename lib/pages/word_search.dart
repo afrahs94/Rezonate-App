@@ -1,19 +1,20 @@
 // lib/pages/word_search.dart
 //
-// Word Search with persistent strike-through lines.
-// - Saves: difficulty, words, grid, remaining words, and the exact paths
-//   for found words. When you come back, the crossed-off lines reappear.
-// - If an older save (pre-paths) is loaded, it reconstructs paths by
-//   searching the grid for each already-found word.
-//
+// Category chooser + themed Word Search.
+// - 6 broad categories (50+ words each).
+// - Original game behavior preserved: difficulty selector, randomized words,
+//   drag with 8-direction snap, strike-through lines, "New" button.
+// - Animated, playful category menu.
 
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_rezonate/main.dart' as app;
 
-/* ─────────────────── Shared look (same as Stress Busters) ─────────────────── */
+/* ─────────── Theme ─────────── */
+
+const _ink = Colors.black;
+const _themeGreen = Color(0xFF0D7C66);
 
 BoxDecoration _bg(BuildContext context) {
   final dark = app.ThemeControllerScope.of(context).isDark;
@@ -23,88 +24,267 @@ BoxDecoration _bg(BuildContext context) {
       end: Alignment.bottomCenter,
       colors: dark
           ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF6FD6C1)],
+          : const [Color(0xFFE9D9FF), Color(0xFFBEE8E0)],
     ),
   );
 }
 
-const _ink = Colors.black;
+/* ─────────── iOS-style Chevron Back Button ─────────── */
 
-/* ─────────── Score storage (shared key style) ─────────── */
+class _BackChevron extends StatelessWidget {
+  const _BackChevron({this.onTap, this.color = const Color(0xFF2B2B2B), this.size = 22, super.key});
+  final VoidCallback? onTap;
+  final Color color;
+  final double size; // visual height of the chevron
+
+  @override
+  Widget build(BuildContext context) {
+    // Ensure a comfortable hit area but keep visuals minimal
+    return InkResponse(
+      onTap: onTap,
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      radius: 28,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+        child: CustomPaint(
+          size: Size(size, size),
+          painter: _ChevronPainter(color),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChevronPainter extends CustomPainter {
+  _ChevronPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw a “<” with rounded caps to mimic the screenshot
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.shortestSide * 0.12 // thin and crisp
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+
+    final p1 = Offset(size.width * 0.75, size.height * 0.15);
+    final p2 = Offset(size.width * 0.25, size.height * 0.50);
+    final p3 = Offset(size.width * 0.75, size.height * 0.85);
+
+    canvas.drawLine(p1, p2, paint);
+    canvas.drawLine(p2, p3, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChevronPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/* ─────────── Score Tracker ─────────── */
 
 class ScoreStore {
   ScoreStore._();
   static final instance = ScoreStore._();
-
-  Future<void> add(String gameKey, double v) async {
+  Future<bool> reportBest(String key, double score) async {
     final prefs = await SharedPreferences.getInstance();
-    final k = 'sbp_$gameKey';
-    final cur = prefs.getStringList(k) ?? [];
-    cur.add(v.toString());
-    await prefs.setStringList(k, cur);
-  }
-
-  Future<bool> reportBest(String gameKey, double score) async {
-    final prefs = await SharedPreferences.getInstance();
-    final bestKey = 'sbp_best_$gameKey';
-    final prev = prefs.getDouble(bestKey) ?? double.negativeInfinity;
-    if (score > prev) {
-      await prefs.setDouble(bestKey, score);
-      return true;
-    }
-    return false;
+    final prev = prefs.getDouble('best_$key') ?? double.negativeInfinity;
+    final isHigh = score > prev;
+    if (isHigh) await prefs.setDouble('best_$key', score);
+    return isHigh;
   }
 }
 
-/* ─────────────────── Game wrapper used elsewhere ─────────────────── */
+/* ─────────── Animated Category Chooser ─────────── */
 
-class _GameScaffold extends StatelessWidget {
-  final String title;
-  final String rule;
-  final Widget child;
-  final Widget? topBar;
-  final Widget? bottom;
-  const _GameScaffold({
-    required this.title,
-    required this.rule,
-    required this.child,
-    this.topBar,
-    this.bottom,
-  });
+class WordSearchCategoryPage extends StatefulWidget {
+  final void Function(String category)? onPick;
+  const WordSearchCategoryPage({super.key, this.onPick});
+
+  @override
+  State<WordSearchCategoryPage> createState() => _WordSearchCategoryPageState();
+}
+
+class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
+    with TickerProviderStateMixin {
+  static const _categories = [
+    'Animals',
+    'Food',
+    'Sports',
+    'Travel',
+    'Movies',
+    'Technology'
+  ];
+
+  late final AnimationController _fadeController;
+  late final AnimationController _bounceController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+          ..forward();
+    _bounceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+      lowerBound: 0.0,
+      upperBound: 0.1,
+    );
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _bounceController.dispose();
+    super.dispose();
+  }
+
+  void _navigateToCategory(String cat) {
+    if (widget.onPick != null) {
+      widget.onPick!(cat);
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => WordSearchPage(category: cat)),
+      );
+    }
+  }
+
+  void _onTapDown() => _bounceController.forward();
+  void _onTapUp() => _bounceController.reverse();
+
+  IconData _iconForCategory(String cat) {
+    switch (cat) {
+      case 'Animals':
+        return Icons.pets_rounded;
+      case 'Food':
+        return Icons.restaurant_menu_rounded;
+      case 'Sports':
+        return Icons.sports_soccer_rounded;
+      case 'Travel':
+        return Icons.flight_takeoff_rounded;
+      case 'Movies':
+        return Icons.movie_creation_rounded;
+      case 'Technology':
+        return Icons.memory_rounded;
+      default:
+        return Icons.category_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-      ),
       body: Container(
         decoration: _bg(context),
         child: SafeArea(
-          top: true,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(.95),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _ink),
-                  ),
-                  child: Text(rule, textAlign: TextAlign.center),
+                Row(
+                  children: [
+                    // ⟵ Replaced IconButton with iOS-style chevron
+                    _BackChevron(
+                      onTap: () => Navigator.pop(context),
+                      color: const Color(0xFF2B2B2B),
+                      size: 22,
+                    ),
+                    const Expanded(
+                      child: Text(
+                        'Choose a Category',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: _ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
                 ),
-                if (topBar != null) ...[const SizedBox(height: 8), topBar!],
-                const SizedBox(height: 10),
-                Expanded(child: child),
-                if (bottom != null) ...[const SizedBox(height: 8), bottom!],
+                const SizedBox(height: 32),
+                FadeTransition(
+                  opacity: CurvedAnimation(
+                      parent: _fadeController, curve: Curves.easeInOut),
+                  child: Column(
+                    children: const [
+                      Icon(Icons.grid_view_rounded,
+                          size: 60, color: _themeGreen),
+                      SizedBox(height: 10),
+                      Text(
+                        'Tap a theme to begin your Word Search!',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Expanded(
+                  child: Center(
+                    child: Wrap(
+                      spacing: 18,
+                      runSpacing: 18,
+                      alignment: WrapAlignment.center,
+                      children: _categories.map((cat) {
+                        return ScaleTransition(
+                          scale: Tween<double>(begin: 1.0, end: 1.1)
+                              .animate(CurvedAnimation(
+                            parent: _bounceController,
+                            curve: Curves.elasticOut,
+                          )),
+                          child: GestureDetector(
+                            onTapDown: (_) => _onTapDown(),
+                            onTapUp: (_) => _onTapUp(),
+                            onTapCancel: () => _onTapUp(),
+                            onTap: () => _navigateToCategory(cat),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 28, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border:
+                                    Border.all(color: _themeGreen, width: 1.6),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _themeGreen.withOpacity(0.25),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_iconForCategory(cat),
+                                      color: _themeGreen, size: 30),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    cat,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: _ink,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -114,463 +294,302 @@ class _GameScaffold extends StatelessWidget {
   }
 }
 
-/* ─────────────────── Word Search ─────────────────── */
+/* ─────────── Game Core ─────────── */
 
 enum _WsDifficulty { easy, medium, hard }
 
 class WordSearchPage extends StatefulWidget {
-  const WordSearchPage({super.key});
+  final String category; // required: open a specific themed game
+  const WordSearchPage({super.key, required this.category});
+
   @override
   State<WordSearchPage> createState() => _WordSearchPageState();
 }
 
-class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStateMixin {
-  // Expanded word pools (added more words)
-  static const Map<_WsDifficulty, List<List<String>>> _pools = {
-    _WsDifficulty.easy: [
-      ['CALM', 'BREATHE', 'FOCUS', 'PAUSE', 'SMILE', 'REST', 'NAP', 'EASY'],
-      ['PEACE', 'REST', 'KIND', 'WARM', 'SOFT', 'JOY', 'HUG', 'NICE'],
-      ['OCEAN', 'CLOUD', 'LEAF', 'QUIET', 'EASE', 'BIRD', 'LILY', 'MILD'],
-      ['COZY', 'SLOW', 'ZEN', 'CARE', 'KINDLY', 'SUN', 'MOON', 'RAIN'],
-    ],
-    _WsDifficulty.medium: [
-      ['BALANCE', 'GROUND', 'MINDFUL', 'RELAX', 'GENTLE', 'CENTER', 'STEADY'],
-      ['GRATITUDE', 'SERENITY', 'STEADY', 'BREATHER', 'FEATHER', 'SUNLIGHT'],
-      ['SUNLIGHT', 'BREEZE', 'GENTLE', 'CENTER', 'HARMONY', 'SOOTHING'],
-      ['KINDNESS', 'PAUSING', 'REFRESH', 'RECENTER', 'SOFTNESS'],
-    ],
-    _WsDifficulty.hard: [
-      ['RESILIENCE', 'TRANQUIL', 'PATIENCE', 'HARMONY', 'CONTENTMENT'],
-      ['COMPOSURE', 'BREATHWORK', 'EQUANIMITY', 'STILLNESS', 'PRESENCE'],
-      ['MEDITATION', 'STILLNESS', 'PRESENCE', 'ACCEPTANCE', 'ATTUNEMENT'],
-      ['TRANQUILITY', 'EVENHANDED', 'MINDFULNESS', 'REFLECTION'],
-    ],
-  };
+class _WordSearchPageState extends State<WordSearchPage> {
+  final rnd = Random();
 
-  _WsDifficulty difficulty = _WsDifficulty.easy;
+  bool _loading = true;
+  late List<List<String>> grid;
+  late List<String> words;
+  late Set<String> remaining;
 
-  // Board (initialized to safe defaults to avoid LateInitializationError)
-  int size = 0;
-  List<List<String>> grid = const [];
-  List<String> words = const [];
-  Set<String> remaining = const <String>{};
-
-  // Selection & found paths
   final _selCells = <Point<int>>{};
+  final List<List<Point<int>>> _foundPaths = [];
+
+  Point<int>? _startCell;
   Point<int>? _lastCell;
   bool _dragging = false;
 
-  /// Persistent strike-throughs (each is an ordered list of points).
-  final List<List<Point<int>>> _foundPaths = [];
-
-  // Persistence keys
-  static const _saveKey = 'ws_active';
-  static const _saveDiff = 'ws_active_diff';
-  static const _saveWords = 'ws_active_words';
-  static const _saveGrid = 'ws_active_grid';
-  static const _savePaths = 'ws_active_paths'; // List<String> of serialized paths
-
-  // Timer (score)
+  int size = 0;
+  _WsDifficulty difficulty = _WsDifficulty.easy;
   late DateTime _startTime;
 
-  final rnd = Random();
-
-  // Win animation overlay
-  OverlayEntry? _winOverlay;
-
-  // Ready flag to guard build until puzzle is prepared
-  bool _initialized = false;
+  /* ─────────── 6 word pools (50+) ─────────── */
+  static const Map<String, List<String>> _wordPools = {
+    'Animals': [
+      'LION','TIGER','ELEPHANT','BEAR','ZEBRA','HORSE','DOG','CAT','EAGLE','SNAKE',
+      'DOLPHIN','WOLF','FROG','PANDA','CAMEL','MONKEY','COW','SHEEP','CHICKEN','KANGAROO',
+      'OWL','SHARK','WHALE','GIRAFFE','FOX','DEER','MOUSE','BAT','CROCODILE','RABBIT',
+      'TURTLE','PENGUIN','PARROT','FLAMINGO','ANT','BEE','CRAB','FISH','SPIDER','DUCK',
+      'OTTER','RHINO','BUFFALO','GOAT','DONKEY','LEOPARD','SEAL','LIZARD','GORILLA','HIPPO'
+    ],
+    'Food': [
+      'PIZZA','BURGER','PASTA','SALAD','BREAD','CAKE','COOKIE','SUSHI','STEAK','SANDWICH',
+      'RICE','SOUP','NOODLE','CHOCOLATE','APPLE','BANANA','ORANGE','GRAPE','MANGO','BERRY',
+      'COFFEE','TEA','JUICE','PANCAKE','WAFFLE','ICECREAM','OMELET','CHEESE','BUTTER','YOGURT',
+      'CARROT','POTATO','TOMATO','CORN','BEANS','GARLIC','ONION','CHILI','BROCCOLI','SPINACH',
+      'TURKEY','BACON','SALMON','TACO','HOTDOG','CURRY','MEATBALL','CUPCAKE','DONUT','MUFFIN'
+    ],
+    'Sports': [
+      'SOCCER','BASKETBALL','BASEBALL','TENNIS','FOOTBALL','HOCKEY','GOLF','SWIMMING','BOXING','CRICKET',
+      'VOLLEYBALL','RUNNING','CYCLING','SKIING','SURFING','SKATING','ROWING','ARCHERY','FENCING','BADMINTON',
+      'CLIMBING','DIVING','RUGBY','GYMNASTICS','SKATEBOARD','WEIGHTLIFT','TRACK','FIELD','JUDO','KARATE',
+      'TAEKWONDO','TABLETENNIS','BOWLING','HANDBALL','CURLING','POLO','SQUASH','SNOWBOARD','RACING','MARATHON',
+      'WRESTLING','YOGA','ZUMBA','CROSSFIT','DARTS','EQUESTRIAN','KAYAK','SAILING','LACROSSE','BILLIARDS'
+    ],
+    'Travel': [
+      'AIRPLANE','TRAIN','CAR','SHIP','BUS','SUBWAY','CITY','BEACH','MOUNTAIN','ISLAND',
+      'CAMPING','HOTEL','MAP','JOURNEY','ADVENTURE','PASSPORT','LUGGAGE','CRUISE','FLIGHT','TICKET',
+      'TOUR','GUIDE','RESORT','EXPLORE','NATURE','ROAD','BRIDGE','TEMPLE','CASTLE','DESERT',
+      'OCEAN','RIVER','FOREST','WILDLIFE','TRIP','VACATION','HIKE','TRAVELER','BACKPACK','JUNGLE',
+      'MUSEUM','CULTURE','EXPEDITION','LANDMARK','TRAIL','SUNSET','TROPICAL','SNOW','MARKET','SAFARI'
+    ],
+    'Movies': [
+      'ACTOR','DIRECTOR','CAMERA','FILM','SCENE','SCREEN','ACTION','DRAMA','COMEDY','THRILLER',
+      'HORROR','ROMANCE','FANTASY','ANIMATION','MUSIC','AWARD','SCRIPT','TRAILER','POP','BLOCKBUSTER',
+      'EDIT','STORY','HERO','VILLAIN','MOVIE','CINEMA','STUDIO','POSTER','LIGHTS','SOUND',
+      'TICKET','SEQUEL','SERIES','SHOW','BROADCAST','MARVEL','DISNEY','PIXAR','NETFLIX','OSCAR',
+      'HBO','STUNT','CLAPPER','DIRECT','WRITE','ACT','CUT','REEL','CREDITS','CAST'
+    ],
+    'Technology': [
+      'COMPUTER','ROBOT','AI','CODE','SOFTWARE','HARDWARE','CHIP','DATA','CLOUD','SERVER',
+      'PHONE','TABLET','INTERNET','BROWSER','KEYBOARD','SCREEN','MONITOR','DRONE','CAMERA','VIDEO',
+      'EMAIL','MESSAGE','SOCIAL','MEDIA','NETWORK','WIRELESS','GADGET','APP','PROGRAM','WEBSITE',
+      'SECURITY','ENCRYPT','PASSWORD','SEARCH','ALGORITHM','DATABASE','ENGINE','TECH','AUTOMATION','ELECTRIC',
+      'CHARGER','SATELLITE','SYSTEM','PLATFORM','SMART','DEVICE','CYBER','DIGITAL','INNOVATE','UPLOAD'
+    ],
+  };
 
   @override
   void initState() {
     super.initState();
-    // Start with an empty, safe screen; then restore or build a new puzzle.
-    _startTime = DateTime.now();
-    // Kick async restore/new
-    unawaited(_tryRestoreOrNew());
+    _newPuzzle();
   }
 
-  /* ─────────── Persistence helpers ─────────── */
+  /* ─────────── Puzzle Generator ─────────── */
 
-  String _encodePath(List<Point<int>> p) =>
-      p.map((pt) => '${pt.x},${pt.y}').join('|');
+  void _newPuzzle() {
+    setState(() => _loading = true);
 
-  List<Point<int>> _decodePath(String s) {
-    final out = <Point<int>>[];
-    for (final seg in s.split('|')) {
-      if (seg.isEmpty) continue;
-      final parts = seg.split(',');
-      if (parts.length == 2) {
-        final x = int.tryParse(parts[0]);
-        final y = int.tryParse(parts[1]);
-        if (x != null && y != null) out.add(Point(x, y));
-      }
-    }
-    return out;
-  }
+    final pool = _wordPools[widget.category] ?? _wordPools.values.first;
+    final shuffled = List<String>.from(pool)..shuffle(rnd);
 
-  Future<void> _persistActive() async {
-    if (size == 0 || words.isEmpty || grid.isEmpty) return;
-    final p = await SharedPreferences.getInstance();
-    await p.setInt(_saveDiff, difficulty.index);
-    await p.setStringList(_saveWords, words);
-    await p.setStringList(_saveKey, remaining.toList());
-    final flat = <String>[];
-    for (final r in grid) {
-      flat.addAll(r);
-    }
-    await p.setStringList(_saveGrid, flat);
-    final enc = _foundPaths.map(_encodePath).toList();
-    await p.setStringList(_savePaths, enc);
-  }
-
-  Future<void> _clearPersisted() async {
-    final p = await SharedPreferences.getInstance();
-    await p.remove(_saveDiff);
-    await p.remove(_saveWords);
-    await p.remove(_saveKey);
-    await p.remove(_saveGrid);
-    await p.remove(_savePaths);
-  }
-
-  Future<void> _tryRestoreOrNew() async {
-    final p = await SharedPreferences.getInstance();
-    final diffIdx = p.getInt(_saveDiff);
-    final wordsSaved = p.getStringList(_saveWords);
-    final gridSaved = p.getStringList(_saveGrid);
-    final pathsSaved = p.getStringList(_savePaths);
-
-    if (diffIdx != null && wordsSaved != null && gridSaved != null) {
-      difficulty = _WsDifficulty.values[diffIdx];
-      final calculatedSize = sqrt(gridSaved.length).round();
-      if (calculatedSize > 0) {
-        size = calculatedSize;
-        grid = List.generate(
-          size,
-          (r) => List.generate(size, (c) => gridSaved[r * size + c]),
-        );
-        words = List<String>.from(wordsSaved);
-        remaining = (p.getStringList(_saveKey)?.toSet() ?? words.toSet());
-
-        _foundPaths.clear();
-        if (pathsSaved != null && pathsSaved.isNotEmpty) {
-          for (final s in pathsSaved) {
-            final path = _decodePath(s);
-            if (path.isNotEmpty) _foundPaths.add(path);
-          }
-        } else {
-          // Old saves (pre-paths) — reconstruct
-          final foundWords = words.where((w) => !remaining.contains(w)).toList();
-          for (final w in foundWords) {
-            final path = _findWordPath(w);
-            if (path != null) _foundPaths.add(path);
-          }
-          await _persistActive();
-        }
-
-        _startTime = DateTime.now();
-        _initialized = true;
-        if (mounted) setState(() {});
-        return;
-      }
+    if (difficulty == _WsDifficulty.easy) {
+      size = 12;
+      words = shuffled.take(8).toList();
+    } else if (difficulty == _WsDifficulty.medium) {
+      size = 13;
+      words = shuffled.take(12).toList();
+    } else {
+      size = 14;
+      words = shuffled.take(16).toList();
     }
 
-    _newPuzzle(resetDifficulty: false);
-  }
-
-  /* ─────────── Build / reset ─────────── */
-
-  void _newPuzzle({bool resetDifficulty = false}) {
-    if (resetDifficulty) difficulty = _WsDifficulty.easy;
-    final pool = _pools[difficulty]!;
-    final list = List<List<String>>.from(pool)..shuffle(rnd);
-    var selected = List<String>.from(list.first)..shuffle(rnd);
-
-    size = (difficulty == _WsDifficulty.easy)
-        ? 12
-        : (difficulty == _WsDifficulty.medium ? 13 : 14);
-
-    grid = List.generate(size, (_) => List.filled(size, ''));
-    selected = _placeWords(selected);
-    words = selected;
     remaining = words.toSet();
+    grid = List.generate(size, (_) => List.filled(size, ''));
+    _placeWords(words);
     _fillRandom();
 
-    _selCells.clear();
-    _lastCell = null;
     _foundPaths.clear();
-    _startTime = DateTime.now();
-    _initialized = true;
-    _persistActive();
-    if (mounted) setState(() {});
-  }
-
-  void _resetCurrent() {
-    if (size == 0) return;
-    grid = List.generate(size, (_) => List.filled(size, ''));
-    words = _placeWords(words);
-    remaining = words.toSet();
-    _fillRandom();
     _selCells.clear();
+    _startCell = null;
     _lastCell = null;
-    _foundPaths.clear();
     _startTime = DateTime.now();
-    _persistActive();
-    setState(() {});
-  }
 
-  /* ─────────── Grid gen ─────────── */
-
-  /// Places as many words as fit. Returns the list of actually placed words.
-  List<String> _placeWords(List<String> source) {
-    final dirs = [
-      const Point(1, 0),
-      const Point(0, 1),
-      const Point(1, 1),
-      const Point(-1, 1),
-      const Point(-1, 0),
-      const Point(0, -1),
-      const Point(-1, -1),
-      const Point(1, -1),
-    ];
-    final placedWords = <String>[];
-
-    for (final w in source) {
-      bool placed = false;
-      for (int tries = 0; tries < 500 && !placed; tries++) {
-        final d = dirs[rnd.nextInt(dirs.length)];
-        final r0 = rnd.nextInt(size), c0 = rnd.nextInt(size);
-        int r = r0, c = c0;
-        bool ok = true;
-        for (int i = 0; i < w.length; i++) {
-          if (r < 0 || r >= size || c < 0 || c >= size) {
-            ok = false;
-            break;
-          }
-          final ch = grid[r][c];
-          if (ch.isNotEmpty && ch != w[i]) {
-            ok = false;
-            break;
-          }
-          r += d.y;
-          c += d.x;
-        }
-        if (!ok) continue;
-        r = r0;
-        c = c0;
-        for (int i = 0; i < w.length; i++) {
-          grid[r][c] = w[i];
-          r += d.y;
-          c += d.x;
-        }
-        placed = true;
-        placedWords.add(w);
-      }
-    }
-    return placedWords;
+    setState(() => _loading = false);
   }
 
   void _fillRandom() {
-    for (int r = 0; r < size; r++) {
-      for (int c = 0; c < size; c++) {
-        if (grid[r][c].isEmpty) {
-          grid[r][c] = String.fromCharCode(65 + rnd.nextInt(26));
+    for (int y = 0; y < size; y++) {
+      for (int x = 0; x < size; x++) {
+        if (grid[y][x].isEmpty) {
+          grid[y][x] = String.fromCharCode(65 + rnd.nextInt(26));
         }
       }
     }
   }
 
-  /* ─────────── Restore helper for old saves ─────────── */
-
-  List<Point<int>>? _findWordPath(String word) {
+  void _placeWords(List<String> ws) {
     final dirs = [
-      const Point(1, 0),
-      const Point(0, 1),
-      const Point(1, 1),
-      const Point(-1, 1),
-      const Point(-1, 0),
-      const Point(0, -1),
-      const Point(-1, -1),
-      const Point(1, -1),
+      const Point(1, 0), const Point(0, 1), const Point(1, 1), const Point(-1, 1),
+      const Point(-1, 0), const Point(0, -1), const Point(-1, -1), const Point(1, -1),
     ];
-    bool inBounds(int r, int c) => r >= 0 && r < size && c >= 0 && c < size;
-
-    for (final target
-        in [word, String.fromCharCodes(word.runes.toList().reversed)]) {
-      for (int r0 = 0; r0 < size; r0++) {
-        for (int c0 = 0; c0 < size; c0++) {
-          for (final d in dirs) {
-            int r = r0, c = c0;
-            bool ok = true;
-            final path = <Point<int>>[];
-            for (int i = 0; i < target.length; i++) {
-              if (!inBounds(r, c) || grid[r][c] != target[i]) {
-                ok = false;
-                break;
-              }
-              path.add(Point(c, r));
-              r += d.y;
-              c += d.x;
-            }
-            if (ok) return path;
-          }
+    for (final w in ws) {
+      bool placed = false;
+      for (int tries = 0; tries < 400 && !placed; tries++) {
+        final d = dirs[rnd.nextInt(dirs.length)];
+        final r0 = rnd.nextInt(size);
+        final c0 = rnd.nextInt(size);
+        int r = r0, c = c0;
+        bool ok = true;
+        for (int i = 0; i < w.length; i++) {
+          if (r < 0 || r >= size || c < 0 || c >= size) { ok = false; break; }
+          final ch = grid[r][c];
+          if (ch.isNotEmpty && ch != w[i]) { ok = false; break; }
+          r += d.y; c += d.x;
         }
+        if (!ok) continue;
+        r = r0; c = c0;
+        for (int i = 0; i < w.length; i++) {
+          grid[r][c] = w[i];
+          r += d.y; c += d.x;
+        }
+        placed = true;
       }
     }
-    return null;
   }
 
-  /* ─────────── Gesture → selection (only exact squares under pointer) ─────────── */
+  /* ─────────── Interaction ─────────── */
+
+  Point<int>? _posToCell(Offset pos, BoxConstraints cons) {
+    final cellSize = cons.maxWidth / size;
+    final gx = (pos.dx / cellSize).floor();
+    final gy = (pos.dy / cellSize).floor();
+    if (gx < 0 || gx >= size || gy < 0 || gy >= size) return null;
+    return Point(gx, gy);
+  }
+
+  Point<int>? _snapDirection(int dx, int dy) {
+    if (dx == 0 && dy == 0) return null;
+    double angle = atan2(dy.toDouble(), dx.toDouble());
+    const step = pi / 4; // snap to 8 directions
+    angle = (angle / step).round() * step;
+    final snappedDx = cos(angle).round();
+    final snappedDy = sin(angle).round();
+    if (snappedDx == 0 && snappedDy == 0) return null;
+    return Point(snappedDx, snappedDy);
+  }
 
   void _onPanStart(Offset pos, BoxConstraints cons) {
+    final cell = _posToCell(pos, cons);
+    if (cell == null) return;
     _dragging = true;
     _selCells.clear();
-    _lastCell = null;
-    _addCellFromPosition(pos, cons);
+    _startCell = cell;
+    _lastCell = cell;
+    _selCells.add(cell);
+    setState(() {});
   }
 
   void _onPanUpdate(Offset pos, BoxConstraints cons) {
-    if (!_dragging) return;
-    _addCellFromPosition(pos, cons);
+    if (!_dragging || _startCell == null) return;
+    final current = _posToCell(pos, cons);
+    if (current == null) return;
+    final dx = current.x - _startCell!.x;
+    final dy = current.y - _startCell!.y;
+    final dir = _snapDirection(dx, dy);
+    if (dir == null) return;
+
+    _selCells.clear();
+    int x = _startCell!.x, y = _startCell!.y;
+    while (x >= 0 && x < size && y >= 0 && y < size &&
+        (dir.x == 0 || (dir.x > 0 ? x <= current.x : x >= current.x)) &&
+        (dir.y == 0 || (dir.y > 0 ? y <= current.y : y >= current.y))) {
+      _selCells.add(Point(x, y));
+      x += dir.x; y += dir.y;
+    }
+    _lastCell = current;
+    setState(() {});
   }
 
   void _onPanEnd() {
+    if (_dragging) _checkSelection();
     _dragging = false;
-    _checkSelection();
     _selCells.clear();
+    _startCell = null;
     _lastCell = null;
     setState(() {});
   }
 
-  void _addCellFromPosition(Offset pos, BoxConstraints cons) {
-    if (size == 0) return;
-    final cellSize = cons.maxWidth / size;
-    final gx = (pos.dx / cellSize).floor();
-    final gy = (pos.dy / cellSize).floor();
-    if (gx < 0 || gx >= size || gy < 0 || gy >= size) return;
+  void _checkSelection() {
+    if (_selCells.length < 2) return;
 
-    final pt = Point(gx, gy);
-
-    // Only add the exact cell currently under the pointer; no interpolation to neighbors.
-    if (_lastCell == null || _lastCell != pt) {
-      _selCells.add(pt);
-      _lastCell = pt;
-      setState(() {});
-    }
-  }
-
-  Future<void> _checkSelection() async {
-    if (_selCells.length < 2 || size == 0) return;
     final a = _selCells.first;
     final b = _selCells.last;
-    int dx = b.x - a.x, dy = b.y - a.y;
-    final steps = max(dx.abs(), dy.abs());
-    if (!(dx == 0 || dy == 0 || dx.abs() == dy.abs())) return; // straight/diag only
-    dx = dx.sign;
-    dy = dy.sign;
+    final dx = (b.x - a.x).sign;
+    final dy = (b.y - a.y).sign;
+    final steps = max((b.x - a.x).abs(), (b.y - a.y).abs());
 
-    final buff = StringBuffer();
+    final sb = StringBuffer();
     final path = <Point<int>>[];
     int r = a.y, c = a.x;
     for (int i = 0; i <= steps; i++) {
-      buff.write(grid[r][c]);
+      sb.write(grid[r][c]);
       path.add(Point(c, r));
       r += dy;
       c += dx;
     }
-    final s = buff.toString();
+
+    final s = sb.toString();
     final rs = s.split('').reversed.join();
 
     String? found;
-    List<Point<int>>? foundPath;
     if (remaining.contains(s)) {
       found = s;
-      foundPath = path;
     } else if (remaining.contains(rs)) {
       found = rs;
-      foundPath = path.reversed.toList();
     }
 
     if (found != null) {
       remaining.remove(found);
-      if (foundPath != null) _foundPaths.add(foundPath);
-      await _persistActive();
+      _foundPaths.add(path);
       setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Found: $found')));
-      }
-      if (remaining.isEmpty) {
-        await _onWin();
-      }
+      if (remaining.isEmpty) _onWin();
     }
   }
 
   Future<void> _onWin() async {
-    await _clearPersisted();
-    final secs =
-        DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
-    final score = words.isEmpty ? 0.0 : words.length / secs; // words per second
-    await ScoreStore.instance.add('wordsearch', score);
+    final secs = DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
+    final score = words.length / secs;
     final isHigh = await ScoreStore.instance.reportBest('wordsearch', score);
-
-    _showWinAnimation();
-    await Future.delayed(const Duration(milliseconds: 1400));
-    _hideWinAnimation();
-
     if (!mounted) return;
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isHigh ? 'New High Score!' : 'Puzzle Complete'),
-        content: Text(isHigh
-            ? 'Speed: ${score.toStringAsFixed(3)} words/sec'
-            : 'Nice work! Want a fresh grid?'),
+        content: Text('Speed: ${score.toStringAsFixed(3)} words/sec'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
           FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _newPuzzle();
-              },
-              child: const Text('New')),
+            onPressed: () {
+              Navigator.pop(context);
+              _newPuzzle();
+            },
+            child: const Text('New'),
+          ),
         ],
       ),
     );
-  }
-
-  /* ─────────── Win animation (confetti-like burst) ─────────── */
-
-  void _showWinAnimation() {
-    if (_winOverlay != null) return;
-    final entry = OverlayEntry(
-      builder: (ctx) => _WinConfettiOverlay(vsync: this),
-    );
-    _winOverlay = entry;
-    Overlay.of(context).insert(entry);
-  }
-
-  void _hideWinAnimation() {
-    _winOverlay?.remove();
-    _winOverlay = null;
   }
 
   /* ─────────── UI ─────────── */
 
   @override
   Widget build(BuildContext context) {
-    // Loading/initializing guard to prevent scheduler/semantics spam & late-inits
-    if (!_initialized || size == 0 || grid.isEmpty) {
-      return _GameScaffold(
-        title: 'Word Search',
-        rule: 'Drag across letters in a straight line (any direction) to select a word.',
-        child: const Center(child: CircularProgressIndicator()),
+    if (_loading) {
+      return Scaffold(
+        body: Container(
+          decoration: _bg(context),
+          child: const Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
-    final wordChips = Wrap(
+    final chips = Wrap(
       spacing: 8,
       runSpacing: 8,
       alignment: WrapAlignment.center,
@@ -580,80 +599,117 @@ class _WordSearchPageState extends State<WordSearchPage> with TickerProviderStat
           label: Text(
             w,
             style: TextStyle(
-              decoration:
-                  found ? TextDecoration.lineThrough : TextDecoration.none,
-              decorationThickness: 2,
-              decorationColor: Colors.black,
-              fontWeight: FontWeight.w800,
+              decoration: found ? TextDecoration.lineThrough : null,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          backgroundColor: found ? const Color(0xFFA7E0C9) : Colors.white,
+          backgroundColor:
+              found ? const Color(0xFFA7E0C9) : Colors.white.withOpacity(.95),
           side: const BorderSide(color: _ink),
         );
       }).toList(),
     );
 
-    final topControls = Row(
+    final topBar = Row(
       children: [
-        const Text('Difficulty:', style: TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(width: 8),
-        DropdownButton<_WsDifficulty>(
-          value: difficulty,
-          onChanged: (d) {
-            if (d == null) return;
-            setState(() => difficulty = d);
-            _newPuzzle();
-          },
-          items: const [
-            DropdownMenuItem(value: _WsDifficulty.easy, child: Text('Easy')),
-            DropdownMenuItem(value: _WsDifficulty.medium, child: Text('Medium')),
-            DropdownMenuItem(value: _WsDifficulty.hard, child: Text('Hard')),
-          ],
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _themeGreen.withOpacity(.6), width: 1.5),
+          ),
+          child: DropdownButton<_WsDifficulty>(
+            value: difficulty,
+            underline: const SizedBox.shrink(),
+            borderRadius: BorderRadius.circular(10),
+            dropdownColor: Colors.white,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _ink),
+            style: const TextStyle(
+              color: _ink,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() => difficulty = v);
+              _newPuzzle();
+            },
+            items: const [
+              DropdownMenuItem(value: _WsDifficulty.easy, child: Text('Easy')),
+              DropdownMenuItem(value: _WsDifficulty.medium, child: Text('Medium')),
+              DropdownMenuItem(value: _WsDifficulty.hard, child: Text('Hard')),
+            ],
+          ),
         ),
         const Spacer(),
-        OutlinedButton.icon(
-          onPressed: _resetCurrent,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text('Reset'),
-        ),
-        const SizedBox(width: 8),
         FilledButton.icon(
           onPressed: _newPuzzle,
-          icon: const Icon(Icons.fiber_new_rounded, size: 18),
+          style: FilledButton.styleFrom(
+            backgroundColor: _themeGreen,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: const Icon(Icons.refresh_rounded, size: 18),
           label: const Text('New'),
         ),
       ],
     );
 
-    return _GameScaffold(
-      title: 'Word Search',
-      rule:
-          'Drag across letters in a straight line (any direction) to select a word.',
-      topBar: topControls,
-      child: Column(
-        children: [
-          wordChips,
-          const SizedBox(height: 8),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, cons) {
-                final board = AspectRatio(
-                  aspectRatio: 1,
-                  child: Listener(
-                    onPointerDown: (e) => _onPanStart(e.localPosition, cons),
-                    onPointerMove: (e) => _onPanUpdate(e.localPosition, cons),
-                    onPointerUp: (_) => _onPanEnd(),
-                    child: CustomPaint(
-                      painter: _WsPainter(grid, _selCells, _foundPaths),
-                      child: const SizedBox.expand(),
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'Word Search - ${widget.category}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        // ⟵ Replaced leading back icon with the iOS-style chevron
+        leading: _BackChevron(
+          onTap: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const WordSearchCategoryPage()),
+            );
+          },
+          color: const Color(0xFF2B2B2B),
+          size: 22,
+        ),
+      ),
+      body: Container(
+        decoration: _bg(context),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              children: [
+                topBar,
+                const SizedBox(height: 8),
+                chips,
+                const SizedBox(height: 8),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, cons) => AspectRatio(
+                      aspectRatio: 1,
+                      child: Listener(
+                        onPointerDown: (e) => _onPanStart(e.localPosition, cons),
+                        onPointerMove: (e) => _onPanUpdate(e.localPosition, cons),
+                        onPointerUp: (_) => _onPanEnd(),
+                        child: CustomPaint(
+                          painter: _WsPainter(grid, _selCells, _foundPaths),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
                     ),
                   ),
-                );
-                return Center(child: board);
-              },
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -672,46 +728,51 @@ class _WsPainter extends CustomPainter {
     final n = g.length;
     if (n == 0) return;
     final cell = s.width / n;
-    final border =
-        Paint()..color = _ink.withOpacity(.25)..style = PaintingStyle.stroke;
-    final selBg = Paint()..color = const Color(0xFFFFF1A6);
-    final txt =
-        TextPainter(textAlign: TextAlign.center, textDirection: TextDirection.ltr);
 
-    // grid + selection
+    final border = Paint()
+      ..color = _ink.withOpacity(.25)
+      ..style = PaintingStyle.stroke;
+    final selBg = Paint()..color = const Color(0xFFFFF1A6);
+
+    final tp = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    );
+
     for (int y = 0; y < n; y++) {
       for (int x = 0; x < n; x++) {
         final r = Rect.fromLTWH(x * cell, y * cell, cell, cell);
         c.drawRRect(
-            RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)),
-            border);
+          RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)),
+          border,
+        );
         if (sel.contains(Point(x, y))) {
           c.drawRRect(
-              RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)),
-              selBg);
+            RRect.fromRectAndRadius(r.deflate(1), const Radius.circular(6)),
+            selBg,
+          );
         }
-        txt.text = TextSpan(
+        tp.text = TextSpan(
           text: g[y][x],
-          style: const TextStyle(
-              fontWeight: FontWeight.w800, color: Colors.black),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w800),
         );
-        txt.layout(minWidth: cell, maxWidth: cell);
-        txt.paint(c, Offset(x * cell, y * cell + (cell - txt.height) / 2));
+        tp.layout(minWidth: cell, maxWidth: cell);
+        tp.paint(c, Offset(x * cell, y * cell + (cell - tp.height) / 2));
       }
     }
 
-    // strike-through lines for found words (persisted)
+    // draw strike lines for found words
     final linePaint = Paint()
-      ..color = const Color(0xFF0D7C66).withOpacity(.85)
+      ..color = _themeGreen.withOpacity(.85)
       ..strokeWidth = cell * 0.20
       ..strokeCap = StrokeCap.round;
 
     for (final path in foundPaths) {
       if (path.isEmpty) continue;
-      final first = path.first;
-      final last = path.last;
-      final p1 = Offset(first.x * cell + cell / 2, first.y * cell + cell / 2);
-      final p2 = Offset(last.x * cell + cell / 2, last.y * cell + cell / 2);
+      final p1 = Offset(path.first.x * cell + cell / 2,
+          path.first.y * cell + cell / 2);
+      final p2 = Offset(path.last.x * cell + cell / 2,
+          path.last.y * cell + cell / 2);
       c.drawLine(p1, p2, linePaint);
     }
   }
@@ -719,132 +780,4 @@ class _WsPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _WsPainter old) =>
       old.g != g || old.sel != sel || old.foundPaths != foundPaths;
-}
-
-/* ─────────── Win confetti overlay ─────────── */
-
-class _WinConfettiOverlay extends StatefulWidget {
-  final TickerProvider vsync;
-  const _WinConfettiOverlay({required this.vsync});
-
-  @override
-  State<_WinConfettiOverlay> createState() => _WinConfettiOverlayState();
-}
-
-class _WinConfettiOverlayState extends State<_WinConfettiOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-  final _particles = <_Particle>[];
-  final _rnd = Random();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: widget.vsync,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
-    _spawn();
-    _ctrl.forward();
-  }
-
-  void _spawn() {
-    // spawn a handful of particles
-    for (int i = 0; i < 60; i++) {
-      _particles.add(
-        _Particle(
-          dx: (_rnd.nextDouble() * 2 - 1) * 180,
-          dy: (_rnd.nextDouble() * 2 - 1) * 180,
-          size: 6 + _rnd.nextDouble() * 10,
-          rotation: _rnd.nextDouble() * pi,
-        ),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _anim,
-        builder: (_, __) {
-          final double t = _anim.value;
-          final double clamped = (t.clamp(0.0, 1.0) as double);
-          final double opacity = 1.0 - clamped;
-
-          return Positioned.fill(
-            child: Opacity(
-              opacity: opacity,
-              child: Stack(
-                children: [
-                  // subtle backdrop flash
-                  Container(
-                      color: const Color(0xFFFFFFFF).withOpacity(0.2 * opacity)),
-                  // burst from center
-                  ..._particles.map((p) {
-                    final dx = p.dx * t;
-                    final dy = p.dy * t;
-                    final scale = 0.6 + 0.6 * (1 - (t - 0.3).abs());
-                    return Align(
-                      alignment: Alignment.center,
-                      child: Transform.translate(
-                        offset: Offset(dx, dy),
-                        child: Transform.rotate(
-                          angle: p.rotation * (1 + t),
-                          child: Transform.scale(
-                            scale: scale,
-                            child: Container(
-                              width: p.size,
-                              height: p.size,
-                              decoration: BoxDecoration(
-                                color: _randColor(p.hashCode),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  // center trophy
-                  Align(
-                    alignment: Alignment.center,
-                    child: Transform.scale(
-                      scale: 0.6 + 0.4 * (1 - (t - 0.2).abs()),
-                      child: const Icon(Icons.emoji_events_rounded,
-                          size: 96, color: Color(0xFF0D7C66)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Color _randColor(int seed) {
-    final r = (seed * 97) % 255;
-    final g = (seed * 57) % 255;
-    final b = (seed * 127) % 255;
-    return Color.fromARGB(255, r, g, b);
-  }
-}
-
-class _Particle {
-  final double dx, dy, size, rotation;
-  _Particle(
-      {required this.dx,
-      required this.dy,
-      required this.size,
-      required this.rotation});
 }
