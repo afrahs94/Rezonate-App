@@ -3022,7 +3022,7 @@ class _BottomNav extends StatelessWidget {
             onPressed: () {}, // current page
           ),
           IconButton(
-            icon: Icon(Icons.dashboard, color: c(2)),
+            icon: Icon(Icons.widgets_rounded, color: c(2)),
             onPressed:
                 index == 2
                     ? null

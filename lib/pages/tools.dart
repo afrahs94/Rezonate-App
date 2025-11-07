@@ -95,11 +95,19 @@ class _ToolsPageState extends State<ToolsPage> {
     super.dispose();
   }
 
-  Iterable<_ToolItem> get _filteredItems {
-    if (_query.isEmpty) return _items;
-    final q = _query.toLowerCase();
-    return _items.where((t) => t.label.toLowerCase().contains(q));
-  }
+Iterable<_ToolItem> get _filteredItems {
+  if (_query.isEmpty) return _items;
+  final q = _query.toLowerCase();
+
+  return _items.where((t) {
+    final inLabel = t.label.toLowerCase().contains(q);
+    final termList = t.terms ?? const <String>[];
+    final inTerms = termList.any((term) => term.toLowerCase().contains(q));
+    return inLabel || inTerms;
+  });
+}
+
+
 
   Iterable<_ToolItem> get _recentItems sync* {
     for (final id in _recentIds) {
@@ -456,39 +464,76 @@ class _ToolItem {
   final String label;
   final IconData icon;
   final Widget page;
-  const _ToolItem(this.label, this.icon, this.page);
+  final List<String>? terms;
+
+  const _ToolItem(this.label, this.icon, this.page, {
+    this.terms = const [],
+  });
 }
 
 final _items = <_ToolItem>[
-  const _ToolItem(
+   _ToolItem(
     'Sounds',
     Icons.music_note_rounded,
     SoundsPage(),
+    terms: ['music', 'calm', 'relax', 'sound'],
   ),
-  const _ToolItem(
+   _ToolItem(
     'Habit Tracker',
     Icons.checklist_rtl_rounded,
     HabitTrackerPage(),
+    terms: ['habits', 'routine', 'daily', 'calendar'],
   ),
-  const _ToolItem('Sleep Tracker', Icons.bedtime_rounded, SleepTrackerPage()),
-  const _ToolItem(
+   _ToolItem('Sleep Tracker', Icons.bedtime_rounded, SleepTrackerPage(), terms: ['sleep', 'bedtime', 'insomnia'],),
+   _ToolItem(
     'Meditation',
     Icons.self_improvement_rounded,
     MeditationPage(),
+    terms: ['breathing', 'mindfulness', 'relax']
   ),
-  const _ToolItem('Tips', Icons.tips_and_updates_rounded, TipsPage()),
-  const _ToolItem('Resources', Icons.library_books_rounded, ResourcesPage()),
-  const _ToolItem('Exercises', Icons.fitness_center_rounded, ExercisesPage()),
-  const _ToolItem('AI Chatbot', Icons.forum_rounded, AIChatbotPage()),
-  const _ToolItem(
+   _ToolItem('Tips', Icons.tips_and_updates_rounded, TipsPage(), terms: [
+      'depression',
+      'anxiety',
+      'adhd',
+      'ptsd',
+      'ocd',
+      'flashcards',
+      'crash course'
+    ],),
+
+   _ToolItem('Resources', Icons.library_books_rounded, ResourcesPage(), terms: [
+      'crisis',
+      '988',
+      'hotline',
+      'lgbtq+',
+      'veterans',
+      'youth',
+      'canada',
+      'uk',
+      'india',
+      'global'
+    ],),
+   _ToolItem('Exercises', Icons.fitness_center_rounded, ExercisesPage(), terms: ['grounding', 'coping', 'skills', 'practice'],),
+   _ToolItem('AI Chatbot', Icons.forum_rounded, AIChatbotPage(), terms: ['chat', 'ask', 'assistant'],),
+   _ToolItem(
     'Stress Busters',
     Icons.videogame_asset_rounded,
-    StressBustersPage(),
+    StressBustersPage(), 
+    terms: [
+      'games',
+      'word search',
+      'crossword',
+      'matching',
+      'sudoku',
+      'hangman',
+      'scramble'
+    ],
   ),
-  const _ToolItem(
+   _ToolItem(
     'Affirmations',
     Icons.auto_awesome_rounded,
     AffirmationsPage(),
+    terms: ['positive', 'self talk', 'daily', 'quotes']
   ),
 ];
 
@@ -538,7 +583,7 @@ class _BottomNav extends StatelessWidget {
                     ),
           ),
           IconButton(
-            icon: Icon(Icons.dashboard, color: c(2), size: 22),
+            icon: Icon(Icons.widgets_rounded, color: c(2), size: 22),
             onPressed: () {},
           ),
         ],

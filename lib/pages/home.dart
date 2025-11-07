@@ -1711,7 +1711,7 @@ class _BottomNav extends StatelessWidget {
             onToolTipClick: () {},
             onBarrierClick: () {},
             child: IconButton(
-              icon: Icon(Icons.dashboard, color: c(2)),
+              icon: Icon(Icons.widgets_rounded, color: c(2)),
               onPressed: () => Navigator.pushReplacement(
                 context,
                 NoTransitionPageRoute(builder: (_) => ToolsPage(userName: userName)),

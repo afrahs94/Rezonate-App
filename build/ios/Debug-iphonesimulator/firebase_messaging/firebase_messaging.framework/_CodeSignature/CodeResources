@@ -14,7 +14,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		aq4AaaAfNTRuQiU9Xuo5Di1DfaY=
+		cvwtK5BPiOSzHkVV6Vw30A1aFLU=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -25,10 +25,6 @@
 	<dict>
 		<key>Headers/FLTFirebaseMessagingPlugin.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			I8iRaSeNDalEjg0BTpDPBM39O/4=
-			</data>
 			<key>hash2</key>
 			<data>
 			NNiEafdY/SFLx8flRBzYaIruAoo6btPJDvIHu7QsdNc=
@@ -36,10 +32,6 @@
 		</dict>
 		<key>Headers/firebase_messaging-umbrella.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			O3hqmWIAzGVWxIf50/R2W4Ziqbk=
-			</data>
 			<key>hash2</key>
 			<data>
 			W8fF9PKXSdgvvEn3EWv329trkYOUNJapOs43P0Aq3Yo=
@@ -47,10 +39,6 @@
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			gr2wvic71RIF1mJtif2cvWUrh6k=
-			</data>
 			<key>hash2</key>
 			<data>
 			vAUKLnvMOHgVYucJAY0W3RucXgfKlyQxjokRJm9z23o=
