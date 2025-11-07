@@ -1,5 +1,5 @@
 // lib/pages/uplingo.dart
-// Uplingo – Wordle-style game with refined compact keyboard layout and balanced board spacing.
+// Uplingo – authentic Wordle-style game with auto-submit after fifth letter.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -15,23 +15,19 @@ class UplingoPage extends StatefulWidget {
 class _UplingoPageState extends State<UplingoPage> {
   static const int wordLength = 5;
   static const int maxAttempts = 6;
-  static const int maxHints = 3;
 
   final List<String> _wordBank = [
-    'PEACE', 'CALM', 'BREATHE', 'SMILE', 'LIGHT', 'FOCUS', 'UNITY', 'TRUST', 'GRACE', 'DREAM',
-    'HOPE', 'BLISS', 'ANGEL', 'HEART', 'NOBLE', 'HONOR', 'KIND', 'CLEAR', 'CLOUD', 'LUCKY',
-    'FAITH', 'EAGER', 'SHINE', 'WORTH', 'ALIGN', 'ZENON', 'SOLAR', 'MIRTH', 'OASIS', 'CHARM',
-    'BRAVE', 'FRESH', 'RIVER', 'MUSIC', 'PURE', 'HAPPY', 'QUIET', 'BLOOM', 'GREEN', 'RADIANT',
-    'SWEET', 'EQUAL', 'YOUTH', 'GLOW', 'SEREN', 'MINTY', 'CALMS', 'ALIGN'
+    'PEACE', 'LIGHT', 'FOCUS', 'UNITY', 'TRUST', 'GRACE', 'DREAM', 'HOPE', 'HEART', 'KIND',
+    'CLEAR', 'LUCKY', 'FAITH', 'WORTH', 'ALIGN', 'SOLAR', 'OASIS', 'BRAVE', 'MUSIC', 'HAPPY',
+    'QUIET', 'BLOOM', 'GREEN', 'SMILE', 'NOBLE', 'HONOR', 'PLANT', 'STYLE', 'HONEY', 'BRAIN'
   ];
 
   late String _target;
   List<String> _guesses = [];
+  List<List<Color>> _colorResults = [];
   String _current = '';
   bool _won = false;
   bool _lost = false;
-  int _hintsUsed = 0;
-  Set<int> _hintPositions = {};
 
   @override
   void initState() {
@@ -42,16 +38,12 @@ class _UplingoPageState extends State<UplingoPage> {
   void _newGame() {
     final rand = Random();
     setState(() {
-      _target = _wordBank[rand.nextInt(_wordBank.length)]
-          .toUpperCase()
-          .padRight(wordLength)
-          .substring(0, wordLength);
+      _target = _wordBank[rand.nextInt(_wordBank.length)];
       _guesses.clear();
+      _colorResults.clear();
       _current = '';
       _won = false;
       _lost = false;
-      _hintsUsed = 0;
-      _hintPositions.clear();
     });
   }
 
@@ -59,48 +51,79 @@ class _UplingoPageState extends State<UplingoPage> {
     if (_won || _lost) return;
     setState(() {
       if (ch == '⌫') {
-        if (_current.isNotEmpty) _current = _current.substring(0, _current.length - 1);
-      } else if (ch == '↵') {
-        if (_current.length == wordLength) {
-          _guesses.add(_current);
-          if (_current == _target) {
-            _won = true;
-          } else if (_guesses.length >= maxAttempts) {
-            _lost = true;
-          }
-          _current = '';
+        if (_current.isNotEmpty) {
+          _current = _current.substring(0, _current.length - 1);
         }
-      } else if (_current.length < wordLength) {
-        _current += ch;
+      } else if (RegExp(r'^[A-Za-z]$').hasMatch(ch)) {
+        if (_current.length < wordLength) {
+          _current += ch.toUpperCase();
+          if (_current.length == wordLength) {
+            _submitGuess(); // auto-submit after 5th letter
+          }
+        }
       }
     });
   }
 
-  void _useHint() {
-    if (_hintsUsed >= maxHints || _won || _lost) return;
-    setState(() {
-      int idx;
-      final rand = Random();
-      do {
-        idx = rand.nextInt(wordLength);
-      } while (_hintPositions.contains(idx));
-      _hintPositions.add(idx);
-      _hintsUsed++;
-    });
-  }
+  void _submitGuess() {
+    if (_current.length != wordLength) return;
 
-  Color _tileColor(String guess, int index) {
-    final letter = guess[index];
-    if (_target[index] == letter) return const Color(0xFF6FD6C1);
-    if (_target.contains(letter)) return const Color(0xFFBDA9DB);
-    return Colors.grey.shade300;
+    final guess = _current;
+    final targetChars = _target.split('');
+    final guessChars = guess.split('');
+    final resultColors = List<Color>.filled(wordLength, Colors.grey.shade300);
+    final used = List<bool>.filled(wordLength, false);
+
+    // Mark greens
+    for (int i = 0; i < wordLength; i++) {
+      if (guessChars[i] == targetChars[i]) {
+        resultColors[i] = const Color(0xFF6FD6C1); // green
+        used[i] = true;
+      }
+    }
+
+    // Mark yellows
+    for (int i = 0; i < wordLength; i++) {
+      if (resultColors[i] == Colors.grey.shade300) {
+        for (int j = 0; j < wordLength; j++) {
+          if (!used[j] && guessChars[i] == targetChars[j]) {
+            resultColors[i] = const Color(0xFFFDDC77); // yellow
+            used[j] = true;
+            break;
+          }
+        }
+      }
+    }
+
+    _guesses.add(guess);
+    _colorResults.add(resultColors);
+
+    if (guess == _target) {
+      _won = true;
+    } else if (_guesses.length >= maxAttempts) {
+      _lost = true;
+    }
+
+    _current = '';
   }
 
   Widget _buildBoard() {
     final rows = <Widget>[];
+
     for (int i = 0; i < maxAttempts; i++) {
-      String word = i < _guesses.length ? _guesses[i] : (i == _guesses.length ? _current : '');
+      List<Color> colors = i < _colorResults.length
+          ? _colorResults[i]
+          : List<Color>.filled(wordLength, Colors.white.withOpacity(0.9));
+
+      String word = '';
+      if (i < _guesses.length) {
+        word = _guesses[i];
+      } else if (i == _guesses.length) {
+        word = _current;
+      }
+
       final letters = word.padRight(wordLength).split('');
+
       rows.add(
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
@@ -109,31 +132,22 @@ class _UplingoPageState extends State<UplingoPage> {
             children: [
               for (int j = 0; j < wordLength; j++)
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
+                  duration: const Duration(milliseconds: 200),
                   width: 54,
                   height: 54,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: i < _guesses.length
-                        ? _tileColor(word, j)
-                        : Colors.white.withOpacity(0.9),
+                    color: colors[j],
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _hintPositions.contains(j)
-                          ? Colors.orange
-                          : Colors.black26,
-                      width: 1.2,
-                    ),
+                    border: Border.all(color: Colors.black26, width: 1.2),
                   ),
                   child: Text(
                     letters[j],
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 22,
-                      color: _hintPositions.contains(j)
-                          ? Colors.orange.shade700
-                          : Colors.black,
+                      color: Colors.black,
                     ),
                   ),
                 ),
@@ -150,7 +164,7 @@ class _UplingoPageState extends State<UplingoPage> {
       ['Q','W','E','R','T','Y','U','I','O','P'],
       ['A','S','D','F','G','H','J','K','L'],
       ['Z','X','C','V','B','N','M'],
-      ['⌫','↵']
+      ['⌫']
     ];
 
     return Flexible(
@@ -176,7 +190,7 @@ class _UplingoPageState extends State<UplingoPage> {
   }
 
   Widget _key(String label) {
-    final bool wide = label == '⌫' || label == '↵';
+    final bool wide = label == '⌫';
     return SizedBox(
       width: wide ? 60 : 36,
       height: 46,
@@ -225,21 +239,6 @@ class _UplingoPageState extends State<UplingoPage> {
             icon: const Icon(Icons.refresh_rounded, color: Colors.black, size: 18),
             label: const Text('New Game',
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-          ),
-          ElevatedButton.icon(
-            onPressed: _useHint,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFFE5BA),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            icon: const Icon(Icons.lightbulb_rounded, color: Colors.black87, size: 18),
-            label: Text(
-              'Hint (${maxHints - _hintsUsed})',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 14),
-            ),
           ),
           ElevatedButton.icon(
             onPressed: () => setState(() => _current = ''),
