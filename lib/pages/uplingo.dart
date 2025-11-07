@@ -1,5 +1,5 @@
 // lib/pages/uplingo.dart
-// Uplingo – calm, Wordle-like guessing game for Stress Busters.
+// Uplingo – calm, enhanced Wordle-style game with gradient header + aligned keyboard.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -15,10 +15,14 @@ class UplingoPage extends StatefulWidget {
 class _UplingoPageState extends State<UplingoPage> {
   static const int wordLength = 5;
   static const int maxAttempts = 6;
+  static const int maxHints = 3;
 
   final List<String> _wordBank = [
-    'PEACE', 'CALM', 'BREATHE', 'MINDFUL', 'SMILE', 'LIGHT', 'FOCUS',
-    'UNITY', 'TRUST', 'GRACE', 'HEART', 'DREAM', 'BLISS', 'HOPE'
+    'PEACE', 'CALM', 'BREATHE', 'SMILE', 'LIGHT', 'FOCUS', 'UNITY', 'TRUST', 'GRACE', 'DREAM',
+    'HOPE', 'BLISS', 'ANGEL', 'HEART', 'NOBLE', 'HONOR', 'KIND', 'CLEAR', 'CLOUD', 'LUCKY',
+    'FAITH', 'EAGER', 'SHINE', 'WORTH', 'ALIGN', 'ZENON', 'SOLAR', 'MIRTH', 'OASIS', 'CHARM',
+    'BRAVE', 'FRESH', 'RIVER', 'MUSIC', 'NURSE', 'PURE', 'HAPPY', 'QUIET', 'BLOOM', 'GREEN',
+    'RADIANT', 'SWEET', 'EQUAL', 'ANGEL', 'YOUTH', 'GLOW', 'SEREN', 'MINTY', 'CALMS', 'ALIGN'
   ];
 
   late String _target;
@@ -26,23 +30,36 @@ class _UplingoPageState extends State<UplingoPage> {
   String _current = '';
   bool _won = false;
   bool _lost = false;
+  int _hintsUsed = 0;
+  Set<int> _hintPositions = {};
 
   @override
   void initState() {
     super.initState();
-    _target = _wordBank[Random().nextInt(_wordBank.length)]
-        .toUpperCase()
-        .padRight(wordLength)
-        .substring(0, wordLength);
+    _newGame();
+  }
+
+  void _newGame() {
+    final rand = Random();
+    setState(() {
+      _target = _wordBank[rand.nextInt(_wordBank.length)]
+          .toUpperCase()
+          .padRight(wordLength)
+          .substring(0, wordLength);
+      _guesses.clear();
+      _current = '';
+      _won = false;
+      _lost = false;
+      _hintsUsed = 0;
+      _hintPositions.clear();
+    });
   }
 
   void _onKey(String ch) {
     if (_won || _lost) return;
     setState(() {
       if (ch == '⌫') {
-        if (_current.isNotEmpty) {
-          _current = _current.substring(0, _current.length - 1);
-        }
+        if (_current.isNotEmpty) _current = _current.substring(0, _current.length - 1);
       } else if (ch == '↵') {
         if (_current.length == wordLength) {
           _guesses.add(_current);
@@ -59,44 +76,62 @@ class _UplingoPageState extends State<UplingoPage> {
     });
   }
 
+  void _useHint() {
+    if (_hintsUsed >= maxHints || _won || _lost) return;
+    setState(() {
+      int idx;
+      final rand = Random();
+      do {
+        idx = rand.nextInt(wordLength);
+      } while (_hintPositions.contains(idx));
+      _hintPositions.add(idx);
+      _hintsUsed++;
+    });
+  }
+
   Color _tileColor(String guess, int index) {
     final letter = guess[index];
-    if (_target[index] == letter) {
-      return const Color(0xFF6FD6C1); // correct place
-    } else if (_target.contains(letter)) {
-      return const Color(0xFFBDA9DB); // wrong place
-    } else {
-      return Colors.grey.shade300; // not in word
-    }
+    if (_target[index] == letter) return const Color(0xFF6FD6C1);
+    if (_target.contains(letter)) return const Color(0xFFBDA9DB);
+    return Colors.grey.shade300;
   }
 
   Widget _buildBoard() {
     final rows = <Widget>[];
     for (int i = 0; i < maxAttempts; i++) {
-      String word = i < _guesses.length
-          ? _guesses[i]
-          : (i == _guesses.length ? _current : '');
+      String word = i < _guesses.length ? _guesses[i] : (i == _guesses.length ? _current : '');
       final letters = word.padRight(wordLength).split('');
       rows.add(Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           for (int j = 0; j < wordLength; j++)
-            Container(
-              width: 48,
-              height: 48,
-              margin: const EdgeInsets.all(4),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 52,
+              height: 52,
+              margin: const EdgeInsets.all(5),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: i < _guesses.length
                     ? _tileColor(word, j)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.black54),
+                    : Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _hintPositions.contains(j)
+                      ? Colors.orange
+                      : Colors.black26,
+                  width: 1.2,
+                ),
               ),
               child: Text(
                 letters[j],
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 22),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  color: _hintPositions.contains(j)
+                      ? Colors.orange.shade700
+                      : Colors.black,
+                ),
               ),
             ),
         ],
@@ -111,38 +146,51 @@ class _UplingoPageState extends State<UplingoPage> {
       ['A','S','D','F','G','H','J','K','L'],
       ['Z','X','C','V','B','N','M']
     ];
-    return Column(
-      children: [
-        for (final row in keys)
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (int i = 0; i < keys.length; i++)
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: i == keys.length - 1 ? 10 : 8,
+                left: i == 1 ? 20 : (i == 2 ? 40 : 0),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final k in keys[i]) _key(k),
+                ],
+              ),
+            ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (final k in row)
-                _key(k),
+              _key('⌫', wide: true),
+              const SizedBox(width: 8),
+              _key('↵', wide: true),
             ],
           ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _key('⌫', flex: 2),
-            _key('↵', flex: 2),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _key(String label, {int flex = 1}) {
+  Widget _key(String label, {bool wide = false}) {
     return Padding(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
       child: SizedBox(
-        width: 32.0 * flex,
-        height: 44,
+        width: wide ? 66 : 36,
+        height: 48,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFBEE8DF),
+            elevation: 2,
+            shadowColor: Colors.black12,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
           onPressed: () => _onKey(label),
@@ -156,52 +204,89 @@ class _UplingoPageState extends State<UplingoPage> {
     );
   }
 
-  void _reset() {
-    setState(() {
-      _target = _wordBank[Random().nextInt(_wordBank.length)]
-          .toUpperCase()
-          .padRight(wordLength)
-          .substring(0, wordLength);
-      _guesses.clear();
-      _current = '';
-      _won = false;
-      _lost = false;
-    });
+  Widget _buildControlButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Wrap(
+        spacing: 10,
+        children: [
+          ElevatedButton.icon(
+            onPressed: _newGame,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB6E3FF),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+            label: const Text('New Game',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+          ),
+          ElevatedButton.icon(
+            onPressed: _useHint,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFE5BA),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.lightbulb_rounded, color: Colors.black87),
+            label: Text(
+              'Hint (${maxHints - _hintsUsed})',
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => setState(() => _current = ''),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE9FFFE),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.restart_alt_rounded, color: Colors.black),
+            label: const Text('Reset Row',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
+    final gradient = LinearGradient(
+      colors: dark
+          ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF6FD6C1)],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    );
+
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Uplingo',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24)),
-        centerTitle: true,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _reset,
-          )
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: dark
-                ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
-                : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF6FD6C1)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+        centerTitle: true,
+        title: const Text(
+          'Uplingo',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 26,
           ),
         ),
+      ),
+      body: Container(
+        decoration: BoxDecoration(gradient: gradient),
         child: SafeArea(
+          top: true,
           child: Column(
             children: [
               const SizedBox(height: 10),
+              _buildControlButtons(),
+              const SizedBox(height: 8),
               _buildBoard(),
               const SizedBox(height: 12),
               if (_won || _lost)
@@ -209,14 +294,16 @@ class _UplingoPageState extends State<UplingoPage> {
                   children: [
                     Text(
                       _won
-                          ? '✨ You found it! The word was $_target.'
-                          : '💭 Try again! The word was $_target.',
+                          ? '✨ You guessed it! The word was $_target.'
+                          : '💭 The word was $_target — try again!',
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: _reset,
+                      onPressed: _newGame,
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB6E3FF)),
                       child: const Text('Play Again'),
                     )
                   ],
