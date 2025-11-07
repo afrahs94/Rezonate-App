@@ -72,13 +72,15 @@ class StressBustersPage extends StatelessWidget {
                       subtitle: 'Find all hidden words',
                       colors: const [Color(0xFFE8F8FF), Color(0xFFB6E3FF)],
                       icon: Icons.grid_on_rounded,
+                       iconColor: const Color(0xFF1C638C),
                       builder: (_) => const WordSearchPage(),
                     ),
                     _GameCard(
                       title: 'Crossword',
                       subtitle: '7×7 with hints',
-                      colors: const [Color(0xFFF7ECFF), Color(0xFFDAC8FF)],
+                      colors: const [Color(0xFFE9FFFE), Color(0xFFBDF5F1)],
                       icon: Icons.view_quilt_rounded,
+                      iconColor: const Color(0xFF0C5E4D),
                       builder: (_) => const CrosswordPage(),
                     ),
                     _GameCard(
@@ -86,6 +88,7 @@ class StressBustersPage extends StatelessWidget {
                       subtitle: 'Flip pairs (animated)',
                       colors: const [Color(0xFFFFF6E8), Color(0xFFFFE5BA)],
                       icon: Icons.extension_rounded,
+                      iconColor: const Color(0xFF916D00),
                       builder: (_) => const MatchDifficultPage(),
                     ),
                     _GameCard(
@@ -93,6 +96,7 @@ class StressBustersPage extends StatelessWidget {
                       subtitle: 'Relaxing 9×9 logic',
                       colors: const [Color(0xFFEFF7FF), Color(0xFFCAE2FF)],
                       icon: Icons.grid_4x4_rounded,
+                      iconColor: const Color(0xFF0A4C7A),
                       builder: (_) => const SudokuPage(),
                     ),
                     _GameCard(
@@ -100,13 +104,15 @@ class StressBustersPage extends StatelessWidget {
                       subtitle: 'Guess the calm word',
                       colors: const [Color(0xFFE9FFF4), Color(0xFFC9F2E7)],
                       icon: Icons.emoji_emotions_rounded,
+                      iconColor: const Color(0xFF146548),
                       builder: (_) => const HangmanPage(),
                     ),
                     _GameCard(
                       title: 'Scramble',
                       subtitle: 'Unscramble letters',
-                      colors: const [Color(0xFFE9FFFE), Color(0xFFBDF5F1)],
+                      colors: const [Color(0xFFF7ECFF), Color(0xFFDAC8FF)],
                       icon: Icons.text_fields_rounded,
+                      iconColor: const Color(0xFF5B2785),
                       builder: (_) => const ScramblePage(),
                     ),
                   ]),
@@ -177,12 +183,14 @@ class _GameCard extends StatelessWidget {
   final List<Color> colors;
   final IconData icon;
   final WidgetBuilder builder;
+  final Color? iconColor;
   const _GameCard({
     required this.title,
     required this.subtitle,
     required this.colors,
     required this.icon,
     required this.builder,
+     this.iconColor,
   });
 
   @override
@@ -204,7 +212,7 @@ class _GameCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 32, color: const Color(0xFF0D7C66)),
+                Icon(icon, size: 32, color: iconColor ?? const Color(0xFF0D7C66)),
                 const SizedBox(height: 8),
                 Text(title,
                     maxLines: 1,
