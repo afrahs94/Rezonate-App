@@ -5,6 +5,8 @@
 // - Original game behavior preserved: difficulty selector, randomized words,
 //   drag with 8-direction snap, strike-through lines, "New" button.
 // - Animated, playful category menu.
+// - Visual polish update: balanced spacing, translucent cards, modern layout.
+// - Header shows only category; smaller back button; subtle category patterns.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -16,41 +18,72 @@ import 'package:new_rezonate/main.dart' as app;
 const _ink = Colors.black;
 const _themeGreen = Color(0xFF0D7C66);
 
-BoxDecoration _bg(BuildContext context) {
+BoxDecoration _bg(BuildContext context, [String? category]) {
   final dark = app.ThemeControllerScope.of(context).isDark;
+  final colors = dark
+      ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
+      : const [Color(0xFFE9D9FF), Color(0xFFBEE8E0)];
+
   return BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: dark
-          ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
-          : const [Color(0xFFE9D9FF), Color(0xFFBEE8E0)],
+      colors: colors,
+    ),
+    image: DecorationImage(
+      image: _patternForCategory(category),
+      repeat: ImageRepeat.repeat,
+      // faint white overlay; a touch stronger on light theme
+      colorFilter: ColorFilter.mode(
+        Colors.white.withOpacity(dark ? 0.05 : 0.08),
+        BlendMode.srcATop,
+      ),
     ),
   );
 }
 
-/* ─────────── iOS-style Chevron Back Button ─────────── */
+AssetImage _patternForCategory(String? category) {
+  switch (category) {
+    case 'Animals':
+      return const AssetImage('assets/patterns/paws.png');
+    case 'Food':
+      return const AssetImage('assets/patterns/utensils.png');
+    case 'Sports':
+      return const AssetImage('assets/patterns/balls.png');
+    case 'Travel':
+      return const AssetImage('assets/patterns/planes.png');
+    case 'Movies':
+      return const AssetImage('assets/patterns/film.png');
+    case 'Technology':
+      return const AssetImage('assets/patterns/circuits.png');
+    default:
+      return const AssetImage('assets/patterns/dots.png');
+  }
+}
+
+/* ─────────── iOS-style Chevron Back Button (smaller) ─────────── */
 
 class _BackChevron extends StatelessWidget {
-  const _BackChevron({this.onTap, this.color = const Color(0xFF2B2B2B), this.size = 22, super.key});
+  const _BackChevron({
+    this.onTap,
+    this.color = const Color(0xFF2B2B2B),
+    this.size = 16, // smaller than before (was 22)
+    super.key,
+  });
   final VoidCallback? onTap;
   final Color color;
-  final double size; // visual height of the chevron
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    // Ensure a comfortable hit area but keep visuals minimal
     return InkResponse(
       onTap: onTap,
       highlightColor: Colors.transparent,
       splashColor: Colors.transparent,
-      radius: 28,
+      radius: 24,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-        child: CustomPaint(
-          size: Size(size, size),
-          painter: _ChevronPainter(color),
-        ),
+        padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+        child: CustomPaint(size: Size(size, size), painter: _ChevronPainter(color)),
       ),
     );
   }
@@ -62,11 +95,10 @@ class _ChevronPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw a “<” with rounded caps to mimic the screenshot
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.12 // thin and crisp
+      ..strokeWidth = size.shortestSide * 0.12
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
 
@@ -182,16 +214,15 @@ class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
         decoration: _bg(context),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Column(
               children: [
                 Row(
                   children: [
-                    // ⟵ Replaced IconButton with iOS-style chevron
                     _BackChevron(
                       onTap: () => Navigator.pop(context),
                       color: const Color(0xFF2B2B2B),
-                      size: 22,
+                      size: 18,
                     ),
                     const Expanded(
                       child: Text(
@@ -204,42 +235,44 @@ class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 48),
+                    const SizedBox(width: 30),
                   ],
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 FadeTransition(
-                  opacity: CurvedAnimation(
-                      parent: _fadeController, curve: Curves.easeInOut),
+                  opacity:
+                      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
                   child: Column(
                     children: const [
-                      Icon(Icons.grid_view_rounded,
-                          size: 60, color: _themeGreen),
-                      SizedBox(height: 10),
+                      Icon(Icons.grid_view_rounded, size: 64, color: _themeGreen),
+                      SizedBox(height: 14),
                       Text(
                         'Tap a theme to begin your Word Search!',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 40),
                 Expanded(
                   child: Center(
                     child: Wrap(
-                      spacing: 18,
-                      runSpacing: 18,
+                      spacing: 22,
+                      runSpacing: 22,
                       alignment: WrapAlignment.center,
                       children: _categories.map((cat) {
                         return ScaleTransition(
-                          scale: Tween<double>(begin: 1.0, end: 1.1)
-                              .animate(CurvedAnimation(
-                            parent: _bounceController,
-                            curve: Curves.elasticOut,
-                          )),
+                          scale: Tween<double>(begin: 1.0, end: 1.1).animate(
+                            CurvedAnimation(
+                              parent: _bounceController,
+                              curve: Curves.elasticOut,
+                            ),
+                          ),
                           child: GestureDetector(
                             onTapDown: (_) => _onTapDown(),
                             onTapUp: (_) => _onTapUp(),
@@ -247,27 +280,29 @@ class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
                             onTap: () => _navigateToCategory(cat),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 250),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 28, vertical: 16),
+                              width: 140,
+                              height: 130,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: Colors.white.withOpacity(0.9),
                                 borderRadius: BorderRadius.circular(20),
                                 border:
-                                    Border.all(color: _themeGreen, width: 1.6),
+                                    Border.all(color: _themeGreen.withOpacity(0.9), width: 2),
                                 boxShadow: [
                                   BoxShadow(
                                     color: _themeGreen.withOpacity(0.25),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
                                   ),
                                 ],
                               ),
                               child: Column(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(_iconForCategory(cat),
-                                      color: _themeGreen, size: 30),
-                                  const SizedBox(height: 6),
+                                      color: _themeGreen, size: 36),
+                                  const SizedBox(height: 10),
                                   Text(
                                     cat,
                                     style: const TextStyle(
@@ -583,7 +618,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
     if (_loading) {
       return Scaffold(
         body: Container(
-          decoration: _bg(context),
+          decoration: _bg(context, widget.category),
           child: const Center(child: CircularProgressIndicator()),
         ),
       );
@@ -664,10 +699,9 @@ class _WordSearchPageState extends State<WordSearchPage> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          'Word Search - ${widget.category}',
+          widget.category, // 🔹 only category shown
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        // ⟵ Replaced leading back icon with the iOS-style chevron
         leading: _BackChevron(
           onTap: () {
             Navigator.pushReplacement(
@@ -676,11 +710,11 @@ class _WordSearchPageState extends State<WordSearchPage> {
             );
           },
           color: const Color(0xFF2B2B2B),
-          size: 22,
+          size: 18, // 🔹 smaller back button
         ),
       ),
       body: Container(
-        decoration: _bg(context),
+        decoration: _bg(context, widget.category),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),

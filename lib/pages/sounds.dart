@@ -17,7 +17,6 @@ class _SoundsPageState extends State<SoundsPage> {
   final _player = AudioPlayer();
   final _scrollController = ScrollController();
 
-  // UI / State
   String _query = '';
   String _category = 'All';
   bool _looping = true;
@@ -26,16 +25,13 @@ class _SoundsPageState extends State<SoundsPage> {
   String? _currentId;
   bool _playing = false;
 
-  // Sleep timer (icon + iPhone-style picker)
   Timer? _sleepTimer;
-  Duration _sleepDuration = Duration.zero; // 0 = off
+  Duration _sleepDuration = Duration.zero;
 
   static const _prefsRecentKey = 'recent_sounds_v1';
   List<String> _recentIds = const [];
 
-  // Reliable demo MP3 streams (royalty-free) + stable Unsplash images
   final List<_SoundTrack> _tracks = const [
-    // Focus
     _SoundTrack(
       id: 'focus_deep',
       title: 'Deep Focus',
@@ -56,13 +52,10 @@ class _SoundsPageState extends State<SoundsPage> {
       id: 'focus_binaural',
       title: 'Binaural Beats',
       category: 'Focus',
-      // changed away from pasta image
       imageUrl:
           'https://images.unsplash.com/photo-1527443224154-c4f2a9b1d67a?q=80&w=1200&auto=format&fit=crop',
       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     ),
-
-    // Sleep
     _SoundTrack(
       id: 'sleep_rain',
       title: 'Soft Rain',
@@ -87,8 +80,6 @@ class _SoundsPageState extends State<SoundsPage> {
           'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1200&auto=format&fit=crop',
       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
     ),
-
-    // Study
     _SoundTrack(
       id: 'study_lofi',
       title: 'Lo-Fi Study',
@@ -113,8 +104,6 @@ class _SoundsPageState extends State<SoundsPage> {
           'https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop',
       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
     ),
-
-    // Nature
     _SoundTrack(
       id: 'nature_forest',
       title: 'Forest Birds',
@@ -139,8 +128,6 @@ class _SoundsPageState extends State<SoundsPage> {
           'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?q=80&w=1200&auto=format&fit=crop',
       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3',
     ),
-
-    // Extra styles
     _SoundTrack(
       id: 'meditation_om',
       title: 'Meditation Om',
@@ -225,16 +212,6 @@ class _SoundsPageState extends State<SoundsPage> {
     }).toList();
   }
 
-  List<_SoundTrack> get _recents {
-    final map = {for (final t in _tracks) t.id: t};
-    final items = <_SoundTrack>[];
-    for (final id in _recentIds) {
-      final t = map[id];
-      if (t != null) items.add(t);
-    }
-    return items;
-  }
-
   Future<void> _play(_SoundTrack t) async {
     try {
       if (_currentId == t.id && _playing) {
@@ -249,12 +226,8 @@ class _SoundsPageState extends State<SoundsPage> {
           _dur = Duration.zero;
         });
       }
-
       await _player.setReleaseMode(_looping ? ReleaseMode.loop : ReleaseMode.stop);
-
-      // Direct streaming
       await _player.play(UrlSource(t.url));
-
       _remember(t.id);
     } catch (_) {
       if (!mounted) return;
@@ -289,13 +262,12 @@ class _SoundsPageState extends State<SoundsPage> {
     final picked = await showModalBottomSheet<Duration>(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: false,
       builder: (ctx) {
         Duration temp =
             _sleepDuration == Duration.zero ? const Duration(minutes: 30) : _sleepDuration;
         return Container(
           margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.98),
             borderRadius: BorderRadius.circular(18),
@@ -305,7 +277,6 @@ class _SoundsPageState extends State<SoundsPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Grabber
                 Container(
                   width: 42,
                   height: 5,
@@ -361,12 +332,10 @@ class _SoundsPageState extends State<SoundsPage> {
     );
 
     if (picked == null) return;
-
     _sleepTimer?.cancel();
     setState(() => _sleepDuration = picked);
 
     if (picked == Duration.zero) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sleep timer off'),
@@ -378,7 +347,6 @@ class _SoundsPageState extends State<SoundsPage> {
 
     _sleepTimer = Timer(picked, () async {
       await _player.stop();
-      if (!mounted) return;
       setState(() {
         _playing = false;
         _pos = Duration.zero;
@@ -391,7 +359,6 @@ class _SoundsPageState extends State<SoundsPage> {
       );
     });
 
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Sleep timer set for ${_formatDuration(picked)}'),
@@ -407,9 +374,8 @@ class _SoundsPageState extends State<SoundsPage> {
   }
 
   BoxDecoration _bg(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    return BoxDecoration(
-      gradient: const LinearGradient(
+    return const BoxDecoration(
+      gradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
@@ -428,7 +394,6 @@ class _SoundsPageState extends State<SoundsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // ===== HEADER (no icon next to title; timer as icon like iPhone)
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
                 child: SizedBox(
@@ -439,7 +404,6 @@ class _SoundsPageState extends State<SoundsPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: IconButton(
-                          visualDensity: VisualDensity.compact,
                           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                           onPressed: () => Navigator.pop(context),
                         ),
@@ -454,7 +418,6 @@ class _SoundsPageState extends State<SoundsPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              visualDensity: VisualDensity.compact,
                               tooltip: _looping ? 'Loop on' : 'Loop off',
                               icon: Icon(
                                 _looping ? Icons.repeat_one_rounded : Icons.repeat_rounded,
@@ -463,7 +426,6 @@ class _SoundsPageState extends State<SoundsPage> {
                               onPressed: () => _setLoop(!_looping),
                             ),
                             IconButton(
-                              visualDensity: VisualDensity.compact,
                               tooltip: 'Sleep timer',
                               icon: const Icon(Icons.timer_rounded, color: Color(0xFF0D7C66)),
                               onPressed: _openSleepTimer,
@@ -475,14 +437,10 @@ class _SoundsPageState extends State<SoundsPage> {
                   ),
                 ),
               ),
-
-              // Search
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                 child: _SearchBar(onChanged: (v) => setState(() => _query = v)),
               ),
-
-              // Category chips
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: _CategoryBar(
@@ -490,38 +448,9 @@ class _SoundsPageState extends State<SoundsPage> {
                   onChanged: (c) => setState(() => _category = c),
                 ),
               ),
-
-              // Recents
-              if (_recents.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                  child: const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Recently played',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                  ),
-                ),
-              if (_recents.isNotEmpty)
-                SizedBox(
-                  height: 96,
-                  child: ListView.separated(
-                    controller: _scrollController,
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemBuilder: (_, i) => _RecentCard(
-                      track: _recents[i],
-                      isCurrent: _recents[i].id == _currentId,
-                      onTap: () => _play(_recents[i]),
-                    ),
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemCount: _recents.length,
-                  ),
-                ),
-
-              // Grid
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(12, _recents.isEmpty ? 6 : 8, 12, 8),
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
                   child: GridView.builder(
                     physics: const BouncingScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -544,8 +473,6 @@ class _SoundsPageState extends State<SoundsPage> {
                   ),
                 ),
               ),
-
-              // Mini player
               if (miniActive)
                 _MiniPlayer(
                   title: _tracks.firstWhere((e) => e.id == _currentId!).title,
@@ -564,7 +491,6 @@ class _SoundsPageState extends State<SoundsPage> {
 }
 
 /* ─────────────────── Reusable UI ─────────────────── */
-
 class _SearchBar extends StatefulWidget {
   const _SearchBar({required this.onChanged});
   final ValueChanged<String> onChanged;
@@ -600,7 +526,6 @@ class _SearchBarState extends State<_SearchBar> {
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: 'Search sounds…',
-              hintStyle: const TextStyle(fontSize: 14),
               prefixIcon: const Icon(Icons.search, size: 18),
               suffixIcon: _ctrl.text.isEmpty
                   ? null
@@ -644,9 +569,7 @@ class _CategoryBar extends StatelessWidget {
     return SizedBox(
       height: 42,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
         scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
         itemCount: _cats.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
@@ -670,8 +593,6 @@ class _ChipButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final base = (dark ? Colors.white : Colors.white).withOpacity(0.25);
     const selectedColor = Color(0xFF0D7C66);
 
     return Material(
@@ -682,12 +603,8 @@ class _ChipButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? selectedColor.withOpacity(0.90) : base,
+            color: selected ? selectedColor.withOpacity(0.9) : Colors.white.withOpacity(0.25),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: (dark ? Colors.white : Colors.black).withOpacity(0.14),
-              width: 0.9,
-            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.06),
@@ -732,8 +649,7 @@ class _SoundTileState extends State<_SoundTile> {
 
   @override
   Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final border = (dark ? Colors.white : Colors.black).withOpacity(0.12);
+    final border = Colors.black.withOpacity(0.12);
 
     return AnimatedScale(
       scale: _pressed ? 0.98 : 1.0,
@@ -804,11 +720,11 @@ class _SoundTileState extends State<_SoundTile> {
                     const SizedBox(height: 4),
                     Text(
                       widget.track.category,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.92),
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
-                        shadows: const [Shadow(blurRadius: 6, color: Colors.black26)],
+                        shadows: [Shadow(blurRadius: 6, color: Colors.black26)],
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -840,110 +756,10 @@ class _NetImage extends StatelessWidget {
       fit: BoxFit.cover,
       loadingBuilder: (ctx, child, progress) {
         if (progress == null) return child;
-        return Container(
-          color: Colors.black.withOpacity(0.05),
-          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        );
+        return const Center(child: CircularProgressIndicator(strokeWidth: 2));
       },
-      errorBuilder: (ctx, _, __) {
-        return Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFBDA9DB), Color(0xFF41B3A2)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Center(
-            child: Icon(Icons.music_note_rounded, size: 44, color: Colors.white70),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _RecentCard extends StatelessWidget {
-  const _RecentCard({required this.track, required this.isCurrent, required this.onTap});
-  final _SoundTrack track;
-  final bool isCurrent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final border = (dark ? Colors.white : Colors.black).withOpacity(0.12);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Container(
-        width: 200,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: border, width: 0.9),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned.fill(child: _NetImage(url: track.imageUrl)),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.10), Colors.black.withOpacity(0.35)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _RoundButton(icon: Icons.play_arrow_rounded, onTap: onTap),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w800)),
-                        Text(
-                          track.category,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.92),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isCurrent)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 6, bottom: 2),
-                      child: Icon(Icons.volume_up_rounded,
-                          size: 18, color: Color(0xFFBDE5DB)),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      errorBuilder: (ctx, _, __) => const Center(
+        child: Icon(Icons.music_note_rounded, size: 44, color: Colors.white70),
       ),
     );
   }
@@ -975,17 +791,14 @@ class _MiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final bg = (dark ? Colors.white : Colors.white).withOpacity(0.30);
-    final border = (dark ? Colors.white : Colors.black).withOpacity(0.16);
     final total = dur.inSeconds == 0 ? 1.0 : dur.inSeconds.toDouble();
     final value = (pos.inSeconds.clamp(0, dur.inSeconds)).toDouble();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       decoration: BoxDecoration(
-        color: bg,
-        border: Border(top: BorderSide(color: border, width: 0.9)),
+        color: Colors.white.withOpacity(0.30),
+        border: Border(top: BorderSide(color: Colors.black.withOpacity(0.16))),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -1056,8 +869,6 @@ class _RoundButton extends StatelessWidget {
     );
   }
 }
-
-/* ─────────────────── Models ─────────────────── */
 
 class _SoundTrack {
   final String id;
