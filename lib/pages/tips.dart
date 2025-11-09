@@ -1,4 +1,5 @@
 // lib/pages/tips.dart
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:new_rezonate/main.dart' as app;
@@ -10,20 +11,20 @@ class TipsPage extends StatefulWidget {
   State<TipsPage> createState() => _TipsPageState();
 }
 
-class _TipsPageState extends State<TipsPage> {
+class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin {
   int _index = 0;
   bool _showBack = false;
   final _rng = Random();
 
+  // Search (single button -> bottom sheet)
   String _query = '';
 
   List<_Tip> get _filtered {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return _allTips;
     return _allTips.where((t) {
-      final hay =
-          '${t.condition} ${t.short} ${t.details} ${t.tips.join(" ")} ${t.keywords.join(" ")}'
-              .toLowerCase();
+      final hay = '${t.condition} ${t.short} ${t.details} ${t.tips.join(" ")} ${t.keywords.join(" ")}'
+          .toLowerCase();
       return hay.contains(q);
     }).toList();
   }
@@ -75,18 +76,15 @@ class _TipsPageState extends State<TipsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Search Flashcards',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const Text('Search Flashcards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText:
-                      'e.g., “panic”, “sleep”, “OCD”, “trauma”, “ADHD focus”…',
+                  hintText: 'e.g., “panic”, “sleep”, “OCD”, “trauma”, “ADHD focus”, …',
                   prefixIcon: const Icon(Icons.search_rounded),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -157,17 +155,170 @@ class _TipsPageState extends State<TipsPage> {
     );
   }
 
+  double _topPadding(BuildContext context) {
+    final status = MediaQuery.of(context).padding.top;
+    const appBar = kToolbarHeight;
+    const extra = 24.0;
+    return status + appBar + extra;
+  }
+
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
     final tip = list.isEmpty ? null : list[_index.clamp(0, list.length - 1)];
     const green = Color(0xFF0D7C66);
 
-    // Fixed height generous enough for the header (prevents pixel overflows).
-    const double stickyHeight = 224; // ↑ bump if you add more header content
+    // --- Unified "Flashcards" deck (controls + search + card) ---
+    Widget flashcardDeck() {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.78),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black, width: 1),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top bar: prev / shuffle / next + counter
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Previous',
+                  onPressed: list.isEmpty ? null : _applyPrev,
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                ),
+                const SizedBox(width: 4),
+                FilledButton.icon(
+                  onPressed: list.isEmpty ? null : _applyShuffle,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: green,
+                    foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.shuffle_rounded, size: 18),
+                  label: const Text('Shuffle'),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Next',
+                  onPressed: list.isEmpty ? null : _applyNext,
+                  icon: const Icon(Icons.arrow_forward_ios_rounded),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Text(
+                    list.isEmpty ? '0/0' : '${_index + 1}/${list.length}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // Inline "search bar" chip inside the deck
+            InkWell(
+              onTap: _openSearchSheet,
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.black),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, color: green),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _query.isEmpty ? 'Search flashcards' : 'Search: “$_query” (tap to change)',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    if (_query.isNotEmpty)
+                      IconButton.filledTonal(
+                        tooltip: 'Clear search',
+                        onPressed: () => setState(() {
+                          _query = '';
+                          _index = 0;
+                          _showBack = false;
+                        }),
+                        icon: const Icon(Icons.clear_rounded),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // The card itself
+            if (tip == null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.9),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.black, width: 1),
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                ),
+                child: const Text(
+                  'No results. Try changing your search.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              )
+            else
+              GestureDetector(
+                onTap: () => setState(() => _showBack = !_showBack),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: Tween<double>(begin: .98, end: 1).animate(anim), child: child),
+                  child: _showBack
+                      ? _BackCard(key: const ValueKey('back'), tip: tip)
+                      : _FrontCard(key: const ValueKey('front'), tip: tip),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final contentChildren = <Widget>[
+      flashcardDeck(),
+      const SizedBox(height: 20),
+      // Interactive Crash Courses (launch as pop-ups)
+      const _CrashCourses(),
+      const SizedBox(height: 20),
+      // Disclaimer
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: const Text(
+          'These cards are educational only and not medical advice. '
+          'If you’re in crisis, call your local emergency number or a crisis hotline.',
+          style: TextStyle(fontSize: 12.5, color: Colors.black87),
+        ),
+      ),
+    ];
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: _bg(context),
@@ -175,210 +326,26 @@ class _TipsPageState extends State<TipsPage> {
           top: false,
           child: CustomScrollView(
             slivers: [
+              // Scrollable header
               SliverAppBar(
                 backgroundColor: Colors.transparent,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 centerTitle: true,
-                pinned: true,
-                floating: true,
-                snap: true,
-                expandedHeight: 80,
-                leading: IconButton(
-                  tooltip: 'Back',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                ),
-                flexibleSpace: const FlexibleSpaceBar(
-                  centerTitle: true,
-                  titlePadding: EdgeInsets.only(bottom: 10),
-                  title: Text(
-                    'Tips',
-                    style: TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .2),
-                  ),
+                floating: false,
+                pinned: false,
+                snap: false,
+                title: const Text(
+                  'Tips',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
                 ),
               ),
 
-              // Sticky header with controls + search
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _StickyHeaderDelegate(
-                  minExtent: stickyHeight,
-                  maxExtent: stickyHeight,
-                  builder: (context, shrinkOffset, overlaps) {
-                    return Container(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                      color: Colors.white.withOpacity(.12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Controls
-                          Container(
-                            height: 60,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.78),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.black, width: 1),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black12, blurRadius: 6)
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  tooltip: 'Previous',
-                                  onPressed: list.isEmpty ? null : _applyPrev,
-                                  icon:
-                                      const Icon(Icons.arrow_back_ios_new_rounded),
-                                ),
-                                const SizedBox(width: 4),
-                                FilledButton.icon(
-                                  onPressed: list.isEmpty ? null : _applyShuffle,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: green,
-                                    foregroundColor: Colors.white,
-                                    shape: const StadiumBorder(),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
-                                    minimumSize: const Size(0, 40),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  icon:
-                                      const Icon(Icons.shuffle_rounded, size: 18),
-                                  label: const Text('Shuffle'),
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  tooltip: 'Next',
-                                  onPressed: list.isEmpty ? null : _applyNext,
-                                  icon:
-                                      const Icon(Icons.arrow_forward_ios_rounded),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  list.isEmpty
-                                      ? '0/0'
-                                      : '${_index + 1}/${list.length}',
-                                  style:
-                                      const TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Search
-                          SizedBox(
-                            height: 52,
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: _openSearchSheet,
-                                    icon: const Icon(Icons.search_rounded),
-                                    label: Text(_query.isEmpty
-                                        ? 'Search flashcards'
-                                        : 'Search: “$_query” (tap to change)'),
-                                    style: OutlinedButton.styleFrom(
-                                      backgroundColor:
-                                          Colors.white.withOpacity(.78),
-                                      side: const BorderSide(color: Colors.black),
-                                      shape: const StadiumBorder(),
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12, horizontal: 8),
-                                      minimumSize: const Size(0, 44),
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                  ),
-                                ),
-                                if (_query.isNotEmpty) ...[
-                                  const SizedBox(width: 8),
-                                  IconButton.filledTonal(
-                                    tooltip: 'Clear search',
-                                    onPressed: () => setState(() {
-                                      _query = '';
-                                      _index = 0;
-                                      _showBack = false;
-                                    }),
-                                    icon: const Icon(Icons.clear_rounded),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              // Body
+              // Page content
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                sliver: SliverList.list(
-                  children: [
-                    if (tip == null)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.85),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.black, width: 1),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 8)
-                          ],
-                        ),
-                        child: const Text(
-                          'No results. Try changing your search.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      )
-                    else
-                      GestureDetector(
-                        onTap: () => setState(() => _showBack = !_showBack),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          transitionBuilder: (child, anim) => ScaleTransition(
-                              scale: Tween<double>(begin: .98, end: 1)
-                                  .animate(anim),
-                              child: child),
-                          child: _showBack
-                              ? _BackCard(key: const ValueKey('back'), tip: tip)
-                              : _FrontCard(
-                                  key: const ValueKey('front'), tip: tip),
-                        ),
-                      ),
-
-                    const SizedBox(height: 20),
-
-                    // Crash courses (added OCD, Sleep, Substance)
-                    const _CrashCourses(),
-
-                    const SizedBox(height: 20),
-
-                    // Disclaimer
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(.6),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.black12),
-                      ),
-                      child: const Text(
-                        'These cards are educational only and not medical advice. '
-                        'If you’re in crisis, call your local emergency number or a crisis hotline.',
-                        style:
-                            TextStyle(fontSize: 12.5, color: Colors.black87),
-                      ),
-                    ),
-                  ],
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(contentChildren),
                 ),
               ),
             ],
@@ -389,41 +356,6 @@ class _TipsPageState extends State<TipsPage> {
   }
 }
 
-// ---------- Sticky header delegate ----------
-class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _StickyHeaderDelegate({
-    required this.minExtent,
-    required this.maxExtent,
-    required this.builder,
-  });
-
-  @override
-  final double minExtent;
-  @override
-  final double maxExtent;
-
-  final Widget Function(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) builder;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox.expand(
-      child: builder(context, shrinkOffset, overlapsContent),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) =>
-      oldDelegate.minExtent != minExtent ||
-      oldDelegate.maxExtent != maxExtent ||
-      oldDelegate.builder != builder;
-}
-
-// ---------- Flashcard faces ----------
 class _FrontCard extends StatelessWidget {
   const _FrontCard({super.key, required this.tip});
   final _Tip tip;
@@ -444,8 +376,7 @@ class _FrontCard extends StatelessWidget {
           Text(
             tip.condition,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 26, fontWeight: FontWeight.w900, height: 1.2),
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, height: 1.2),
           ),
           const SizedBox(height: 8),
           Text(
@@ -456,8 +387,7 @@ class _FrontCard extends StatelessWidget {
           const SizedBox(height: 18),
           const Icon(Icons.touch_app_rounded, color: Colors.black45),
           const SizedBox(height: 4),
-          const Text('Tap to flip',
-              style: TextStyle(fontSize: 12, color: Colors.black45)),
+          const Text('Tap to flip', style: TextStyle(fontSize: 12, color: Colors.black45)),
         ],
       ),
     );
@@ -482,9 +412,7 @@ class _BackCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tip.condition,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          Text(tip.condition, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
           Text(tip.details),
           const SizedBox(height: 10),
@@ -513,11 +441,8 @@ class _CrashCourses extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget box(
-            {required String title,
-            required String subtitle,
-            required _CourseData data}) =>
-        Container(
+    // No grey subtitles; titles only.
+    Widget box({required String title, required _CourseData data}) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(.78),
@@ -526,10 +451,7 @@ class _CrashCourses extends StatelessWidget {
             boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
           ),
           child: ListTile(
-            title: Text(title,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            subtitle: Text(subtitle),
+            title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             trailing: const Icon(Icons.play_circle_fill_rounded),
             onTap: () => _openCourse(context, data),
           ),
@@ -538,46 +460,16 @@ class _CrashCourses extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        box(
-          title: 'Crash Course: Depression',
-          subtitle:
-              '15 slides • Practice-focused • Quiz after every 2 slides',
-          data: _depressionCourse,
-        ),
-        box(
-          title: 'Crash Course: Anxiety',
-          subtitle: '15 slides • Exposure + coping • Quiz after every 2 slides',
-          data: _anxietyCourse,
-        ),
-        box(
-          title: 'Crash Course: ADHD',
-          subtitle: '15 slides • Executive skills • Quiz after every 2 slides',
-          data: _adhdCourse,
-        ),
-        box(
-          title: 'Crash Course: PTSD',
-          subtitle:
-              '15 slides • Grounding + exposure • Quiz after every 2 slides',
-          data: _ptsdCourse,
-        ),
-        // NEW courses
-        box(
-          title: 'Crash Course: OCD (ERP)',
-          subtitle:
-              '15 slides • Exposure & Response Prevention • Quiz after every 2 slides',
-          data: _ocdCourse,
-        ),
-        box(
-          title: 'Crash Course: Sleep & Insomnia',
-          subtitle: '15 slides • CBT-I essentials • Quiz after every 2 slides',
-          data: _sleepCourse,
-        ),
-        box(
-          title: 'Crash Course: Substance Use',
-          subtitle:
-              '15 slides • Triggers, urges, plans • Quiz after every 2 slides',
-          data: _substanceCourse,
-        ),
+        box(title: 'Crash Course: Depression', data: _depressionCourse),
+        box(title: 'Crash Course: Anxiety', data: _anxietyCourse),
+        box(title: 'Crash Course: ADHD', data: _adhdCourse),
+        box(title: 'Crash Course: PTSD', data: _ptsdCourse),
+        box(title: 'Crash Course: Sleep', data: _sleepCourse),
+        box(title: 'Crash Course: OCD / ERP', data: _ocdErpCourse),
+        box(title: 'Crash Course: Stress Management', data: _stressCourse),
+        box(title: 'Crash Course: Mindfulness', data: _mindfulnessCourse),
+        box(title: 'Crash Course: Eating Regularity', data: _eatingCourse),
+        box(title: 'Crash Course: Grief & Loss', data: _griefCourse),
       ],
     );
   }
@@ -587,8 +479,7 @@ class _CrashCourses extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (_) => Dialog(
-        insetPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -647,100 +538,98 @@ class _CourseModalState extends State<_CourseModal> {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 720, minHeight: 420),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          children: [
-            Row(
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.data.title,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: pct,
-                          minHeight: 10,
-                          backgroundColor: Colors.black12,
-                          valueColor:
-                              const AlwaysStoppedAnimation(Color(0xFF0D7C66)),
-                        ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.data.title,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: pct,
+                              minHeight: 10,
+                              backgroundColor: Colors.black12,
+                              valueColor: const AlwaysStoppedAnimation(Color(0xFF0D7C66)),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text('Slide ${_i + 1}/${_slides.length}',
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text('Slide ${_i + 1}/${_slides.length}',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.9),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.black, width: 1),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black12, blurRadius: 8)
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
                   ],
                 ),
-                child: slide.map(
-                  content: (c) => _ContentSlideView(content: c),
-                  quiz: (q) => _QuizSlideView(
-                    quiz: q,
-                    selected: _selected,
-                    checked: _checked,
-                    onSelect: (v) => setState(() => _selected = v),
-                    onCheck: () => setState(() => _checked = true),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black, width: 1),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                    ),
+                    child: slide.map(
+                      content: (c) => _ContentSlideView(content: c),
+                      quiz: (q) => _QuizSlideView(
+                        quiz: q,
+                        selected: _selected,
+                        checked: _checked,
+                        onSelect: (v) => setState(() => _selected = v),
+                        onCheck: () => setState(() => _checked = true),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _i > 0 ? _prev : null,
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-                  label: const Text('Back'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _i > 0 ? _prev : null,
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+                      label: const Text('Back'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: (_i < _slides.length - 1)
+                          ? () {
+                              final isQuiz = slide.when(quiz: (_) => true, content: (_) => false);
+                              if (isQuiz && !_checked) return;
+                              _next();
+                            }
+                          : null,
+                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                      label: const Text('Next'),
+                    ),
+                    const Spacer(),
+                    if (_i == _slides.length - 1)
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Done'),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: (_i < _slides.length - 1)
-                      ? () {
-                          final isQuiz =
-                              slide.when(quiz: (_) => true, content: (_) => false);
-                          if (isQuiz && !_checked) return;
-                          _next();
-                        }
-                      : null,
-                  icon:
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                  label: const Text('Next'),
-                ),
-                const Spacer(),
-                if (_i == _slides.length - 1)
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Done'),
-                  ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -758,9 +647,7 @@ class _ContentSlideView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(content.heading,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(content.heading, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           ...content.bullets.map((b) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -779,8 +666,7 @@ class _ContentSlideView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D7C66).withOpacity(.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: const Color(0xFF0D7C66).withOpacity(.3)),
+                border: Border.all(color: const Color(0xFF0D7C66).withOpacity(.3)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,8 +710,7 @@ class _QuizSlideView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Pop Quiz',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const Text('Pop Quiz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         Text(quiz.question),
         const SizedBox(height: 8),
@@ -873,8 +758,8 @@ class _QuizSlideView extends StatelessWidget {
 
 class _CourseData {
   final String title;
-  final List<_ContentSlide> contentSlides; // 10
-  final List<_QuizData> quizzes; // 5
+  final List<_ContentSlide> contentSlides; // usually 10
+  final List<_QuizData> quizzes; // usually 5
 
   const _CourseData({
     required this.title,
@@ -887,15 +772,19 @@ class _CourseData {
     final List<_Slide> out = [];
     int c = 0, q = 0;
     while (c < contentSlides.length) {
-      out.add(_Slide.content(contentSlides[c++])); // Cx
+      out.add(_Slide.content(contentSlides[c++]));
       if (c % 2 == 0 && q < quizzes.length) {
-        out.add(_Slide.quiz(quizzes[q++])); // Q after every 2 contents
+        out.add(_Slide.quiz(quizzes[q++]));
       }
+    }
+    while (q < quizzes.length) {
+      out.add(_Slide.quiz(quizzes[q++]));
     }
     return out;
   }
 }
 
+/// Base slide type (content or quiz)
 abstract class _Slide {
   const _Slide();
   static _Slide content(_ContentSlide contentSlide) => contentSlide;
@@ -921,14 +810,15 @@ class _ContentSlide extends _Slide {
   final String heading;
   final List<String> bullets;
   final String? tip;
-  const _ContentSlide(
-      {required this.heading, required this.bullets, this.tip});
+  const _ContentSlide({required this.heading, required this.bullets, this.tip});
 }
 
 class _QuizSlide extends _Slide {
   final _QuizData data;
   const _QuizSlide(this.data);
 }
+
+// ---------------- QUIZ DATA TYPE ----------------
 
 class _QuizData {
   final String question;
@@ -1048,8 +938,7 @@ final _CourseData _depressionCourse = _CourseData(
         'Avoiding routines to stay flexible.',
       ],
       correctIndex: 1,
-      rationale:
-          'Small, scheduled actions create mastery/pleasure loops that lift mood.',
+      rationale: 'Small, scheduled actions create mastery/pleasure loops that lift mood.',
     ),
     _QuizData(
       question: 'Which is most likely a thinking trap?',
@@ -1071,8 +960,7 @@ final _CourseData _depressionCourse = _CourseData(
         'Drink strong coffee late to ensure focus.',
       ],
       correctIndex: 2,
-      rationale:
-          'Stable wake times and low light cues support circadian regulation.',
+      rationale: 'Stable wake times and low light cues support circadian regulation.',
     ),
     _QuizData(
       question: 'Which social step best breaks isolation?',
@@ -1083,8 +971,7 @@ final _CourseData _depressionCourse = _CourseData(
         'Only messaging when you have “big news.”',
       ],
       correctIndex: 1,
-      rationale:
-          'Gentle, predictable contact rebuilds connection without overwhelm.',
+      rationale: 'Gentle, predictable contact rebuilds connection without overwhelm.',
     ),
     _QuizData(
       question: 'Values work focuses on…',
@@ -1095,8 +982,7 @@ final _CourseData _depressionCourse = _CourseData(
         'Avoiding all uncomfortable feelings.',
       ],
       correctIndex: 2,
-      rationale:
-          'Values-aligned micro-steps restore meaning and momentum.',
+      rationale: 'Values-aligned micro-steps restore meaning and momentum.',
     ),
   ],
 );
@@ -1198,8 +1084,7 @@ final _CourseData _anxietyCourse = _CourseData(
         'Scheduling a worry window.',
       ],
       correctIndex: 1,
-      rationale:
-          'Avoidance/reassurance give short relief but reinforce threat beliefs.',
+      rationale: 'Avoidance/reassurance give short relief but reinforce threat beliefs.',
     ),
     _QuizData(
       question: 'Interoceptive exposure targets…',
@@ -1210,8 +1095,7 @@ final _CourseData _anxietyCourse = _CourseData(
         'Sleep timing.',
       ],
       correctIndex: 1,
-      rationale:
-          'Practicing feared sensations reduces fear-of-fear.',
+      rationale: 'Practicing feared sensations reduces fear-of-fear.',
     ),
     _QuizData(
       question: 'Effective breathing pattern here is…',
@@ -1222,8 +1106,7 @@ final _CourseData _anxietyCourse = _CourseData(
         'Very rapid breaths.',
       ],
       correctIndex: 1,
-      rationale:
-          'Longer exhale activates parasympathetic calming.',
+      rationale: 'Longer exhale activates parasympathetic calming.',
     ),
     _QuizData(
       question: 'A worry window helps by…',
@@ -1245,8 +1128,7 @@ final _CourseData _anxietyCourse = _CourseData(
         'Replace therapy.',
       ],
       correctIndex: 1,
-      rationale:
-          'Small tests often show feared outcomes are less likely/severe.',
+      rationale: 'Small tests often show feared outcomes are less likely/severe.',
     ),
   ],
 );
@@ -1348,8 +1230,7 @@ final _CourseData _adhdCourse = _CourseData(
         'Work where distractions are highest.',
       ],
       correctIndex: 1,
-      rationale:
-          'External timers + short sprints lower activation barriers.',
+      rationale: 'External timers + short sprints lower activation barriers.',
     ),
     _QuizData(
       question: 'Point-of-performance means…',
@@ -1393,8 +1274,7 @@ final _CourseData _adhdCourse = _CourseData(
         'Only work in long marathons.',
       ],
       correctIndex: 1,
-      rationale:
-          'Timing tasks to energy improves output and reduces friction.',
+      rationale: 'Timing tasks to energy improves output and reduces friction.',
     ),
   ],
 );
@@ -1545,319 +1425,750 @@ final _CourseData _ptsdCourse = _CourseData(
   ],
 );
 
-// OCD (new)
-final _CourseData _ocdCourse = _CourseData(
-  title: 'Crash Course: OCD (ERP)',
-  contentSlides: const [
-    _ContentSlide(heading: 'OCD Basics', bullets: [
-      'Intrusive thoughts/images/urges (obsessions) + rituals/avoidance (compulsions).',
-      'Short-term relief from rituals strengthens the loop.',
-      'ERP = Exposure & Response Prevention (approach trigger, block ritual).',
-    ]),
-    _ContentSlide(heading: 'Fear Hierarchies', bullets: [
-      'List triggers from easiest → hardest with SUDS (0–100).',
-      'Start in the middle; repeat until anxiety falls.',
-      'Move up gradually with support/accountability.',
-    ]),
-    _ContentSlide(heading: 'Response Prevention', bullets: [
-      'Delay/shorten rituals first, then drop them.',
-      'Plan “if-then” for urges (timer, opposite action).',
-      'Track wins; expect urges to spike then fall.',
-    ]),
-    _ContentSlide(heading: 'Contamination Theme', bullets: [
-      'Touch feared objects; prevent washing.',
-      'Let hands dry naturally; notice anxiety drop.',
-      'Generalize to real-world contexts.',
-    ]),
-    _ContentSlide(heading: 'Checking Theme', bullets: [
-      'Lock door once, say “locked.” Take a single photo if needed.',
-      'Practice leaving despite uncertainty.',
-      'Review data: nothing bad happened most times.',
-    ]),
-    _ContentSlide(heading: 'Harm/Taboo Thoughts', bullets: [
-      'Label as “sticky thoughts,” not danger.',
-      'Intentionally bring up thoughts during ERP without neutralizing.',
-      'Let anxiety peak and fall on its own.',
-    ]),
-    _ContentSlide(heading: 'Mental Rituals & Reassurance', bullets: [
-      'Notice covert rituals (counting, reviewing, praying “just right”).',
-      'Block reassurance-seeking; set limits with supporters.',
-      'Use “maybe, maybe not” acceptance.',
-    ]),
-    _ContentSlide(heading: 'Uncertainty Training', bullets: [
-      'Practice living with “good enough.”',
-      'Accept that certainty is impossible.',
-      'Choose valued actions despite doubt.',
-    ]),
-    _ContentSlide(heading: 'Lifestyle Supports', bullets: [
-      'Sleep/regularity lower baseline anxiety.',
-      'Limit compulsive researching.',
-      'Schedule fun/connection alongside ERP.',
-    ]),
-    _ContentSlide(heading: 'When to Get Help', bullets: [
-      'If rituals consume hours or cause impairment.',
-      'ERP-trained therapists can guide safely.',
-      'Medication can help for many.',
-    ]),
-  ],
-  quizzes: const [
-    _QuizData(
-      question: 'ERP means…',
-      options: [
-        'Avoid triggers.',
-        'Approach triggers while preventing rituals.',
-        'Replace rituals with new rituals.',
-        'Only change thoughts.',
-      ],
-      correctIndex: 1,
-      rationale: 'ERP is exposure to triggers with response prevention.',
-    ),
-    _QuizData(
-      question: 'A “hierarchy” is…',
-      options: [
-        'A list of rituals.',
-        'A ranked list of triggers from easy to hard.',
-        'A list of medications.',
-        'Steps to avoid anxiety.',
-      ],
-      correctIndex: 1,
-      rationale: 'Hierarchies structure exposure progression.',
-    ),
-    _QuizData(
-      question: 'For checking OCD, a helpful step is…',
-      options: [
-        'Check until it “feels right.”',
-        'Lock once and leave despite doubt.',
-        'Ask for reassurance repeatedly.',
-        'Never leave the house.',
-      ],
-      correctIndex: 1,
-      rationale: 'Response prevention breaks the loop.',
-    ),
-    _QuizData(
-      question: 'Mental rituals include…',
-      options: [
-        'Counting/reviewing in your head.',
-        'Taking a walk.',
-        'Calling a friend for fun.',
-        'Eating lunch.',
-      ],
-      correctIndex: 0,
-      rationale: 'Covert rituals also maintain OCD.',
-    ),
-    _QuizData(
-      question: 'Uncertainty training aims to…',
-      options: [
-        'Achieve perfect certainty.',
-        'Tolerate “good enough” and act by values.',
-        'Eliminate all anxiety forever.',
-        'Force positivity.',
-      ],
-      correctIndex: 1,
-      rationale: 'ERP builds willingness to live with uncertainty.',
-    ),
-  ],
-);
+// ---------- NEW COURSES (+6) ----------
 
-// Sleep (new)
+// Sleep
 final _CourseData _sleepCourse = _CourseData(
-  title: 'Crash Course: Sleep & Insomnia',
+  title: 'Crash Course: Sleep',
   contentSlides: const [
-    _ContentSlide(heading: 'Insomnia Basics', bullets: [
-      'Trouble falling/staying asleep or early waking with daytime impact.',
-      'CBT-I is first-line treatment.',
-      'Goal: strengthen sleep drive and circadian rhythm.',
-    ]),
-    _ContentSlide(heading: 'Fixed Wake Time', bullets: [
-      'Pick a realistic, consistent wake time (7 days/week).',
-      'Get bright light within an hour of waking.',
-      'Anchor meals and movement.',
-    ]),
-    _ContentSlide(heading: 'Stimulus Control', bullets: [
-      'Bed = sleep/intimacy only.',
-      'If awake >20 min, get up to a low-light chair.',
-      'Return when sleepy; repeat as needed.',
-    ]),
-    _ContentSlide(heading: 'Sleep Window', bullets: [
-      'Match time in bed to average sleep (temporarily).',
-      'Extend by 15 minutes when sleep efficiency >85%.',
-      'Avoid daytime naps early on.',
-    ]),
-    _ContentSlide(heading: 'Wind-Down Routine', bullets: [
-      'Last hour: dim lights, quiet activities.',
-      'No heavy meals, intense exercise, or doomscrolling.',
-      'Warm shower then cool bedroom helps.',
-    ]),
-    _ContentSlide(heading: 'Caffeine/Alcohol', bullets: [
-      'Limit caffeine after early afternoon.',
-      'Alcohol fragments sleep; avoid as a sedative.',
-      'Hydration earlier in the day.',
-    ]),
-    _ContentSlide(heading: 'Thoughts About Sleep', bullets: [
-      'Catastrophic beliefs worsen arousal.',
-      'Aim for “rest is helpful even if I don’t sleep yet.”',
-      'Track real outcomes vs fears.',
-    ]),
-    _ContentSlide(heading: 'Environment', bullets: [
-      'Cool, dark, quiet; white noise if useful.',
-      'Comfortable bedding; reserve for sleep.',
-      'Remove visible clocks to reduce clock-watching.',
-    ]),
-    _ContentSlide(heading: 'Jet Lag / Shift Work', bullets: [
-      'Gradually shift schedule; control light/dark.',
-      'Short strategic naps may help shift workers.',
-      'Consistency beats perfection.',
-    ]),
-    _ContentSlide(heading: 'When to Seek Help', bullets: [
-      'Persistent insomnia, snoring/pauses (possible apnea), safety concerns.',
-      'CBT-I providers and sleep clinics can help.',
-      'Discuss meds with a clinician if needed.',
-    ]),
+    _ContentSlide(
+      heading: 'Sleep Basics',
+      bullets: [
+        'Two-process model: sleep pressure + circadian rhythm.',
+        'Regularity beats perfection—aim for consistent wake time.',
+        'Light and caffeine strongly shape timing and depth.',
+      ],
+      tip: 'Morning light + movement are powerful anchors.',
+    ),
+    _ContentSlide(
+      heading: 'CBT-I Principles',
+      bullets: [
+        'Stimulus control: bed = sleep/intimacy only.',
+        'Sleep restriction: match time in bed to actual sleep, then expand.',
+        'Get up if awake >20 minutes; reset with low light.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Wind-Down Routine',
+      bullets: [
+        'Last hour: dim lights, quiet tasks, reduce screens or use filters.',
+        'Repeat the same cues nightly to teach the brain.',
+        'Pack for tomorrow earlier to avoid late arousal.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Circadian Tweaks',
+      bullets: [
+        'Bright light early shifts clock earlier; late light shifts it later.',
+        'Keep nights dim and cool; mornings bright and active.',
+        'Gradual 15–30 minute shifts are easier to stick to.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Naps & Caffeine',
+      bullets: [
+        'Limit naps to ~20 minutes and before late afternoon.',
+        'Stop caffeine 6–8 hours before bedtime if sensitive.',
+        'Hydration helps; avoid heavy late meals.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Racing Mind',
+      bullets: [
+        'Park worries on paper; schedule a “worry window.”',
+        'Use breath count (4-in/6-out) or body scan.',
+        'If stuck, get up briefly and reset.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Bedroom Setup',
+      bullets: [
+        'Dark, cool, quiet; consider mask/earplugs/white noise.',
+        'Reserve bed for sleep to strengthen association.',
+        'Put clocks out of line of sight.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Consistency Over Hacks',
+      bullets: [
+        'Tiny, repeatable habits compound.',
+        'Track what helps vs. what is neutral.',
+        'Avoid chasing new gadgets every week.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Travel & Jet Lag',
+      bullets: [
+        'Shift schedule a bit before travel.',
+        'Anchor with local morning light and short walks.',
+        'Avoid long naps day one.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'When to Seek Help',
+      bullets: [
+        'Persistent insomnia, snoring/choking, or severe daytime sleepiness.',
+        'CBT-I and medical evaluation can help.',
+        'Safety first when drowsy while driving.',
+      ],
+    ),
   ],
   quizzes: const [
     _QuizData(
-      question: 'First-line approach for chronic insomnia?',
-      options: ['CBT-I', 'Alcohol before bed', 'Long daytime naps', 'Random bed/wake times'],
+      question: 'Strongest cue for your body clock is…',
+      options: ['Morning bright light', 'Warm milk', 'Counting sheep', 'Blue bedsheets'],
       correctIndex: 0,
-      rationale: 'CBT-I has the strongest evidence.',
+      rationale: 'Bright morning light advances the circadian rhythm.',
     ),
     _QuizData(
-      question: 'Stimulus control says…',
+      question: 'Stimulus control means…',
       options: [
-        'Stay in bed no matter what.',
-        'Use bed for work to get tired.',
-        'Get out of bed if awake >20 min.',
-        'Drink coffee late to power through.',
-      ],
-      correctIndex: 2,
-      rationale: 'Leaving bed breaks the wakefulness-in-bed association.',
-    ),
-    _QuizData(
-      question: 'Sleep window is…',
-      options: [
-        'Going to bed whenever.',
-        'Matching time in bed to actual sleep time and adjusting.',
-        'Napping all afternoon.',
-        'Watching TV in bed.',
+        'Doing homework in bed to get sleepy.',
+        'Using bed only for sleep/intimacy.',
+        'Going to bed earlier every time you’re tired.',
+        'Checking the clock often.'
       ],
       correctIndex: 1,
-      rationale: 'It increases sleep drive and efficiency.',
+      rationale: 'Strengthen the bed–sleep association by limiting other activities.',
     ),
     _QuizData(
-      question: 'Good wind-down includes…',
-      options: ['Bright lights and intense exercise', 'Doomscrolling', 'Dim light and relaxing cues', 'Heavy meal'],
+      question: 'If awake >20 minutes in bed…',
+      options: ['Stay and try harder', 'Scroll on your phone', 'Get up briefly and reset', 'Have a big meal'],
       correctIndex: 2,
-      rationale: 'Calming routine lowers arousal.',
+      rationale: 'A short reset prevents conditioning of wakefulness in bed.',
     ),
     _QuizData(
-      question: 'Morning step that helps circadian rhythm?',
-      options: ['Bright light exposure', 'Skip breakfast forever', 'Random naps', 'Stare at clock at night'],
-      correctIndex: 0,
-      rationale: 'Light anchors the clock.',
+      question: 'Best rule for caffeine timing:',
+      options: ['Anytime is fine', 'Stop 6–8h before bed', 'Only at night', 'With sleeping pills'],
+      correctIndex: 1,
+      rationale: 'Caffeine can disrupt sleep even hours later.',
+    ),
+    _QuizData(
+      question: 'Jet lag easing step:',
+      options: ['Avoid daylight', 'Long evening nap', 'Morning light/exercise locally', 'Change nothing'],
+      correctIndex: 2,
+      rationale: 'Local morning light anchors the new schedule.',
     ),
   ],
 );
 
-// Substance Use (new)
-final _CourseData _substanceCourse = _CourseData(
-  title: 'Crash Course: Substance Use',
+// OCD / ERP
+final _CourseData _ocdErpCourse = _CourseData(
+  title: 'Crash Course: OCD / ERP',
   contentSlides: const [
-    _ContentSlide(heading: 'Understanding Urges', bullets: [
-      'Urges rise, peak, and fall like waves.',
-      'Delay + alternative actions reduce harm.',
-      'Track triggers (HALT: hungry, angry, lonely, tired).',
-    ]),
-    _ContentSlide(heading: 'Trigger Plan', bullets: [
-      'List high-risk people/places/times.',
-      'Create if-then actions (leave, call, walk, drink water).',
-      'Keep supports on speed dial.',
-    ]),
-    _ContentSlide(heading: 'Environment Design', bullets: [
-      'Remove substances/paraphernalia from home.',
-      'Avoid “just in case” stashes.',
-      'Change routes and routines at first.',
-    ]),
-    _ContentSlide(heading: 'Urge Surfing', bullets: [
-      'Notice sensations and thoughts without acting.',
-      'Breathe in 4 / out 6 while riding the wave.',
-      'Most urges fade in 20–30 minutes.',
-    ]),
-    _ContentSlide(heading: 'Delay & Distraction', bullets: [
-      'Use 10-minute delay paired with competing activities.',
-      'Text a support person; go to public spaces.',
-      'Small wins stack up.',
-    ]),
-    _ContentSlide(heading: 'Social Support', bullets: [
-      'Identify two safe contacts and times to reach out.',
-      'Consider mutual-help groups or counseling.',
-      'Set boundaries with using peers.',
-    ]),
-    _ContentSlide(heading: 'Coping Cards', bullets: [
-      'Write top reasons to change and carry them.',
-      'Read during high-risk moments.',
-      'Pair with breathing or a brief walk.',
-    ]),
-    _ContentSlide(heading: 'Slip vs Relapse', bullets: [
-      'A slip is a data point, not a failure.',
-      'Debrief quickly and restart the plan.',
-      'Avoid “what the hell” effect.',
-    ]),
-    _ContentSlide(heading: 'Health & Mood', bullets: [
-      'Sleep/food/water stabilize cravings.',
-      'Exercise improves mood and reduces urges.',
-      'Limit caffeine/nicotine spikes when sensitive.',
-    ]),
-    _ContentSlide(heading: 'When to Seek More Help', bullets: [
-      'If use continues despite harm or safety concerns.',
-      'Medications and therapy can help; ask a clinician.',
-      'In emergencies, call your local emergency number.',
-    ]),
+    _ContentSlide(
+      heading: 'OCD Loop',
+      bullets: [
+        'Intrusive thoughts → anxiety → compulsions → short relief.',
+        'Relief teaches the brain the thought was dangerous.',
+        'Goal is to break the ritual cycle.',
+      ],
+      tip: 'Thoughts are not actions or intentions.',
+    ),
+    _ContentSlide(
+      heading: 'ERP Basics',
+      bullets: [
+        'Exposure to feared cues while preventing rituals.',
+        'Start with a hierarchy from easier to harder.',
+        'Repeat until anxiety drops without rituals.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Building a Hierarchy',
+      bullets: [
+        'List triggers; rate 0–100 (SUDS).',
+        'Design clear “no-ritual” rules.',
+        'Plan frequency and duration.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Delay & Reduce',
+      bullets: [
+        'Delay a ritual by 5–15 minutes.',
+        'Shorten or skip steps to weaken compulsion strength.',
+        'Track wins and discomfort.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Mental Compulsions',
+      bullets: [
+        'Reassurance in your head counts as a ritual.',
+        'Use acceptance/defusion scripts.',
+        'Return attention to the task at hand.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Uncertainty Tolerance',
+      bullets: [
+        'Practice saying “Maybe, maybe not.”',
+        'Aim for “good enough” rather than 100% certainty.',
+        'Let the urge rise/fall without acting.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Support & Tracking',
+      bullets: [
+        'Involve a coach/clinician if possible.',
+        'Daily notes: trigger, urge, ritual resisted, SUDS.',
+        'Review trends weekly.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Common Themes',
+      bullets: [
+        'Contamination, harm, symmetry, checking, “just-right,” taboo thoughts.',
+        'Principles are the same even when content varies.',
+        'Exposure targets the feared meaning, not just the object.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Sticky Thoughts',
+      bullets: [
+        'Name it as “an OCD story.”',
+        'Allow it to be present while living your values.',
+        'Ritual prevention is the keystone.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'When to Seek Help',
+      bullets: [
+        'Severe impairment or safety concerns.',
+        'Specialist ERP therapy is highly effective.',
+        'Medication may help alongside ERP.',
+      ],
+    ),
   ],
   quizzes: const [
     _QuizData(
-      question: 'Urges often behave like…',
-      options: ['Permanent mountains', 'Waves that rise and fall', 'Random dots', 'Unchangeable traits'],
+      question: 'ERP pairs exposure with…',
+      options: ['More reassurance', 'Ritual prevention', 'Distraction only', 'Avoidance'],
       correctIndex: 1,
-      rationale: 'They peak and pass when not acted upon.',
+      rationale: 'Preventing rituals allows corrective learning.',
     ),
     _QuizData(
-      question: 'Good “if-then” example:',
-      options: [
-        'If I pass the bar, I walk in.',
-        'If I crave, I wait 10 minutes and text Sam.',
-        'If I’m lonely, I scroll feeds.',
-        'If I’m tempted, I keep it secret.',
-      ],
+      question: 'A mental ritual example:',
+      options: ['Taking a walk', 'Repeated mental reviewing', 'Breathing slowly', 'Saying hello'],
       correctIndex: 1,
-      rationale: 'Concrete alternative action beats vague intentions.',
+      rationale: 'Covert checking/reassurance is a compulsion.',
     ),
     _QuizData(
-      question: 'A slip should be…',
-      options: ['Hidden', 'Viewed as total failure', 'Debriefed and used to adjust the plan', 'Ignored'],
-      correctIndex: 2,
-      rationale: 'Learning from slips prevents spirals.',
-    ),
-    _QuizData(
-      question: 'Environment design includes…',
-      options: [
-        'Keeping “backup” stashes',
-        'Removing paraphernalia and changing routes',
-        'Visiting high-risk places to test yourself',
-        'Carrying cash for triggers',
-      ],
+      question: 'Best stance toward uncertainty:',
+      options: ['Eliminate it', 'Tolerate “maybe”', 'Ignore it', 'Outthink it perfectly'],
       correctIndex: 1,
-      rationale: 'Reduce exposure to cues early on.',
+      rationale: 'Learning to allow uncertainty weakens OCD.',
     ),
     _QuizData(
-      question: 'Which helps cravings most?',
-      options: ['Sleep and meals', 'Skipping water', 'Isolating', 'Catastrophizing'],
+      question: 'Hierarchy step rating tool:',
+      options: ['SUDS 0–100', 'BMI', 'GPA', 'RPM'],
       correctIndex: 0,
-      rationale: 'Basics stabilize mood/urges.',
+      rationale: 'Subjective Units of Distress guide ERP steps.',
+    ),
+    _QuizData(
+      question: 'Key mistake that maintains OCD:',
+      options: ['Ritualizing for quick relief', 'Taking notes', 'Breathing practice', 'Scheduling sessions'],
+      correctIndex: 0,
+      rationale: 'Relief teaches the brain the obsession was dangerous.',
     ),
   ],
 );
 
-// ---------------- DATA TYPES & FLASHCARDS (same content you provided earlier) ----------------
+// Stress Management
+final _CourseData _stressCourse = _CourseData(
+  title: 'Crash Course: Stress Management',
+  contentSlides: const [
+    _ContentSlide(
+      heading: 'Stress 101',
+      bullets: [
+        'Acute stress can be useful; chronic stress drains energy.',
+        'Body systems: sympathetic (go) vs. parasympathetic (rest).',
+        'Goal: flexible switching between the two.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Breath & Body',
+      bullets: [
+        '4-in/6-out breathing lowers arousal.',
+        'Progressive muscle relaxation releases tension.',
+        'Posture and slow exhale signal safety.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Grounding & Attention',
+      bullets: [
+        '5-4-3-2-1 senses; name objects/colors.',
+        'Brief “orienting” scan of the room.',
+        'One-minute reset beats white-knuckling.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Time & Energy',
+      bullets: [
+        'Prioritize top 3; define “enough.”',
+        'Batch similar tasks; protect focus blocks.',
+        'Schedule recovery micro-breaks.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Boundaries',
+      bullets: [
+        'Say no to low-value commitments.',
+        'Clarify roles and expectations.',
+        'Use templates for common replies.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Recovery Blocks',
+      bullets: [
+        'Sleep, nutrition, movement as pillars.',
+        'Play/novelty recharges motivation.',
+        'Nature and social connection buffer stress.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Cognitive Skills',
+      bullets: [
+        'Spot catastrophizing and all-or-nothing.',
+        'Reframe with evidence and alternatives.',
+        'Make “likely / best / worst” plans.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Values & Meaning',
+      bullets: [
+        'Align effort with what matters.',
+        'Small acts toward values reduce burnout.',
+        'Celebrate completion, not perfection.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Crisis Toolkit',
+      bullets: [
+        'Breath + cold water + movement.',
+        'Call a friend; reduce inputs.',
+        'Short plan for the next hour only.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Escalation & Help',
+      bullets: [
+        'Persistent impairment → talk to a clinician.',
+        'Look for support groups/peer coaching.',
+        'Use workplace resources when available.',
+      ],
+    ),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'Which breath pattern helps down-shift?',
+      options: ['2-in/2-out', '4-in/4-out', '4-in/6-out', '8-in/2-out'],
+      correctIndex: 2,
+      rationale: 'Longer exhales activate the parasympathetic system.',
+    ),
+    _QuizData(
+      question: 'Best first step when overwhelmed:',
+      options: [
+        'Do everything at once',
+        'Define top 3 priorities',
+        'Add more meetings',
+        'Ignore messages for days'
+      ],
+      correctIndex: 1,
+      rationale: 'Focus beats scatter when stress is high.',
+    ),
+    _QuizData(
+      question: 'A fast grounding method:',
+      options: ['5-4-3-2-1 senses', 'Reading a novel', 'Shopping', 'Napping all day'],
+      correctIndex: 0,
+      rationale: 'Senses re-anchor attention to the present.',
+    ),
+    _QuizData(
+      question: 'Good boundary practice:',
+      options: ['Say yes to all asks', 'Vague timelines', 'Template “no” for low-value tasks', 'Work 24/7'],
+      correctIndex: 2,
+      rationale: 'Clear boundaries preserve bandwidth.',
+    ),
+    _QuizData(
+      question: 'Burnout buffer not listed:',
+      options: ['Play/novelty', 'Isolation', 'Movement', 'Sleep regularity'],
+      correctIndex: 1,
+      rationale: 'Isolation typically worsens burnout.',
+    ),
+  ],
+);
+
+// Mindfulness
+final _CourseData _mindfulnessCourse = _CourseData(
+  title: 'Crash Course: Mindfulness',
+  contentSlides: const [
+    _ContentSlide(
+      heading: 'What Mindfulness Is',
+      bullets: [
+        'Paying attention on purpose, in the present, without judgment.',
+        'Training attention + attitude (curiosity, kindness).',
+        'A skill built through repetitions.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Anchors',
+      bullets: [
+        'Breath, sounds, body sensations, contact with chair/floor.',
+        'Return gently when distracted (and notice the return).',
+        'Short practices count.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Body Scan',
+      bullets: [
+        'Move attention slowly through the body.',
+        'Notice tension/temperature/pressure without fixing.',
+        'Refocus calmly when the mind wanders.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Noticing Thoughts',
+      bullets: [
+        'Label “thinking” and let it pass.',
+        'Use images like leaves on a stream.',
+        'No need to suppress or analyze during practice.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Emotion Skills',
+      bullets: [
+        'Name the feeling → it tames the feeling.',
+        'Allow waves to peak and fall.',
+        'Bring kindness to discomfort.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Urge Surfing',
+      bullets: [
+        'Watch urges as body sensations.',
+        'Delay action; ride the wave for 90 seconds.',
+        'Choose your value-aligned response.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Informal Practice',
+      bullets: [
+        'Single-task one routine (shower, dishes, walk).',
+        'Use transition cues: doorways, traffic lights.',
+        'Three breaths before opening an app.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Compassion',
+      bullets: [
+        'Talk to yourself like a good friend.',
+        'Place a hand on the chest; soften tone.',
+        'Kindness builds resilience.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Common Myths',
+      bullets: [
+        'You do not have to stop thoughts.',
+        'It is not a replacement for medical care.',
+        'It can be brief and still useful.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Keeping It Going',
+      bullets: [
+        'Tiny daily habit > long rare sessions.',
+        'Track streaks; pair with an existing routine.',
+        'Try guided audio if helpful.',
+      ],
+    ),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'Mindfulness mainly trains…',
+      options: ['Beliefs only', 'Attention and attitude', 'Flexibility', 'Memory only'],
+      correctIndex: 1,
+      rationale: 'Attention + non-judgmental stance are core.',
+    ),
+    _QuizData(
+      question: 'When you notice distraction…',
+      options: ['Scold yourself', 'Quit practice', 'Gently return to the anchor', 'Open social media'],
+      correctIndex: 2,
+      rationale: 'The return is part of the rep.',
+    ),
+    _QuizData(
+      question: '“Urge surfing” treats urges as…',
+      options: ['Emergencies', 'Facts', 'Body sensations that rise/fall', 'Commands'],
+      correctIndex: 2,
+      rationale: 'Seeing urges as sensations gives choice.',
+    ),
+    _QuizData(
+      question: 'A realistic plan is…',
+      options: ['60 minutes daily or nothing', '3 breaths at transitions', 'Only on weekends', 'Never'],
+      correctIndex: 1,
+      rationale: 'Tiny consistent repetitions build skill.',
+    ),
+    _QuizData(
+      question: 'Good compassion cue:',
+      options: ['Harsh self-talk', 'Hand on chest + kind phrase', 'Ignore feelings', 'Compare to others'],
+      correctIndex: 1,
+      rationale: 'Self-kindness supports regulation.',
+    ),
+  ],
+);
+
+// Eating Regularity
+final _CourseData _eatingCourse = _CourseData(
+  title: 'Crash Course: Eating Regularity',
+  contentSlides: const [
+    _ContentSlide(
+      heading: 'Regular Eating',
+      bullets: [
+        'Aim for 3 meals + 2–3 snacks at predictable times.',
+        'Regularity stabilizes mood and energy.',
+        'Avoid long gaps that trigger binges.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Hunger & Fullness',
+      bullets: [
+        'Use a 0–10 scale to check in before/during/after.',
+        'Eat to comfortable satisfaction, not stuffed.',
+        'Notice patterns without judgment.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Triggers & HALT',
+      bullets: [
+        'Hunger, Anger/Anxiety, Loneliness, Tiredness can drive urges.',
+        'Check which is present before eating.',
+        'Add coping for the non-hunger parts.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Environment',
+      bullets: [
+        'Pre-portion snacks; keep tempting foods out of arm’s reach.',
+        'Eat at a table when possible.',
+        'Reduce multi-tasking during meals.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Coping Skills',
+      bullets: [
+        'Delay urge 10–15 minutes and reassess.',
+        'Use a short walk, call, or journaling.',
+        'Build a list of safe, satisfying foods.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Grocery & Prep',
+      bullets: [
+        'Simple plan for the week; repeat favorites.',
+        'Prep grab-and-go protein and fruit.',
+        'Keep water visible as a cue.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Mindful Bites',
+      bullets: [
+        'First three bites slow and noticed.',
+        'Put utensil down between bites.',
+        'Savor temperature and texture.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Flexibility Over Rules',
+      bullets: [
+        'No single food defines success.',
+        'All foods can fit with planning.',
+        'Curiosity beats shame for learning.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Social & Travel',
+      bullets: [
+        'Snack beforehand to avoid arriving over-hungry.',
+        'Scan menus for balanced options.',
+        'Hydrate; pace desserts.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'When to Seek Help',
+      bullets: [
+        'If patterns feel unmanageable or unsafe.',
+        'Consider RD or therapy specializing in eating.',
+        'Medical monitoring when needed.',
+      ],
+    ),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'A core regularity pattern is…',
+      options: ['1 large late meal', '3 meals + 2–3 snacks', 'Only snacks', 'Skip breakfast always'],
+      correctIndex: 1,
+      rationale: 'Predictable fueling reduces extremes.',
+    ),
+    _QuizData(
+      question: 'HALT stands for…',
+      options: [
+        'Hot, Airy, Low, Tall',
+        'Hunger, Anger/Anxiety, Loneliness, Tiredness',
+        'Healthy, Active, Light, Tasty',
+        'Hope, Aim, Learn, Try'
+      ],
+      correctIndex: 1,
+      rationale: 'Checking HALT clarifies non-food drivers.',
+    ),
+    _QuizData(
+      question: 'Good urge-delay window:',
+      options: ['10–15 minutes', '1 second', 'All day', 'Never pause'],
+      correctIndex: 0,
+      rationale: 'Urges often peak and pass quickly.',
+    ),
+    _QuizData(
+      question: 'Mindful bite cue:',
+      options: ['Eat as fast as possible', 'Put utensil down briefly', 'Scroll phone', 'Stand and pace'],
+      correctIndex: 1,
+      rationale: 'Slowing increases satisfaction and awareness.',
+    ),
+    _QuizData(
+      question: 'Helpful shopping practice:',
+      options: ['No plan at all', 'Repeat simple balanced staples', 'Only desserts', 'Skip produce'],
+      correctIndex: 1,
+      rationale: 'Simple, repeatable plans support regularity.',
+    ),
+  ],
+);
+
+// Grief & Loss
+final _CourseData _griefCourse = _CourseData(
+  title: 'Crash Course: Grief & Loss',
+  contentSlides: const [
+    _ContentSlide(
+      heading: 'Grief Basics',
+      bullets: [
+        'A natural response to loss; waves over time.',
+        'No single “right” timeline.',
+        'Feelings can coexist (sadness and moments of joy).',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Rituals & Remembrance',
+      bullets: [
+        'Create personal rituals and memorials.',
+        'Storytelling preserves connection.',
+        'Anniversaries may intensify feelings.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Body & Sleep',
+      bullets: [
+        'Grief is physically tiring—prioritize rest.',
+        'Gentle movement helps regulate.',
+        'Eat regularly even when appetite dips.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Support Map',
+      bullets: [
+        'List two people/places for support.',
+        'Ask for specific help (a walk, a ride, company).',
+        'Peer groups can reduce isolation.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Coping Day to Day',
+      bullets: [
+        'Plan one tiny task and one soothing activity.',
+        'Allow tears and laughter both.',
+        'Limit major decisions early if possible.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Kids & Grief',
+      bullets: [
+        'Use simple, honest language.',
+        'Maintain routines and reassurance.',
+        'Invite questions repeatedly.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Meaning & Legacy',
+      bullets: [
+        'Acts of service or creation can honor the loss.',
+        'Write a letter to the person or to yourself.',
+        'Keep a memory box or playlist.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Complicated Grief',
+      bullets: [
+        'Persistent, impairing grief may need specialized care.',
+        'Trauma overlaps can occur; seek support.',
+        'There is help; you are not alone.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Community & Culture',
+      bullets: [
+        'Lean on faith/community traditions if meaningful.',
+        'Adapt rituals to your context.',
+        'Grief is personal—compare less.',
+      ],
+    ),
+    _ContentSlide(
+      heading: 'Safety',
+      bullets: [
+        'Reach out if you feel hopeless or unsafe.',
+        'Crisis resources and clinicians are available.',
+        'Hope can grow even when pain is present.',
+      ],
+    ),
+  ],
+  quizzes: const [
+    _QuizData(
+      question: 'A truth about grief:',
+      options: [
+        'It has a strict timeline.',
+        'Waves are common and normal.',
+        'You must be strong and not cry.',
+        'It always gets worse.'
+      ],
+      correctIndex: 1,
+      rationale: 'Grief often comes in waves without a fixed schedule.',
+    ),
+    _QuizData(
+      question: 'Helpful support ask:',
+      options: ['“Help me with everything.”', 'A specific walk or call', 'Nothing', 'Vague advice requests'],
+      correctIndex: 1,
+      rationale: 'Specific requests are easier for supporters to meet.',
+    ),
+    _QuizData(
+      question: 'When appetite dips, a step is…',
+      options: ['Skip meals', 'Regular small meals/snacks', 'Only coffee', 'Only dessert'],
+      correctIndex: 1,
+      rationale: 'Regular fueling stabilizes energy and mood.',
+    ),
+    _QuizData(
+      question: 'For children, communication should be…',
+      options: ['Complex and abstract', 'Simple and honest', 'Avoidant', 'Filled with euphemisms only'],
+      correctIndex: 1,
+      rationale: 'Clarity and honesty support coping.',
+    ),
+    _QuizData(
+      question: 'Seek more help when…',
+      options: [
+        'Impairment persists and safety concerns arise',
+        'You cry once',
+        'You remember the person',
+        'A friend suggests music'
+      ],
+      correctIndex: 0,
+      rationale: 'Complicated grief warrants specialized care.',
+    ),
+  ],
+);
+
+// ---------------- DATA TYPES & FLASHCARDS ----------------
 
 class _Tip {
   final String condition;
@@ -1882,27 +2193,15 @@ _Tip T({
   required List<String> tips,
   List<String> k = const [],
 }) =>
-    _Tip(
-      condition: condition,
-      short: short,
-      details: details,
-      tips: tips,
-      keywords: k,
-    );
+    _Tip(condition: condition, short: short, details: details, tips: tips, keywords: k);
 
-// 55 cards (unchanged from your file). Paste kept intact below.
 final List<_Tip> _allTips = [
   // Mood (8)
   T(
     condition: 'Major Depressive Disorder',
     short: 'Persistent low mood, anhedonia, sleep/appetite changes.',
-    details:
-        'Treatable with therapy and sometimes medication; action often precedes motivation.',
-    tips: [
-      '5-minute rule to start a tiny task.',
-      'Morning light or short outdoor walk.',
-      'Text one supportive person.'
-    ],
+    details: 'Treatable with therapy and sometimes medication; action often precedes motivation.',
+    tips: ['5-minute rule to start a tiny task.', 'Morning light or short outdoor walk.', 'Text one supportive person.'],
     k: ['MDD', 'depression'],
   ),
   T(
