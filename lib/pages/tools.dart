@@ -82,7 +82,6 @@ class _ToolsPageState extends State<ToolsPage> {
   Future<void> _rememberTool(String label) async {
     final prefs = await SharedPreferences.getInstance();
     final list = [..._recentIds]..remove(label)..insert(0, label);
-    // keep it short
     if (list.length > 8) list.removeRange(8, list.length);
     setState(() => _recentIds = list);
     await prefs.setStringList(_recentPrefsKey, list);
@@ -272,10 +271,9 @@ class _SearchFieldState extends State<_SearchField> {
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
 
-    // Slightly less transparent than before for readability
     final fillColor = dark
-        ? const Color(0x40000000) // 25% black
-        : const Color(0x40FFFFFF); // 25% white
+        ? const Color(0x40000000)
+        : const Color(0x40FFFFFF);
     final borderColor = Colors.black.withOpacity(dark ? 0.28 : 0.22);
 
     return AnimatedScale(
@@ -338,7 +336,7 @@ class _RecentToolChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
-    final bg = dark ? const Color(0x40FFFFFF) : const Color(0x40FFFFFF); // 25% white
+    final bg = dark ? const Color(0x40FFFFFF) : const Color(0x40FFFFFF);
     final border = (dark ? Colors.white : Colors.black).withOpacity(0.16);
 
     return Material(
@@ -400,8 +398,7 @@ class _ToolTileState extends State<_ToolTile> {
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
 
-    // Less transparent than earlier for readability, still airy
-    final bg = dark ? const Color(0x33FFFFFF) : const Color(0x33FFFFFF); // 20% white
+    final bg = dark ? const Color(0x33FFFFFF) : const Color(0x33FFFFFF);
     final border = (dark ? Colors.white : Colors.black).withOpacity(0.14);
 
     return AnimatedScale(
@@ -464,32 +461,34 @@ class _ToolItem {
   final Widget page;
   final List<String>? terms;
 
-  const _ToolItem(this.label, this.icon, this.page, {
-    this.terms = const [],
-  });
+  const _ToolItem(this.label, this.icon, this.page, {this.terms = const []});
 }
 
+/// NOTE: Only change from original is renaming "Tips" to "Learn".
 final _items = <_ToolItem>[
-   _ToolItem(
+  _ToolItem(
     'Sounds',
     Icons.music_note_rounded,
     SoundsPage(),
     terms: ['music', 'calm', 'relax', 'sound'],
   ),
-   _ToolItem(
+  _ToolItem(
     'Habit Tracker',
     Icons.checklist_rtl_rounded,
     HabitTrackerPage(),
     terms: ['habits', 'routine', 'daily', 'calendar'],
   ),
-   _ToolItem('Sleep Tracker', Icons.bedtime_rounded, SleepTrackerPage(), terms: ['sleep', 'bedtime', 'insomnia'],),
-   _ToolItem(
-    'Meditation',
-    Icons.self_improvement_rounded,
-    MeditationPage(),
-    terms: ['breathing', 'mindfulness', 'relax']
+  _ToolItem(
+    'Sleep Tracker',
+    Icons.bedtime_rounded,
+    SleepTrackerPage(),
+    terms: ['sleep', 'bedtime', 'insomnia'],
   ),
-   _ToolItem('Tips', Icons.tips_and_updates_rounded, TipsPage(), terms: [
+  _ToolItem(
+    'Learn', // renamed from "Tips"
+    Icons.tips_and_updates_rounded,
+    TipsPage(),
+    terms: [
       'depression',
       'anxiety',
       'adhd',
@@ -497,26 +496,36 @@ final _items = <_ToolItem>[
       'ocd',
       'flashcards',
       'crash course'
-    ],),
-
-   _ToolItem('Resources', Icons.library_books_rounded, ResourcesPage(), terms: [
-      'crisis',
-      '988',
-      'hotline',
-      'lgbtq+',
-      'veterans',
-      'youth',
-      'canada',
-      'uk',
-      'india',
-      'global'
-    ],),
-   _ToolItem('Exercises', Icons.fitness_center_rounded, ExercisesPage(), terms: ['grounding', 'coping', 'skills', 'practice'],),
-   _ToolItem('AI Chatbot', Icons.forum_rounded, AIChatbotPage(), terms: ['chat', 'ask', 'assistant'],),
-   _ToolItem(
+    ],
+  ),
+  _ToolItem(
+    'AI Chatbot',
+    Icons.forum_rounded,
+    AIChatbotPage(),
+    terms: ['chat', 'ask', 'assistant'],
+  ),
+  _ToolItem(
+    'Meditation',
+    Icons.self_improvement_rounded,
+    MeditationPage(),
+    terms: ['breathing', 'mindfulness', 'relax'],
+  ),
+  _ToolItem(
+    'Exercises',
+    Icons.fitness_center_rounded,
+    ExercisesPage(),
+    terms: ['grounding', 'coping', 'skills', 'practice'],
+  ),
+  _ToolItem(
+    'Affirmations',
+    Icons.auto_awesome_rounded,
+    AffirmationsPage(),
+    terms: ['positive', 'self talk', 'daily', 'quotes'],
+  ),
+  _ToolItem(
     'Stress Busters',
     Icons.videogame_asset_rounded,
-    StressBustersPage(), 
+    StressBustersPage(),
     terms: [
       'games',
       'word search',
@@ -527,16 +536,27 @@ final _items = <_ToolItem>[
       'scramble'
     ],
   ),
-   _ToolItem(
-    'Affirmations',
-    Icons.auto_awesome_rounded,
-    AffirmationsPage(),
-    terms: ['positive', 'self talk', 'daily', 'quotes']
+  _ToolItem(
+    'Resources',
+    Icons.library_books_rounded,
+    ResourcesPage(),
+    terms: [
+      'crisis',
+      '988',
+      'hotline',
+      'lgbtq+',
+      'veterans',
+      'youth',
+      'canada',
+      'uk',
+      'india',
+      'global'
+    ],
   ),
 ];
 
 /// -------------------- Bottom Nav --------------------
-/// Updated to match Home page sizing (icons use default size; same padding/spacing).
+/// Matches Home page sizing (icons use default size; same padding/spacing).
 class _BottomNav extends StatelessWidget {
   final int index;
   final String userName;
