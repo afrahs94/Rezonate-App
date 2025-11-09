@@ -95,19 +95,17 @@ class _ToolsPageState extends State<ToolsPage> {
     super.dispose();
   }
 
-Iterable<_ToolItem> get _filteredItems {
-  if (_query.isEmpty) return _items;
-  final q = _query.toLowerCase();
+  Iterable<_ToolItem> get _filteredItems {
+    if (_query.isEmpty) return _items;
+    final q = _query.toLowerCase();
 
-  return _items.where((t) {
-    final inLabel = t.label.toLowerCase().contains(q);
-    final termList = t.terms ?? const <String>[];
-    final inTerms = termList.any((term) => term.toLowerCase().contains(q));
-    return inLabel || inTerms;
-  });
-}
-
-
+    return _items.where((t) {
+      final inLabel = t.label.toLowerCase().contains(q);
+      final termList = t.terms ?? const <String>[];
+      final inTerms = termList.any((term) => term.toLowerCase().contains(q));
+      return inLabel || inTerms;
+    });
+  }
 
   Iterable<_ToolItem> get _recentItems sync* {
     for (final id in _recentIds) {
@@ -538,7 +536,7 @@ final _items = <_ToolItem>[
 ];
 
 /// -------------------- Bottom Nav --------------------
-
+/// Updated to match Home page sizing (icons use default size; same padding/spacing).
 class _BottomNav extends StatelessWidget {
   final int index;
   final String userName;
@@ -561,30 +559,26 @@ class _BottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            icon: Icon(Icons.home, color: c(0), size: 22),
-            onPressed: index == 0
-                ? null
-                : () => Navigator.pushReplacement(
-                      context,
-                      NoTransitionPageRoute(
-                        builder: (_) => HomePage(userName: userName),
-                      ),
-                    ),
+            icon: Icon(Icons.home, color: c(0)),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(
+                builder: (_) => HomePage(userName: userName),
+              ),
+            ),
           ),
           IconButton(
-            icon: Icon(Icons.menu_book, color: c(1), size: 22),
-            onPressed: index == 1
-                ? null
-                : () => Navigator.pushReplacement(
-                      context,
-                      NoTransitionPageRoute(
-                        builder: (_) => JournalPage(userName: userName),
-                      ),
-                    ),
+            icon: Icon(Icons.menu_book, color: c(1)),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(
+                builder: (_) => JournalPage(userName: userName),
+              ),
+            ),
           ),
           IconButton(
-            icon: Icon(Icons.widgets_rounded, color: c(2), size: 22),
-            onPressed: () {},
+            icon: Icon(Icons.widgets_rounded, color: c(2)),
+            onPressed: () {}, // Already on Tools
           ),
         ],
       ),
