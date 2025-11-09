@@ -1,6 +1,4 @@
-// lib/pages/stress_busters.dart
-// Stress Busters – calm themed games, now each on its own page.
-// Updated: Word Search now uses category chooser (WordSearchCategoryPage).
+
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';

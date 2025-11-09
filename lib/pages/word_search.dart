@@ -4,11 +4,12 @@
 // - 6 broad categories (50+ words each).
 // - Original game behavior preserved: difficulty selector, randomized words,
 //   drag with 8-direction snap, strike-through lines, "New" button.
-// - Animated, playful category menu.
-// - Visual polish update: balanced spacing, translucent cards, modern layout.
-// - Header shows only category; smaller back button; subtle category patterns.
+// - Headers match Stress Busters vibe; compact title text and iOS-style back.
+// - Categories page: animated aurora + floating **transparent bubbles**.
+// - **No asset images used anywhere** (prevents "Unable to load asset" errors).
 
 import 'dart:math';
+import 'dart:ui' as ui; // for gradient shaders
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_rezonate/main.dart' as app;
@@ -18,101 +19,51 @@ import 'package:new_rezonate/main.dart' as app;
 const _ink = Colors.black;
 const _themeGreen = Color(0xFF0D7C66);
 
-BoxDecoration _bg(BuildContext context, [String? category]) {
+// Compact header text (same scale as Stress Busters)
+const _headerTextStyle = TextStyle(
+  fontSize: 24,
+  fontWeight: FontWeight.w900,
+);
+
+BoxDecoration _bg(BuildContext context, [String? _unusedCategory]) {
   final dark = app.ThemeControllerScope.of(context).isDark;
+  // Soft vertical gradient only (no assets)
   final colors = dark
       ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
       : const [Color(0xFFE9D9FF), Color(0xFFBEE8E0)];
-
   return BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: colors,
     ),
-    image: DecorationImage(
-      image: _patternForCategory(category),
-      repeat: ImageRepeat.repeat,
-      // faint white overlay; a touch stronger on light theme
-      colorFilter: ColorFilter.mode(
-        Colors.white.withOpacity(dark ? 0.05 : 0.08),
-        BlendMode.srcATop,
-      ),
-    ),
   );
 }
 
-AssetImage _patternForCategory(String? category) {
-  switch (category) {
-    case 'Animals':
-      return const AssetImage('assets/patterns/paws.png');
-    case 'Food':
-      return const AssetImage('assets/patterns/utensils.png');
-    case 'Sports':
-      return const AssetImage('assets/patterns/balls.png');
-    case 'Travel':
-      return const AssetImage('assets/patterns/planes.png');
-    case 'Movies':
-      return const AssetImage('assets/patterns/film.png');
-    case 'Technology':
-      return const AssetImage('assets/patterns/circuits.png');
-    default:
-      return const AssetImage('assets/patterns/dots.png');
-  }
-}
+/* ─────────── iOS-style back button (compact) ─────────── */
 
-/* ─────────── iOS-style Chevron Back Button (smaller) ─────────── */
-
-class _BackChevron extends StatelessWidget {
-  const _BackChevron({
-    this.onTap,
-    this.color = const Color(0xFF2B2B2B),
-    this.size = 16, // smaller than before (was 22)
+class _BackButtonIOS extends StatelessWidget {
+  const _BackButtonIOS({
+    this.onPressed,
+    this.iconSize = 22,
     super.key,
   });
-  final VoidCallback? onTap;
-  final Color color;
-  final double size;
+
+  final VoidCallback? onPressed;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
-    return InkResponse(
-      onTap: onTap,
-      highlightColor: Colors.transparent,
+    return IconButton(
+      onPressed: onPressed,
+      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2B2B2B)),
+      iconSize: iconSize,
+      padding: const EdgeInsets.only(left: 6),
+      constraints: const BoxConstraints.tightFor(width: 52, height: 52),
       splashColor: Colors.transparent,
-      radius: 24,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-        child: CustomPaint(size: Size(size, size), painter: _ChevronPainter(color)),
-      ),
+      highlightColor: Colors.transparent,
     );
   }
-}
-
-class _ChevronPainter extends CustomPainter {
-  _ChevronPainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.12
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
-
-    final p1 = Offset(size.width * 0.75, size.height * 0.15);
-    final p2 = Offset(size.width * 0.25, size.height * 0.50);
-    final p3 = Offset(size.width * 0.75, size.height * 0.85);
-
-    canvas.drawLine(p1, p2, paint);
-    canvas.drawLine(p2, p3, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ChevronPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 /* ─────────── Score Tracker ─────────── */
@@ -150,27 +101,25 @@ class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
     'Technology'
   ];
 
-  late final AnimationController _fadeController;
-  late final AnimationController _bounceController;
+  // Nullable to avoid late-init crash on hot reloads.
+  AnimationController? _aurora; // background motion
+
+  // per-card interactive state
+  final Map<String, double> _scale = {for (final c in _categories) c: 1.0};
+  final Map<String, double> _tiltTurns = {for (final c in _categories) c: 0.0};
 
   @override
   void initState() {
     super.initState();
-    _fadeController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-          ..forward();
-    _bounceController = AnimationController(
+    _aurora = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
-      lowerBound: 0.0,
-      upperBound: 0.1,
-    );
+      duration: const Duration(seconds: 18),
+    )..repeat();
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _bounceController.dispose();
+    _aurora?.dispose();
     super.dispose();
   }
 
@@ -185,8 +134,21 @@ class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
     }
   }
 
-  void _onTapDown() => _bounceController.forward();
-  void _onTapUp() => _bounceController.reverse();
+  void _pressDown(String cat) {
+    setState(() {
+      _scale[cat] = 0.94;
+      // playful 2–3.5° tilt
+      final sign = Random().nextBool() ? 1 : -1;
+      _tiltTurns[cat] = sign * (Random().nextDouble() * 0.006 + 0.003); // turns
+    });
+  }
+
+  void _pressUp(String cat) {
+    setState(() {
+      _scale[cat] = 1.0;
+      _tiltTurns[cat] = 0.0;
+    });
+  }
 
   IconData _iconForCategory(String cat) {
     switch (cat) {
@@ -209,120 +171,144 @@ class _WordSearchCategoryPageState extends State<WordSearchCategoryPage>
 
   @override
   Widget build(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        toolbarHeight: 56,
+        leadingWidth: 52,
+        leading: _BackButtonIOS(
+          onPressed: () => Navigator.pop(context),
+          iconSize: 22,
+        ),
+        title: const Text('Choose a Category', style: _headerTextStyle),
+      ),
       body: Container(
         decoration: _bg(context),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _BackChevron(
-                      onTap: () => Navigator.pop(context),
-                      color: const Color(0xFF2B2B2B),
-                      size: 18,
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Choose a Category',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: _ink,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 30),
-                  ],
-                ),
-                const SizedBox(height: 40),
-                FadeTransition(
-                  opacity:
-                      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-                  child: Column(
-                    children: const [
-                      Icon(Icons.grid_view_rounded, size: 64, color: _themeGreen),
-                      SizedBox(height: 14),
-                      Text(
-                        'Tap a theme to begin your Word Search!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
+        child: Stack(
+          children: [
+            // Animated aurora / blob painter behind content
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _aurora ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, _) => CustomPaint(
+                    painter: _AuroraPainter((_aurora?.value ?? 0.0), dark),
                   ),
                 ),
-                const SizedBox(height: 40),
-                Expanded(
-                  child: Center(
-                    child: Wrap(
-                      spacing: 22,
-                      runSpacing: 22,
-                      alignment: WrapAlignment.center,
-                      children: _categories.map((cat) {
-                        return ScaleTransition(
-                          scale: Tween<double>(begin: 1.0, end: 1.1).animate(
-                            CurvedAnimation(
-                              parent: _bounceController,
-                              curve: Curves.elasticOut,
-                            ),
-                          ),
-                          child: GestureDetector(
-                            onTapDown: (_) => _onTapDown(),
-                            onTapUp: (_) => _onTapUp(),
-                            onTapCancel: () => _onTapUp(),
-                            onTap: () => _navigateToCategory(cat),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              width: 140,
-                              height: 130,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(20),
-                                border:
-                                    Border.all(color: _themeGreen.withOpacity(0.9), width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: _themeGreen.withOpacity(0.25),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(_iconForCategory(cat),
-                                      color: _themeGreen, size: 36),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    cat,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: _ink,
+              ),
+            ),
+            // Floating **transparent bubbles** layer
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _aurora ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, _) => CustomPaint(
+                    painter: _BubblesPainter((_aurora?.value ?? 0.0), dark),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Center(
+                        child: Wrap(
+                          spacing: 22,
+                          runSpacing: 22,
+                          alignment: WrapAlignment.center,
+                          children: _categories.map((cat) {
+                            final glowStrength =
+                                0.14 + 0.08 * sin(((_aurora?.value ?? 0.0) * 2 * pi) + cat.hashCode);
+                            return GestureDetector(
+                              onTapDown: (_) => _pressDown(cat),
+                              onTapUp: (_) => _pressUp(cat),
+                              onTapCancel: () => _pressUp(cat),
+                              onTap: () => _navigateToCategory(cat),
+                              child: AnimatedScale(
+                                duration: const Duration(milliseconds: 120),
+                                scale: _scale[cat]!,
+                                child: AnimatedRotation(
+                                  duration: const Duration(milliseconds: 160),
+                                  turns: _tiltTurns[cat]!,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 280),
+                                    width: 148,
+                                    height: 136,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 18, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Colors.white.withOpacity(0.90),
+                                          Colors.white.withOpacity(0.84),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(22),
+                                      border: Border.all(
+                                        color: _themeGreen.withOpacity(0.85),
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _themeGreen.withOpacity(glowStrength),
+                                          blurRadius: 16,
+                                          spreadRadius: 1,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 52,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: const Color(0xFF0D7C66).withOpacity(0.10),
+                                          ),
+                                          child: Icon(
+                                            _iconForCategory(cat),
+                                            color: _themeGreen,
+                                            size: 30,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          cat,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            color: _ink,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -696,21 +682,20 @@ class _WordSearchPageState extends State<WordSearchPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: Text(
-          widget.category, // 🔹 only category shown
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        leading: _BackChevron(
-          onTap: () {
+        elevation: 0,
+        centerTitle: true,
+        toolbarHeight: 56,
+        leadingWidth: 52,
+        title: Text(widget.category, style: _headerTextStyle),
+        leading: _BackButtonIOS(
+          onPressed: () {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const WordSearchCategoryPage()),
             );
           },
-          color: const Color(0xFF2B2B2B),
-          size: 18, // 🔹 smaller back button
+          iconSize: 22,
         ),
       ),
       body: Container(
@@ -749,7 +734,7 @@ class _WordSearchPageState extends State<WordSearchPage> {
   }
 }
 
-/* ─────────── Painter ─────────── */
+/* ─────────── Painter for the board ─────────── */
 
 class _WsPainter extends CustomPainter {
   final List<List<String>> g;
@@ -815,3 +800,136 @@ class _WsPainter extends CustomPainter {
   bool shouldRepaint(covariant _WsPainter old) =>
       old.g != g || old.sel != sel || old.foundPaths != foundPaths;
 }
+
+/* ─────────── Aurora Background Painter (categories page) ─────────── */
+
+class _AuroraPainter extends CustomPainter {
+  _AuroraPainter(this.t, this.dark);
+  final double t;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Two drifting radial gradients ("blobs")
+    final cx1 = size.width * (0.25 + 0.15 * sin(2 * pi * (t + 0.10)));
+    final cy1 = size.height * (0.28 + 0.10 * cos(2 * pi * (t + 0.20)));
+    final cx2 = size.width * (0.72 + 0.12 * cos(2 * pi * (t + 0.45)));
+    final cy2 = size.height * (0.62 + 0.12 * sin(2 * pi * (t + 0.05)));
+
+    final r1 = size.shortestSide * 0.55;
+    final r2 = size.shortestSide * 0.60;
+
+    final c1a = const Color(0xFF18C8A0).withOpacity(dark ? 0.16 : 0.18);
+    final c1b = const Color(0xFF18C8A0).withOpacity(0.0);
+    final c2a = const Color(0xFFA48DFF).withOpacity(dark ? 0.16 : 0.18);
+    final c2b = const Color(0xFFA48DFF).withOpacity(0.0);
+
+    final p1 = Paint()
+      ..shader = ui.Gradient.radial(
+        Offset(cx1, cy1),
+        r1,
+        [c1a, c1b],
+        [0.0, 1.0],
+      );
+    final p2 = Paint()
+      ..shader = ui.Gradient.radial(
+        Offset(cx2, cy2),
+        r2,
+        [c2a, c2b],
+        [0.0, 1.0],
+      );
+
+    canvas.drawCircle(Offset(cx1, cy1), r1, p1);
+    canvas.drawCircle(Offset(cx2, cy2), r2, p2);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AuroraPainter oldDelegate) =>
+      oldDelegate.t != t || oldDelegate.dark != dark;
+}
+
+/* ─────────── Bubbles Painter (more transparent / bubble-like) ─────────── */
+
+class _BubblesPainter extends CustomPainter {
+  _BubblesPainter(this.t, this.dark);
+  final double t;   // 0..1 from controller
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final baseAlpha = dark ? 0.10 : 0.12; // more transparent overall
+    final palette = [
+      const Color(0xFF0D7C66).withOpacity(baseAlpha),
+      const Color(0xFF7A5AF8).withOpacity(baseAlpha),
+      const Color(0xFF00BFA6).withOpacity(baseAlpha),
+    ];
+
+    // very thin rim for glassy look
+    final rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = Colors.white.withOpacity(0.32);
+
+    final innerShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.6
+      ..color = Colors.black.withOpacity(0.08);
+
+    // 12 floating bubbles with gentle wobble and shine
+    for (int i = 0; i < 12; i++) {
+      final phase = i * 0.12;
+      final w = size.width;
+      final h = size.height;
+
+      final x = w * (0.10 + (i % 5) * 0.18) + 12 * sin(2 * pi * (t + phase * 0.8));
+      final y = h * (0.18 + 0.64 * (0.5 + 0.5 * sin(2 * pi * (t * 0.75 + phase))));
+
+      final r = 8.0 + (i % 4) * 5.0;
+
+      // soft outer glow (very transparent)
+      final glow = Paint()
+        ..style = PaintingStyle.fill
+        ..color = palette[i % palette.length]
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      canvas.drawCircle(Offset(x, y), r * 1.35, glow);
+
+      // bubble fill with airy transparency: bright highlight to fully transparent edge
+      final highlightCenter = Offset(x - r * 0.38, y - r * 0.38);
+      final fill = Paint()
+        ..shader = ui.Gradient.radial(
+          highlightCenter,
+          r,
+          [
+            Colors.white.withOpacity(0.40),   // specular center
+            Colors.white.withOpacity(0.18),   // soft core
+            palette[i % palette.length].withOpacity(0.12), // faint tint
+            Colors.transparent,               // clear edge
+          ],
+          const [0.0, 0.35, 0.75, 1.0],
+        );
+      canvas.drawCircle(Offset(x, y), r, fill);
+
+      // crisp rim + subtle inner shadow for refraction
+      canvas.drawCircle(Offset(x, y), r, rim);
+      canvas.drawCircle(Offset(x, y), r - 0.9, innerShadow);
+
+      // small crescent highlight along the upper-left (thin arc)
+      final arcPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.08
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withOpacity(0.22);
+      final arcRect = Rect.fromCircle(center: Offset(x, y), radius: r * 0.86);
+      canvas.drawArc(arcRect, -2.6, 1.1, false, arcPaint);
+
+      // tiny sparkle dot
+      final sparkle = Paint()..color = Colors.white.withOpacity(0.70);
+      canvas.drawCircle(Offset(x - r * 0.45, y - r * 0.50), r * 0.16, sparkle);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BubblesPainter oldDelegate) =>
+      oldDelegate.t != t || oldDelegate.dark != dark;
+}
+
