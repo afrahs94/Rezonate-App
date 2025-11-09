@@ -155,144 +155,131 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
     );
   }
 
-  double _topPadding(BuildContext context) {
-    final status = MediaQuery.of(context).padding.top;
-    const appBar = kToolbarHeight;
-    const extra = 24.0;
-    return status + appBar + extra;
-  }
-
   @override
   Widget build(BuildContext context) {
     final list = _filtered;
     final tip = list.isEmpty ? null : list[_index.clamp(0, list.length - 1)];
     const green = Color(0xFF0D7C66);
 
-    // --- Unified "Flashcards" deck (controls + search + card) ---
+    // Choose a fixed card height to prevent page jumping
+    final screenH = MediaQuery.of(context).size.height;
+    final double cardHeight = screenH <= 700 ? 260 : 300;
+
     Widget flashcardDeck() {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.78),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black, width: 1),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Top bar: prev / shuffle / next + counter
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Previous',
-                  onPressed: list.isEmpty ? null : _applyPrev,
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                ),
-                const SizedBox(width: 4),
-                FilledButton.icon(
-                  onPressed: list.isEmpty ? null : _applyShuffle,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: green,
-                    foregroundColor: Colors.white,
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Inline search chip
+          InkWell(
+            onTap: _openSearchSheet,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.black),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, color: green),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _query.isEmpty ? 'Search flashcards' : 'Search: “$_query” (tap to change)',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  icon: const Icon(Icons.shuffle_rounded, size: 18),
-                  label: const Text('Shuffle'),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  tooltip: 'Next',
-                  onPressed: list.isEmpty ? null : _applyNext,
-                  icon: const Icon(Icons.arrow_forward_ios_rounded),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.black12),
-                  ),
-                  child: Text(
-                    list.isEmpty ? '0/0' : '${_index + 1}/${list.length}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
+                  if (_query.isNotEmpty)
+                    IconButton.filledTonal(
+                      tooltip: 'Clear search',
+                      onPressed: () => setState(() {
+                        _query = '';
+                        _index = 0;
+                        _showBack = false;
+                      }),
+                      icon: const Icon(Icons.clear_rounded),
+                    ),
+                ],
+              ),
             ),
+          ),
 
-            const SizedBox(height: 10),
+          const SizedBox(height: 14),
 
-            // Inline "search bar" chip inside the deck
-            InkWell(
-              onTap: _openSearchSheet,
-              borderRadius: BorderRadius.circular(999),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.black),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search_rounded, color: green),
-                    const SizedBox(width: 8),
-                    Expanded(
+          // Fixed-height flashcard (front/back) to stop layout shifts
+          SizedBox(
+            height: cardHeight,
+            child: tip == null
+                ? Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black, width: 1),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                    ),
+                    child: const Center(
                       child: Text(
-                        _query.isEmpty ? 'Search flashcards' : 'Search: “$_query” (tap to change)',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        'No results. Try changing your search.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
-                    if (_query.isNotEmpty)
-                      IconButton.filledTonal(
-                        tooltip: 'Clear search',
-                        onPressed: () => setState(() {
-                          _query = '';
-                          _index = 0;
-                          _showBack = false;
-                        }),
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-                  ],
-                ),
+                  )
+                : GestureDetector(
+                    onTap: () => setState(() => _showBack = !_showBack),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, anim) =>
+                          ScaleTransition(scale: Tween<double>(begin: .98, end: 1).animate(anim), child: child),
+                      child: _showBack
+                          ? _BackCard(key: const ValueKey('back'), tip: tip)
+                          : _FrontCard(key: const ValueKey('front'), tip: tip),
+                    ),
+                  ),
+          ),
+
+          // Combined centered controls with NO backgrounds
+          const SizedBox(height: 12),
+          if (list.isNotEmpty)
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Previous',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _applyPrev,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                  ),
+                  const SizedBox(width: 6),
+                  TextButton.icon(
+                    onPressed: _applyShuffle,
+                    style: TextButton.styleFrom(
+                      foregroundColor: green,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: const StadiumBorder(),
+                    ),
+                    icon: const Icon(Icons.shuffle_rounded, size: 18),
+                    label: const Text('Shuffle', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: 'Next',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _applyNext,
+                    icon: const Icon(Icons.arrow_forward_ios_rounded),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${_index + 1}/${list.length}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 14),
-
-            // The card itself
-            if (tip == null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.9),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.black, width: 1),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-                ),
-                child: const Text(
-                  'No results. Try changing your search.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              )
-            else
-              GestureDetector(
-                onTap: () => setState(() => _showBack = !_showBack),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (child, anim) =>
-                      ScaleTransition(scale: Tween<double>(begin: .98, end: 1).animate(anim), child: child),
-                  child: _showBack
-                      ? _BackCard(key: const ValueKey('back'), tip: tip)
-                      : _FrontCard(key: const ValueKey('front'), tip: tip),
-                ),
-              ),
-          ],
-        ),
+        ],
       );
     }
 
@@ -362,33 +349,35 @@ class _FrontCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: key,
-      padding: const EdgeInsets.fromLTRB(16, 28, 16, 28),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.85),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black, width: 1),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-      ),
-      child: Column(
-        children: [
-          Text(
-            tip.condition,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, height: 1.2),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            tip.short,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 18),
-          const Icon(Icons.touch_app_rounded, color: Colors.black45),
-          const SizedBox(height: 4),
-          const Text('Tap to flip', style: TextStyle(fontSize: 12, color: Colors.black45)),
-        ],
+    return SizedBox.expand(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 28, 16, 28),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.85),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black, width: 1),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              tip.condition,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, height: 1.2),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              tip.short,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 18),
+            const Icon(Icons.touch_app_rounded, color: Colors.black45),
+            const SizedBox(height: 4),
+            const Text('Tap to flip', style: TextStyle(fontSize: 12, color: Colors.black45)),
+          ],
+        ),
       ),
     );
   }
@@ -400,35 +389,41 @@ class _BackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: key,
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.85),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black, width: 1),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(tip.condition, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text(tip.details),
-          const SizedBox(height: 10),
-          const Text('Try:', style: TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          ...tip.tips.map((t) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('•  '),
-                    Expanded(child: Text(t)),
-                  ],
-                ),
-              )),
-        ],
+    return SizedBox.expand(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.85),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black, width: 1),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        ),
+        child: Scrollbar(
+          thumbVisibility: false,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tip.condition, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(tip.details),
+                const SizedBox(height: 10),
+                const Text('Try:', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                ...tip.tips.map((t) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('•  '),
+                          Expanded(child: Text(t)),
+                        ],
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -441,7 +436,7 @@ class _CrashCourses extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No grey subtitles; titles only.
+    // Titles only (no grey subtitles).
     Widget box({required String title, required _CourseData data}) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -833,7 +828,7 @@ class _QuizData {
   });
 }
 
-// ---------------- COURSE CONTENT ----------------
+// ---------------- COURSE CONTENT (same as previous turn, with +6 added) ----------------
 
 // Depression
 final _CourseData _depressionCourse = _CourseData(
