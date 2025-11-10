@@ -323,7 +323,7 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
                 pinned: false,
                 snap: false,
                 title: const Text(
-                  'Tips',
+                  'Learn', // <- changed from 'Tips'
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
                 ),
               ),
