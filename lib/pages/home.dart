@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'onboarding.dart';
 import 'onboarding_keys.dart';
 import 'package:showcaseview/showcaseview.dart';
@@ -16,7 +17,7 @@ import 'package:new_rezonate/main.dart' as app;
 import 'journal.dart';
 import 'settings.dart';
 import 'edit_profile.dart';
-import 'tools.dart';
+import 'tools.dart';            // <-- added to match Tools nav targets
 import 'summaries.dart';
 
 class Tracker {
@@ -92,18 +93,15 @@ class _HomePageState extends State<HomePage> {
   DateTime? _firstLogTodayAt;
   DateTime? _lastLogBeforeTodayAt;
 
-  /// Five-tick emoji scale (0, 2.5, 5, 7.5, 10).
-  /// We keep five editable choices in settings, but only **low** and **high** show on the chart axes.
+  // Five ticks (0, 2.5, 5, 7.5, 10). Only Low/High show on the graph axis.
   final List<double> _emojiTicks = const [0.0, 2.5, 5.0, 7.5, 10.0];
 
-  /// Default five emojis (editable by the user).
-  /// Not const to avoid `double` key const-map restriction.
   final Map<double, String> _defaultEmojis = {
-    0.0: "🙂",   // Low
+    0.0: "🙂",
     2.5: "🙂",
     5.0: "😐",
     7.5: "🙁",
-    10.0: "😭",  // High
+    10.0: "😭",
   };
 
   late Map<double, String> _emojiForTick = Map<double, String>.from(_defaultEmojis);
@@ -128,7 +126,6 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  // -------- Quote of the day (once/day) --------
   Future<void> _maybeShowQuoteOfDay() async {
     final prefs = await SharedPreferences.getInstance();
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -168,7 +165,6 @@ class _HomePageState extends State<HomePage> {
     await prefs.setString('quote_last_shown', today);
   }
 
-  // -------- Midnight reset (UI only) --------
   void _scheduleMidnightReset() {
     _midnightTimer?.cancel();
     final now = DateTime.now();
@@ -187,7 +183,6 @@ class _HomePageState extends State<HomePage> {
     _scheduleMidnightReset();
   }
 
-  // ---- emoji prefs keys helper (stable; avoids floating string drift) ----
   String _prefKeyForTick(double t) => 'emoji_tick_${(t * 10).round()}';
 
   Future<void> _loadEmojis() async {
@@ -227,7 +222,6 @@ class _HomePageState extends State<HomePage> {
         Widget labelFor(double t) {
           if (t == 0.0) return Text('Low (0)', style: labelStyle);
           if (t == 10.0) return Text('High (10)', style: labelStyle);
-          // middle rows have no labels per request
           return const SizedBox(width: 74);
         }
 
@@ -505,9 +499,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// STREAK: counts consecutive **calendar** days of logging,
-  /// ending at **yesterday** if you’ve logged today; otherwise at the most recent log day.
-  /// This way, a 1-day streak appears after logging on two consecutive days.
+  /// STREAK: counts consecutive calendar days of logging.
   int get _streak {
     if (_daysWithAnyLog.isEmpty) return 0;
 
@@ -739,12 +731,10 @@ class _HomePageState extends State<HomePage> {
             reservedSize: 30,
             interval: 10,
             getTitlesWidget: (value, meta) {
-              // Only show LOW and HIGH emojis on the axis.
-              final v = value.toInt();
-              if (v == 0) {
+              if (value.toInt() == 0) {
                 return Text(_emojiForTick[0.0]!, style: const TextStyle(fontSize: 20));
               }
-              if (v == 10) {
+              if (value.toInt() == 10) {
                 return Text(_emojiForTick[10.0]!, style: const TextStyle(fontSize: 20));
               }
               return const SizedBox.shrink();
@@ -756,7 +746,7 @@ class _HomePageState extends State<HomePage> {
             showTitles: true,
             interval: 1,
             getTitlesWidget: (value, meta) {
-              if (!_isWhole(value)) return const SizedBox.shrink();
+              if (value % 1 != 0) return const SizedBox.shrink();
               final i = value.toInt();
               if (_view == ChartView.weekly) {
                 final days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -821,14 +811,15 @@ class _HomePageState extends State<HomePage> {
             child: SafeArea(
               child: Column(
                 children: [
+                  // -------- Main scroll content --------
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // ---- Header icons (scroll away) ----
+                          // Header icons (Settings • Profile)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -841,7 +832,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               _HeaderShadowIcon(
-                                icon: Icons.person_outline_rounded, // profile on the right
+                                icon: Icons.person_outline_rounded,
                                 tooltip: 'Edit profile',
                                 onTap: () => Navigator.push(
                                   context,
@@ -851,7 +842,7 @@ class _HomePageState extends State<HomePage> {
                             ],
                           ),
 
-                          // ---- Logo with glow ----
+                          // Logo
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: SizedBox(
@@ -934,7 +925,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 14),
 
-                          // ---- Trackers ----
+                          // Trackers list
                           ReorderableListView.builder(
                             physics: const NeverScrollableScrollPhysics(),
                             shrinkWrap: true,
@@ -967,7 +958,7 @@ class _HomePageState extends State<HomePage> {
                                       Expanded(
                                         child: Row(
                                           children: [
-                                            Text(_emojiForTick[0.0] ?? "🙂", style: const TextStyle(fontSize: 20)), // Low side
+                                            Text(_emojiForTick[0.0] ?? "🙂", style: const TextStyle(fontSize: 20)),
                                             Expanded(
                                               child: SliderTheme(
                                                 data: SliderTheme.of(context).copyWith(
@@ -984,7 +975,7 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                               ),
                                             ),
-                                            Text(_emojiForTick[10.0] ?? "😭", style: const TextStyle(fontSize: 20)), // High side
+                                            Text(_emojiForTick[10.0] ?? "😭", style: const TextStyle(fontSize: 20)),
                                           ],
                                         ),
                                       ),
@@ -1066,7 +1057,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 14),
 
-                          // ---- Add tracker ----
+                          // Add tracker
                           Showcase(
                             key: OBKeys.addHabit,
                             description: 'Tap here to add your first habit tracker.',
@@ -1084,7 +1075,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 24),
 
-                          // ---- View selector ----
+                          // View selector
                           Showcase(
                             key: OBKeys.chartSelector,
                             description: 'Switch between Weekly, Monthly, or Overall views.',
@@ -1101,6 +1092,7 @@ class _HomePageState extends State<HomePage> {
                                   ChartView.monthly => 'Monthly',
                                   ChartView.overall => 'Overall',
                                 };
+                                final dark = app.ThemeControllerScope.of(context).isDark;
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 6),
                                   child: ChoiceChip(
@@ -1109,15 +1101,15 @@ class _HomePageState extends State<HomePage> {
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: _isDark ? Colors.white : Colors.black,
+                                        color: dark ? Colors.white : Colors.black,
                                       ),
                                     ),
                                     selected: sel,
                                     showCheckmark: false,
                                     selectedColor:
-                                        _isDark ? const Color(0xFF0D7C66).withOpacity(.55) : const Color(0xFF0D7C66).withOpacity(.15),
-                                    backgroundColor: _isDark ? Colors.white.withOpacity(.08) : Colors.black.withOpacity(.04),
-                                    side: _isDark
+                                        dark ? const Color(0xFF0D7C66).withOpacity(.55) : const Color(0xFF0D7C66).withOpacity(.15),
+                                    backgroundColor: dark ? Colors.white.withOpacity(.08) : Colors.black.withOpacity(.04),
+                                    side: dark
                                         ? BorderSide(
                                             color: sel ? Colors.transparent : Colors.white.withOpacity(.28),
                                           )
@@ -1131,7 +1123,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 8),
 
-                          // ---- Date range + controls ----
+                          // Date range + controls
                           Row(
                             children: [
                               Expanded(
@@ -1164,11 +1156,11 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 6),
 
-                          // ---- Chart card with “More insights” ----
+                          // Chart card (with extra bottom space above nav)
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            height: 320,
+                            height: 340,
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(.55),
                               borderRadius: BorderRadius.circular(16),
@@ -1177,9 +1169,12 @@ class _HomePageState extends State<HomePage> {
                             child: Stack(
                               children: [
                                 Positioned.fill(
-                                  child: _selectedForChart.isEmpty
-                                      ? const Center(child: Text('Select trackers to view', style: TextStyle(fontSize: 13)))
-                                      : LineChart(_chartData()),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 44),
+                                    child: _selectedForChart.isEmpty
+                                        ? const Center(child: Text('Select trackers to view', style: TextStyle(fontSize: 13)))
+                                        : LineChart(_chartData()),
+                                  ),
                                 ),
                                 Positioned(
                                   right: 8,
@@ -1203,17 +1198,14 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 12),
                         ],
                       ),
                     ),
                   ),
 
-                  // ---- Bottom nav ----
-                  Container(
-                    color: Colors.transparent,
-                    child: _BottomNav(index: 0, userName: widget.userName),
-                  ),
+                  // -------- Bottom navigation (EXACT match with Tools page) --------
+                  _BottomNav(index: 0, userName: widget.userName),
                 ],
               ),
             ),
@@ -1348,7 +1340,7 @@ class _HomePageState extends State<HomePage> {
                               Navigator.pop(ctx);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: accent,
+                              backgroundColor: const Color(0xFF0D7C66),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -1421,16 +1413,6 @@ class _HomePageState extends State<HomePage> {
               setSheet(() => hsv = hsv.withHue(deg));
             }
 
-            void applyHex([String? raw]) {
-              final text = (raw ?? hexCtl.text).trim();
-              if (!_validHex(text)) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid hex like 34C3A3')));
-                return;
-              }
-              final c = _fromHex(text);
-              setSheet(() => hsv = HSVColor.fromColor(c));
-            }
-
             return Container(
               padding: EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 16 + MediaQuery.of(context).viewInsets.bottom),
               decoration: BoxDecoration(color: dark ? const Color(0xFF123A36) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
@@ -1495,14 +1477,11 @@ class _HomePageState extends State<HomePage> {
                           controller: hexCtl,
                           onChanged: (v) {
                             final txt = v.trim();
-                            if (_validHex(txt)) {
+                            if (RegExp(r'^[0-9a-fA-F]{6,8}$').hasMatch(txt)) {
                               setSheet(() => hsv = HSVColor.fromColor(_fromHex(txt)));
                             }
                           },
                           textInputAction: TextInputAction.done,
-                          onSubmitted: (v) {
-                            if (_validHex(v.trim())) applyHex(v.trim());
-                          },
                           decoration: InputDecoration(
                             isDense: true,
                             hintText: 'RRGGBB',
@@ -1511,56 +1490,14 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => applyHex(),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D7C66), foregroundColor: Colors.white, minimumSize: const Size(90, 36)),
-                        child: const Text('Apply HEX'),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  if (recentColors.isNotEmpty) ...[
-                    const Align(alignment: Alignment.centerLeft, child: Text('Recently used', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final c in recentColors)
-                          GestureDetector(
-                            onTap: () => setSheet(() => hsv = HSVColor.fromColor(c)),
-                            child: Container(
-                              width: 26,
-                              height: 26,
-                              decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: Border.all(color: Colors.black26, width: 1)),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                  const Align(alignment: Alignment.centerLeft, child: Text('Theme colors', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final c in themeSwatches)
-                        GestureDetector(
-                          onTap: () => setSheet(() => hsv = HSVColor.fromColor(c)),
-                          child: Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: Border.all(color: Colors.black26, width: 1)),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Expanded(child: Text('#${_hex6(hsv.toColor())}', style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]))),
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      const SizedBox(width: 6),
                       ElevatedButton(
                         onPressed: () {
                           final chosen = hsv.toColor();
@@ -1573,7 +1510,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
             );
@@ -1584,8 +1520,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ---------------- Painters for color picker ----------------
-
+// Painters (color picker)
 class _HueRingPainter extends CustomPainter {
   _HueRingPainter({required this.ringWidth});
   final double ringWidth;
@@ -1622,18 +1557,25 @@ class _KnobPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = Colors.white..style = PaintingStyle.fill;
-    final b = Paint()..color = Colors.black.withOpacity(.35)..style = PaintingStyle.stroke..strokeWidth = 1;
+    final p = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final b = Paint()
+      ..color = Colors.black.withOpacity(.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
     canvas.drawCircle(position, r, p);
     canvas.drawCircle(position, r, b);
   }
 
   @override
-  bool shouldRepaint(covariant _KnobPainter oldDelegate) => oldDelegate.position != position || oldDelegate.r != r;
+  bool shouldRepaint(covariant _KnobPainter oldDelegate) =>
+      oldDelegate.position != position || oldDelegate.r != r;
 }
 
 class _SVSquare extends StatelessWidget {
-  const _SVSquare({required this.hue, required this.s, required this.v, required this.onChanged});
+  const _SVSquare(
+      {required this.hue, required this.s, required this.v, required this.onChanged});
 
   final double hue;
   final double s;
@@ -1656,13 +1598,20 @@ class _SVSquare extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [Colors.white, base]),
+                  gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Colors.white, base]),
                 ),
               ),
               Container(
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
-                foregroundDecoration:
-                    const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black])),
+                foregroundDecoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black]),
+                ),
               ),
               Positioned(
                 left: knob.dx - 8,
@@ -1670,7 +1619,11 @@ class _SVSquare extends StatelessWidget {
                 child: Container(
                   width: 16,
                   height: 16,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)]),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+                  ),
                 ),
               ),
             ],
@@ -1687,77 +1640,18 @@ class _SVSquare extends StatelessWidget {
   }
 }
 
-// ---------------- Nav + small helpers ----------------
+// ---------------- Shared helpers ----------------
 
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+      BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
     return child;
   }
 }
 
-class _BottomNav extends StatelessWidget {
-  final int index;
-  final String userName;
-  const _BottomNav({required this.index, required this.userName});
-
-  @override
-  Widget build(BuildContext context) {
-    const green = Color(0xFF0D7C66);
-    const darkSelected = Color(0xFFBDA9DB);
-    Color c(int i) {
-      final dark = app.ThemeControllerScope.of(context).isDark;
-      if (i == index) {
-        return dark ? darkSelected : green;
-      }
-      return Colors.white;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          IconButton(icon: Icon(Icons.home, color: c(0)), onPressed: () {}),
-          Showcase(
-            key: OBKeys.journalTab,
-            description: 'Go to your Journal and community feed.',
-            disposeOnTap: true,
-            onTargetClick: () {},
-            onToolTipClick: () {},
-            onBarrierClick: () {},
-            child: IconButton(
-              icon: Icon(Icons.menu_book, color: c(1)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                NoTransitionPageRoute(builder: (_) => JournalPage(userName: userName)),
-              ),
-            ),
-          ),
-          Showcase(
-            key: OBKeys.settingsTab,
-            description: 'Open Tools.',
-            disposeOnTap: true,
-            onTargetClick: () {},
-            onToolTipClick: () {},
-            onBarrierClick: () {},
-            child: IconButton(
-              icon: Icon(Icons.widgets_rounded, color: c(2)),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                NoTransitionPageRoute(builder: (_) => ToolsPage(userName: userName)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Single green icon (no white duplicate) with light shadow feel.
 class _HeaderShadowIcon extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -1779,6 +1673,57 @@ class _HeaderShadowIcon extends StatelessWidget {
             child: Icon(icon, size: 22, color: green),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------- Bottom Nav (identical to Tools page) ----------------
+
+class _BottomNav extends StatelessWidget {
+  final int index;
+  final String userName;
+  const _BottomNav({required this.index, required this.userName});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF0D7C66);
+    const darkSelected = Color(0xFFBDA9DB);
+
+    Color c(int i) {
+      final dark = app.ThemeControllerScope.of(context).isDark;
+      if (i == index) return dark ? darkSelected : green;
+      return Colors.white;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          IconButton(
+            icon: Icon(Icons.home, color: c(0)),
+            onPressed: () {}, // already on Home
+          ),
+          IconButton(
+            icon: Icon(Icons.menu_book, color: c(1)),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(
+                builder: (_) => JournalPage(userName: userName),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.widgets_rounded, color: c(2)),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              NoTransitionPageRoute(
+                builder: (_) => ToolsPage(userName: userName),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
