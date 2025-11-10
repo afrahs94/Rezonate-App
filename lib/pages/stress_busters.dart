@@ -126,7 +126,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                   delegate: SliverChildListDelegate.fixed([
                     _GameCard(
                       title: 'Word Search',
-                      subtitle: 'Find the hidden words',
+                      subtitle: 'Swipe to find words',
                       colors: const [Color(0xFFE8F8FF), Color(0xFFB6E3FF)],
                       icon: Icons.grid_on_rounded,
                       iconColor: const Color(0xFF1C638C),
@@ -135,7 +135,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                     ),
                     _GameCard(
                       title: 'Crossword',
-                      subtitle: 'Quick 7×7 mini',
+                      subtitle: 'Fill the mini grid',
                       colors: const [Color(0xFFE9FFFE), Color(0xFFBDF5F1)],
                       icon: Icons.view_quilt_rounded,
                       iconColor: const Color(0xFF0C5E4D),
@@ -144,7 +144,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                     ),
                     _GameCard(
                       title: 'Matching',
-                      subtitle: 'Match the card pairs',
+                      subtitle: 'Flip & match pairs',
                       colors: const [Color(0xFFFFF6E8), Color(0xFFFFE5BA)],
                       icon: Icons.extension_rounded,
                       iconColor: const Color(0xFF916D00),
@@ -153,7 +153,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                     ),
                     _GameCard(
                       title: 'Sudoku',
-                      subtitle: 'Classic 9×9',
+                      subtitle: 'Relaxed 9×9 play',
                       colors: const [Color(0xFFEFF7FF), Color(0xFFCAE2FF)],
                       icon: Icons.grid_4x4_rounded,
                       iconColor: const Color(0xFF0A4C7A),
@@ -162,7 +162,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                     ),
                     _GameCard(
                       title: 'Uplingo',
-                      subtitle: 'Guess the secret word',
+                      subtitle: 'Six tries, one word',
                       colors: const [Color(0xFFE9FFF4), Color(0xFFC9F2E7)],
                       icon: Icons.emoji_emotions_rounded,
                       iconColor: const Color(0xFF146548),
@@ -171,7 +171,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                     ),
                     _GameCard(
                       title: 'Scramble',
-                      subtitle: 'Unscramble the letters',
+                      subtitle: 'Unscramble to solve',
                       colors: const [Color(0xFFF7ECFF), Color(0xFFDAC8FF)],
                       icon: Icons.text_fields_rounded,
                       iconColor: const Color(0xFF5B2785),
