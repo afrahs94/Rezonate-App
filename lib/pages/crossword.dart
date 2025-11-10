@@ -2,11 +2,9 @@
 //
 // Crossword with balloon-style category chooser, pop-to-start animation,
 // difficulty controls, classic evenly spaced crossword grid, bigger clue
-// panel, and no title text in the app bar.
+// panel, on-screen keyboard, Auto-Check, Reveal Tile, +10 Letters, clue
+// navigation banner, animated highlights, and a Mixed category.
 // No external assets.
-//
-// Tip: The category screen shows floating background bubbles. Tapping a
-// category bubble "pops" it, then launches the crossword for that category.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -29,6 +27,9 @@ BoxDecoration _bg(BuildContext context) {
 }
 
 const _ink = Colors.black;
+const _good = Color(0xFFA7E0C9);
+const _warn = Color(0xFFFFE9A8);
+const _bad = Color(0xFFFFC5C5);
 
 /* ─────────────────── Game scaffold ─────────────────── */
 
@@ -46,7 +47,8 @@ class _GameScaffold extends StatelessWidget {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: title == null ? null : Text(title!, style: const TextStyle(fontWeight: FontWeight.w900)),
+        title:
+            title == null ? null : Text(title!, style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
       body: Container(decoration: _bg(context), child: SafeArea(child: child)),
     );
@@ -81,8 +83,10 @@ class ScoreStore {
 /* ─────────────────── Data: difficulty, categories ─────────────────── */
 
 enum _Difficulty { easy, medium, hard }
+enum _Direction { across, down }
 
 enum _Category {
+  mixed,
   animals,
   history,
   literature,
@@ -96,6 +100,7 @@ enum _Category {
 }
 
 String _categoryLabel(_Category c) => switch (c) {
+      _Category.mixed => 'Mixed',
       _Category.animals => 'Animals',
       _Category.history => 'History',
       _Category.literature => 'Literature',
@@ -109,6 +114,7 @@ String _categoryLabel(_Category c) => switch (c) {
     };
 
 IconData _categoryIcon(_Category c) => switch (c) {
+      _Category.mixed => Icons.all_inclusive_rounded,
       _Category.animals => Icons.pets_rounded,
       _Category.history => Icons.castle_rounded,
       _Category.literature => Icons.menu_book_rounded,
@@ -125,232 +131,250 @@ IconData _categoryIcon(_Category c) => switch (c) {
 
 final Map<_Category, Map<String, String>> _clueBank = {
   _Category.animals: {
-    'LION': '“King of the jungle”; maned big cat (4) — pride leader',
-    'TIGER': 'Striped big cat of Asia (5) — apex hunter',
-    'EAGLE': 'National bird of the U.S. (5) — keen vision',
-    'DOLPHIN': 'Clever marine mammal; uses clicks (7) — sonar user',
-    'PANDA': 'Bamboo-munching bear (5) — black and white',
-    'KANGAROO': 'Hopping marsupial (8) — has a pouch',
-    'KOALA': 'Eucalyptus snacker (5) — not a bear',
-    'PENGUIN': 'Tuxedoed bird that can’t fly (7) — waddler',
-    'GIRAFFE': 'Tallest land animal (7) — long neck',
-    'ZEBRA': 'Striped grazer (5) — horse relative',
-    'OTTER': 'River raft-loving mammal (5) — playful',
-    'RHINO': 'Horned heavyweight (5) — thick skin',
-    'CHEETAH': 'Fastest sprinter (7) — spotted',
-    'JAGUAR': 'Spotted American big cat (6) — rosette pattern',
-    'WALRUS': 'Arctic tusker (6) — whiskers',
-    'MEERKAT': 'Sentry mongoose relative (7) — stands upright',
-    'RACCOON': 'Masked scavenger (7) — ringed tail',
-    'PLATYPUS': 'Bill-bearing egg-layer (8) — odd mammal',
-    'HEDGEHOG': 'Spiny insect eater (8) — curls up',
-    'ORANGUTAN': 'Red ape; “man of the forest” (9) — Borneo/Sumatra',
-    'SEAHORSE': 'Curly-tailed fish (8) — males carry young',
-    'BISON': 'Massive grazer (5) — American plains',
-    'COYOTE': 'Wily canid (6) — howler',
+    'LION': '“King of the jungle”; maned big cat (4)',
+    'TIGER': 'Striped big cat of Asia (5)',
+    'EAGLE': 'National bird of the U.S. (5)',
+    'DOLPHIN': 'Clever marine mammal (7)',
+    'PANDA': 'Bamboo-munching bear (5)',
+    'KANGAROO': 'Hopping marsupial (8)',
+    'KOALA': 'Eucalyptus snacker (5)',
+    'PENGUIN': 'Tuxedoed bird that can’t fly (7)',
+    'GIRAFFE': 'Tallest land animal (7)',
+    'ZEBRA': 'Striped grazer (5)',
+    'OTTER': 'River raft-loving mammal (5)',
+    'RHINO': 'Horned heavyweight (5)',
+    'CHEETAH': 'Fastest sprinter (7)',
+    'JAGUAR': 'Spotted American big cat (6)',
+    'WALRUS': 'Arctic tusker (6)',
+    'MEERKAT': 'Sentry mongoose relative (7)',
+    'RACCOON': 'Masked scavenger (7)',
+    'PLATYPUS': 'Bill-bearing egg-layer (8)',
+    'HEDGEHOG': 'Spiny insect eater (8)',
+    'ORANGUTAN': 'Red ape; “man of the forest” (9)',
+    'SEAHORSE': 'Curly-tailed fish (8)',
+    'BISON': 'Massive grazer (5)',
+    'COYOTE': 'Wily canid (6)',
   },
   _Category.history: {
-    'CAESAR': 'Julius ___, Roman statesman (6) — dictator',
-    'PYRAMID': 'Ancient tomb (7) — Giza silhouette',
-    'EMPIRE': 'Realm of an emperor (6) — vast rule',
-    'RENAISSANCE': 'European “rebirth” (11) — art & science',
-    'PHARAOH': 'Egyptian ruler title (7) — divine king',
-    'SPARTA': 'Warrior city-state (6) — hoplites',
-    'VIKING': 'Norse seafarer (6) — longship raider',
-    'COLONY': 'Overseas possession (6) — settlement',
-    'MONARCH': 'King or queen (7) — sovereign',
-    'CONSTITUTION': 'Foundational law (12) — supreme charter',
-    'CRUSADE': 'Medieval holy war (7) — pilgrimage in arms',
-    'REPUBLIC': 'State without a monarch (8) — elected rule',
-    'ARMADA': 'Spanish fleet 1588 (6) — blown off course',
-    'TREATY': 'Formal pact (6) — accord',
-    'REVOLT': 'Uprising (6) — insurrection',
-    'BYZANTINE': 'Eastern Roman culture (9) — Constantinople',
-    'AZTEC': 'Empire of Tenochtitlán (5) — Nahuatl',
-    'MAYA': 'Yucatán civilization (4) — glyphs',
-    'PILGRIM': 'Mayflower settler (7) — Plymouth',
-    'COLOSSEUM': 'Roman amphitheater (9) — gladiators',
+    'CAESAR': 'Julius ___, Roman statesman (6)',
+    'PYRAMID': 'Ancient tomb (7)',
+    'EMPIRE': 'Realm of an emperor (6)',
+    'RENAISSANCE': 'European “rebirth” (11)',
+    'PHARAOH': 'Egyptian ruler title (7)',
+    'SPARTA': 'Warrior city-state (6)',
+    'VIKING': 'Norse seafarer (6)',
+    'COLONY': 'Overseas possession (6)',
+    'MONARCH': 'King or queen (7)',
+    'CONSTITUTION': 'Foundational law (12)',
+    'CRUSADE': 'Medieval holy war (7)',
+    'REPUBLIC': 'State without a monarch (8)',
+    'ARMADA': 'Spanish fleet 1588 (6)',
+    'TREATY': 'Formal pact (6)',
+    'REVOLT': 'Uprising (6)',
+    'BYZANTINE': 'Eastern Roman culture (9)',
+    'AZTEC': 'Empire of Tenochtitlán (5)',
+    'MAYA': 'Yucatán civilization (4)',
+    'PILGRIM': 'Mayflower settler (7)',
+    'COLOSSEUM': 'Roman amphitheater (9)',
   },
   _Category.literature: {
-    'ODYSSEY': 'Homer’s voyage home (7) — Ithaca goal',
-    'HAMLET': 'Prince of Denmark (6) — “To be…”',
-    'GATSBY': 'Jazz-Age dreamer (6) — green light',
-    'QUIXOTE': 'Windmill tilting knight (6) — Sancho Panza',
-    'INFERNO': 'First part of Dante’s epic (7) — nine circles',
-    'ILIAD': 'Wrath of Achilles (5) — Trojan War',
-    'DUNE': 'Arrakis saga (4) — spice',
-    'NARNIA': 'Wardrobe world (6) — Aslan',
-    'SHERLOCK': 'Baker Street sleuth (8) — deerstalker',
-    'ORWELL': 'Wrote “1984” (6) — dystopia',
-    'POE': 'Master of the macabre (3) — raven',
-    'AUSTEN': '“Pride and Prejudice” author (6) — Bennet',
-    'BRONTE': 'Sisters of the moors (6) — Jane Eyre',
-    'HOBBIT': 'Bilbo’s tale (6) — ring',
-    'POTTER': 'Boy wizard (6) — Hogwarts',
-    'ATTICUS': 'Finch of Maycomb (7) — lawyer',
-    'TWAIN': 'Humorist of Huck Finn (5) — Mississippi',
-    'AENEID': 'Virgil’s epic (6) — Rome’s founding',
-    'FAULKNER': 'Southern Nobel writer (8) — Yoknapatawpha',
-    'WONDERLAND': 'Alice’s destination (10) — white rabbit',
+    'ODYSSEY': 'Homer’s voyage home (7)',
+    'HAMLET': 'Prince of Denmark (6)',
+    'GATSBY': 'Jazz-Age dreamer (6)',
+    'QUIXOTE': 'Windmill-tilting knight (6)',
+    'INFERNO': 'Dante’s first cantica (7)',
+    'ILIAD': 'Wrath of Achilles (5)',
+    'DUNE': 'Arrakis saga (4)',
+    'NARNIA': 'Wardrobe world (6)',
+    'SHERLOCK': 'Baker Street sleuth (8)',
+    'ORWELL': '“1984” author (6)',
+    'POE': 'Master of the macabre (3)',
+    'AUSTEN': '“Pride and Prejudice” author (6)',
+    'BRONTE': 'Sisters of the moors (6)',
+    'HOBBIT': 'Bilbo’s tale (6)',
+    'POTTER': 'Boy wizard (6)',
+    'ATTICUS': 'Finch of Maycomb (7)',
+    'TWAIN': 'Humorist of Huck Finn (5)',
+    'AENEID': 'Virgil’s epic (6)',
+    'FAULKNER': 'Southern Nobel writer (8)',
+    'WONDERLAND': 'Alice’s destination (10)',
   },
   _Category.popculture: {
-    'MARIO': 'Nintendo plumber (5) — mushrooms',
-    'POKEMON': 'Catch ’em all (7) — Pikachu',
-    'AVATAR': 'Na’vi on Pandora (6) — blue',
-    'BATMAN': 'Dark Knight (6) — Gotham',
-    'STARWARS': 'The Force saga (8) — lightsabers',
-    'MARVEL': 'Avengers studio (6) — MCU',
-    'DISNEY': 'Mickey’s house (6) — castle logo',
-    'NETFLIX': 'Red-N streamer (7) — binge',
-    'TIKTOK': 'Short video app (6) — For You',
-    'MEME': 'Viral in-joke (4) — template',
-    'INSTAGRAM': 'Stories & reels (9) — filters',
-    'YOUTUBE': 'Creators’ platform (7) — subscribe',
-    'SPIDERMAN': 'Friendly neighborhood hero (9) — web',
-    'FORTNITE': 'Battle royale hit (8) — Victory Royale',
-    'ZELDA': 'Link’s adventures (5) — triforce',
-    'HASHTAG': 'Tagged phrase (7) — #',
-    'STREAMER': 'Live content host (8) — chat',
-    'PODCAST': 'On-demand audio (7) — episodes',
-    'EMOJI': 'Tiny pictograph (5) — 🙂',
+    'MARIO': 'Nintendo plumber (5)',
+    'POKEMON': 'Catch ’em all (7)',
+    'AVATAR': 'Na’vi on Pandora (6)',
+    'BATMAN': 'Dark Knight (6)',
+    'STARWARS': 'The Force saga (8)',
+    'MARVEL': 'Avengers studio (6)',
+    'DISNEY': 'Mickey’s house (6)',
+    'NETFLIX': 'Streaming giant (7)',
+    'TIKTOK': 'Short-video app (6)',
+    'MEME': 'Viral in-joke (4)',
+    'INSTAGRAM': 'Photo-sharing app (9)',
+    'YOUTUBE': 'Creators’ platform (7)',
+    'SPIDERMAN': 'Friendly neighborhood hero (9)',
+    'FORTNITE': 'Battle royale hit (8)',
+    'ZELDA': 'Link’s adventures (5)',
+    'HASHTAG': 'Tagged phrase (7)',
+    'STREAMER': 'Live content host (8)',
+    'PODCAST': 'On-demand audio (7)',
+    'EMOJI': 'Tiny pictograph (5)',
   },
   _Category.science: {
-    'GRAVITY': 'Keeps planets in orbit (7) — attraction',
-    'ATOM': 'Element’s basic unit (4) — nucleus',
-    'NEURON': 'Nerve cell (6) — axon',
-    'QUANTUM': 'Realm of the tiny (7) — Planck',
-    'EVOLUTION': 'Change over generations (9) — selection',
-    'DNA': 'Double helix (3) — bases',
-    'PROTEIN': 'Amino-acid chain (7) — enzyme',
-    'PLANET': 'Orbits a star (6) — clears neighborhood',
-    'GALAXY': 'Milky Way is one (6) — billions of stars',
-    'VACCINE': 'Primes immunity (7) — antigen',
-    'LASER': 'Coherent light (5) — amplification',
-    'PHOTON': 'Light quantum (6) — packet',
-    'ION': 'Charged atom (3) — cation/anion',
-    'ENZYME': 'Biological catalyst (6) — lowers Ea',
-    'CELL': 'Unit of life (4) — membrane',
-    'ORBIT': 'Curved path (5) — ellipse',
-    'FUSION': 'Nuclei join (6) — sun’s power',
-    'NANOTECH': 'Engineering tiny things (8) — nm scale',
-    'CLIMATE': 'Long-term weather (7) — trends',
-    'SPECIES': 'Interbreeding group (7) — taxonomy',
-    'TESLA': 'Magnetic flux density unit (5) — SI',
+    'GRAVITY': 'Keeps planets in orbit (7)',
+    'ATOM': 'Element’s basic unit (4)',
+    'NEURON': 'Nerve cell (6)',
+    'QUANTUM': 'Realm of the tiny (7)',
+    'EVOLUTION': 'Change across generations (9)',
+    'DNA': 'Double helix (3)',
+    'PROTEIN': 'Amino-acid chain (7)',
+    'PLANET': 'Orbits a star (6)',
+    'GALAXY': 'Milky Way is one (6)',
+    'VACCINE': 'Primes immunity (7)',
+    'LASER': 'Coherent light (5)',
+    'PHOTON': 'Light quantum (6)',
+    'ION': 'Charged atom (3)',
+    'ENZYME': 'Biological catalyst (6)',
+    'CELL': 'Unit of life (4)',
+    'ORBIT': 'Curved path (5)',
+    'FUSION': 'Nuclei join (6)',
+    'NANOTECH': 'Engineering tiny things (8)',
+    'CLIMATE': 'Long-term weather (7)',
+    'SPECIES': 'Interbreeding group (7)',
+    'TESLA': 'SI unit of magnetic flux density (5)',
   },
   _Category.geography: {
-    'EVEREST': 'Highest mountain (7) — Sagarmatha',
-    'SAHARA': 'North African desert (6) — dunes',
-    'AMAZON': 'Rainforest & river (6) — basin',
-    'ANDES': 'Long S. American range (5) — condors',
-    'NILE': 'Flows north to Med (4) — delta',
-    'ALPS': 'European range (4) — Matterhorn',
-    'PACIFIC': 'Largest ocean (7) — ring of fire',
-    'ATLANTIC': 'Ocean between continents (8) — Gulf Stream',
-    'ISLAND': 'Land in water (6) — archipelago',
-    'VOLCANO': 'Eruptive mountain (7) — lava',
-    'URALS': 'Europe–Asia divide (5) — Russia',
-    'BALKANS': 'SE European peninsula (7) — Adriatic',
-    'SAVANNA': 'Tropical grassland (7) — acacia',
-    'TAIGA': 'Subarctic forest (5) — boreal',
-    'ISTHMUS': 'Narrow land bridge (7) — Panama',
-    'DELTA': 'River mouth fan (5) — silt',
-    'HIMALAYA': 'Roof of the World (8) — Nepal/Tibet',
-    'CARIBBEAN': 'Sea of islands (9) — Antilles',
-    'PENINSULA': 'Nearly surrounded by water (9) — spit',
+    'EVEREST': 'Highest mountain (7)',
+    'SAHARA': 'North African desert (6)',
+    'AMAZON': 'Rainforest & river (6)',
+    'ANDES': 'Long S. American range (5)',
+    'NILE': 'Flows north to Med (4)',
+    'ALPS': 'European range (4)',
+    'PACIFIC': 'Largest ocean (7)',
+    'ATLANTIC': 'Ocean between continents (8)',
+    'ISLAND': 'Land in water (6)',
+    'VOLCANO': 'Eruptive mountain (7)',
+    'URALS': 'Europe–Asia divide (5)',
+    'BALKANS': 'SE European peninsula (7)',
+    'SAVANNA': 'Tropical grassland (7)',
+    'TAIGA': 'Subarctic forest (5)',
+    'ISTHMUS': 'Narrow land bridge (7)',
+    'DELTA': 'River mouth fan (5)',
+    'HIMALAYA': 'Roof of the World (8)',
+    'CARIBBEAN': 'Sea of islands (9)',
+    'PENINSULA': 'Almost an island (9)',
   },
   _Category.movies: {
-    'INCEPTION': 'Nolan dream-heist (9) — spinning top',
-    'TITANIC': '1997 ocean tragedy (7) — iceberg',
-    'MATRIX': 'Red pill, blue pill (6) — bullet time',
-    'GODFATHER': 'Cannoli quote classic (9) — Corleone',
-    'FROZEN': 'Disney sisters (6) — “Let It Go”',
-    'ROCKY': 'Philly boxer (5) — steps',
-    'ALIEN': 'Xenomorph horror (5) — Ripley',
-    'JAWS': 'Shark thriller (4) — Amity',
-    'PSYCHO': 'Shower scene (6) — Bates',
-    'CASABLANCA': '“Looking at you, kid.” (10) — wartime',
-    'AVENGERS': 'Earth’s heroes unite (8) — Thanos',
-    'GLADIATOR': '“Are you not entertained?” (9) — arena',
-    'ARRIVAL': 'Linguistics & aliens (7) — heptapods',
-    'WHIPLASH': 'Jazz obsession (8) — Fletcher',
-    'PARASITE': 'Class satire (8) — basement',
-    'JOKER': 'Gotham antihero (5) — Arthur',
-    'AMELIE': 'Whimsical Paris romance (6) — gnome',
-    'SKYFALL': 'Bond returns home (7) — M',
-    'LALALAND': 'City of stars (8) — musical',
+    'INCEPTION': 'Nolan dream-heist (9)',
+    'TITANIC': '1997 ocean tragedy (7)',
+    'MATRIX': 'Red pill, blue pill (6)',
+    'GODFATHER': 'Corleone classic (9)',
+    'FROZEN': 'Disney sisters (6)',
+    'ROCKY': 'Philly boxer (5)',
+    'ALIEN': 'Xenomorph horror (5)',
+    'JAWS': 'Shark thriller (4)',
+    'PSYCHO': 'Shower scene (6)',
+    'CASABLANCA': 'Wartime romance (10)',
+    'AVENGERS': 'Earth’s heroes unite (8)',
+    'GLADIATOR': '“Are you not entertained?” (9)',
+    'ARRIVAL': 'Linguistics & aliens (7)',
+    'WHIPLASH': 'Jazz obsession (8)',
+    'PARASITE': 'Class satire (8)',
+    'JOKER': 'Gotham antihero (5)',
+    'AMELIE': 'Whimsical Paris romance (6)',
+    'SKYFALL': 'Bond returns home (7)',
+    'LALALAND': 'City of stars (8)',
   },
   _Category.music: {
-    'BEATLES': 'Liverpool legends (7) — Fab Four',
-    'MOZART': 'Salzburg prodigy (6) — Requiem',
-    'BEETHOVEN': 'Fifth Symphony (9) — deaf composer',
-    'JAZZ': 'Improvised art form (4) — swing',
-    'BLUES': 'Roots genre (5) — 12-bar',
-    'HIPHOP': 'Rap + DJing culture (6) — breakdance',
-    'OPERA': 'Sung drama (5) — aria',
-    'GUITAR': 'Six-string staple (6) — fretboard',
-    'PIANO': 'Hammered keys (5) — pedals',
-    'CONCERT': 'Live performance (7) — recital',
-    'BACH': 'Counterpoint master (4) — Baroque',
-    'CHOPIN': 'Poet of the piano (6) — nocturnes',
-    'ADELE': '“Hello” singer (5) — powerhouse',
-    'RIHANNA': 'Umbrella singer (7) — Fenty',
-    'DRAKE': 'Toronto rapper (5) — OVO',
-    'EDM': 'Festival sound (3) — drops',
-    'KPOP': 'Korean pop (4) — idols',
-    'COUNTRY': 'Twangy tales (7) — Nashville',
-    'TECHNO': 'Detroit electronic (6) — four-on-the-floor',
-    'REGGAE': 'Jamaican groove (6) — offbeat',
+    'BEATLES': 'Liverpool legends (7)',
+    'MOZART': 'Salzburg prodigy (6)',
+    'BEETHOVEN': 'Fifth Symphony (9)',
+    'JAZZ': 'Improvised art form (4)',
+    'BLUES': '12-bar roots genre (5)',
+    'HIPHOP': 'Rap + DJ culture (6)',
+    'OPERA': 'Sung drama (5)',
+    'GUITAR': 'Six-string staple (6)',
+    'PIANO': 'Hammered keys (5)',
+    'CONCERT': 'Live performance (7)',
+    'BACH': 'Counterpoint master (4)',
+    'CHOPIN': 'Poet of the piano (6)',
+    'ADELE': '“Hello” singer (5)',
+    'RIHANNA': 'Fenty founder (7)',
+    'DRAKE': 'Toronto rapper (5)',
+    'EDM': 'Festival sound (3)',
+    'KPOP': 'Korean pop (4)',
+    'COUNTRY': 'Nashville twang (7)',
+    'TECHNO': 'Detroit electronic (6)',
+    'REGGAE': 'Jamaican groove (6)',
   },
   _Category.sports: {
-    'SOCCER': 'World game (6) — pitch',
-    'BASKETBALL': 'Hoops & dunks (10) — three-pointer',
-    'TENNIS': 'Racquet sport (6) — deuce',
-    'CRICKET': 'Bat & wickets (7) — overs',
-    'BASEBALL': 'Diamond pastime (8) — home run',
-    'HOCKEY': 'Ice sport (6) — puck',
-    'GOLF': 'Greens & birdies (4) — par',
-    'RUGBY': 'Scrums & tries (5) — oval ball',
-    'OLYMPICS': 'Global games (8) — rings',
-    'MARATHON': '26.2-mile race (8) — endurance',
-    'TRIATHLON': 'Swim-bike-run (9) — transition',
-    'SNOWBOARD': 'Sideways on snow (9) — carving',
-    'FREESTYLE': 'Swimming/skiing style (9) — tricks',
-    'ESPORTS': 'Competitive gaming (7) — arena',
-    'FORMULAONE': 'Grand prix series (10) — pit stop',
-    'POLEVAULT': 'Jump with a pole (9) — bar',
-    'HANDBALL': 'Fast indoor game (8) — 7-a-side',
-    'BILLIARDS': 'Cues and pockets (9) — cue ball',
-    'EQUESTRIAN': 'Horse events (10) — dressage',
+    'SOCCER': 'World game (6)',
+    'BASKETBALL': 'Hoops & dunks (10)',
+    'TENNIS': 'Racquet sport (6)',
+    'CRICKET': 'Bat & wickets (7)',
+    'BASEBALL': 'Diamond pastime (8)',
+    'HOCKEY': 'Ice sport (6)',
+    'GOLF': 'Greens & birdies (4)',
+    'RUGBY': 'Scrums & tries (5)',
+    'OLYMPICS': 'Global games (8)',
+    'MARATHON': '26.2-mile race (8)',
+    'TRIATHLON': 'Swim-bike-run (9)',
+    'SNOWBOARD': 'Sideways on snow (9)',
+    'FREESTYLE': 'Trick-heavy style (9)',
+    'ESPORTS': 'Competitive gaming (7)',
+    'FORMULAONE': 'Grand prix series (10)',
+    'POLEVAULT': 'Jump with a pole (9)',
+    'HANDBALL': 'Fast indoor game (8)',
+    'BILLIARDS': 'Cues and pockets (9)',
+    'EQUESTRIAN': 'Horse events (10)',
   },
   _Category.food: {
-    'PIZZA': 'Neapolitan classic (5) — slice',
-    'SUSHI': 'Rice + fish (5) — nigiri',
-    'TACO': 'Folded tortilla (4) — street food',
-    'BURRITO': 'Wrapped cylinder (7) — foil',
-    'PASTA': 'Italian noodles (5) — al dente',
-    'CURRY': 'Spiced stew (5) — masala',
-    'CHOCOLATE': 'Cacao treat (9) — cocoa',
-    'BAGEL': 'Boiled then baked ring (5) — schmear',
-    'CHEESE': 'Milk made solid (6) — rind',
-    'WAFFLE': 'Grid breakfast (6) — syrup',
-    'AVOCADO': 'Toast topper (7) — guacamole',
-    'NOODLES': 'Ramen or udon (7) — broth',
-    'RISOTTO': 'Creamy rice (7) — arborio',
-    'GNOCCHI': 'Potato pillows (7) — dumplings',
-    'RAMEN': 'Japanese noodle soup (5) — toppings',
-    'BIBIMBAP': 'Mixed Korean bowl (8) — gochujang',
-    'SAMOSA': 'Triangular pastry (6) — chutney',
-    'BROWNIE': 'Fudgy square (7) — dessert',
-    'SMOOTHIE': 'Blended drink (8) — fruit',
-    'PINEAPPLE': 'Spiky tropical fruit (9) — bromelain',
-    'STRAWBERRY': 'Seed-speckled berry (10) — shortcake',
-    'LASAGNA': 'Layered pasta bake (7) — ricotta',
+    'PIZZA': 'Neapolitan classic (5)',
+    'SUSHI': 'Rice + fish (5)',
+    'TACO': 'Folded tortilla (4)',
+    'BURRITO': 'Wrapped cylinder (7)',
+    'PASTA': 'Italian noodles (5)',
+    'CURRY': 'Spiced stew (5)',
+    'CHOCOLATE': 'Cacao treat (9)',
+    'BAGEL': 'Boiled then baked ring (5)',
+    'CHEESE': 'Milk made solid (6)',
+    'WAFFLE': 'Grid breakfast (6)',
+    'AVOCADO': 'Toast topper (7)',
+    'NOODLES': 'Ramen or udon (7)',
+    'RISOTTO': 'Creamy rice (7)',
+    'GNOCCHI': 'Potato pillows (7)',
+    'RAMEN': 'Japanese noodle soup (5)',
+    'BIBIMBAP': 'Mixed Korean bowl (8)',
+    'SAMOSA': 'Triangular pastry (6)',
+    'BROWNIE': 'Fudgy square (7)',
+    'SMOOTHIE': 'Blended drink (8)',
+    'PINEAPPLE': 'Spiky tropical fruit (9)',
+    'STRAWBERRY': 'Seed-speckled berry (10)',
+    'LASAGNA': 'Layered pasta bake (7)',
   },
 };
 
 // For each category, the playable word list is its clue keys.
-Map<_Category, List<String>> get _wordBank =>
-    _clueBank.map((k, v) => MapEntry(k, v.keys.toList()));
+Map<_Category, List<String>> get _wordBank {
+  final base = _clueBank.map((k, v) => MapEntry(k, v.keys.toList()));
+  // Mixed = union of all others
+  base[_Category.mixed] = _clueBank.entries
+      .where((e) => e.key != _Category.mixed)
+      .expand((e) => e.value.keys)
+      .toSet()
+      .toList();
+  return base;
+}
+
+// Clues map for Mixed = union of all
+Map<String, String> get _mixedClues {
+  final m = <String, String>{};
+  _clueBank.forEach((cat, map) {
+    if (cat == _Category.mixed) return;
+    m.addAll(map);
+  });
+  return m;
+}
 
 /* ─────────────────── Crossword page ─────────────────── */
 
@@ -360,7 +384,8 @@ class CrosswordPage extends StatefulWidget {
   State<CrosswordPage> createState() => _CrosswordPageState();
 }
 
-class _CrosswordPageState extends State<CrosswordPage> {
+class _CrosswordPageState extends State<CrosswordPage>
+    with SingleTickerProviderStateMixin {
   // persistence keys
   static const _saveDifficulty = 'cw4_diff';
   static const _saveCategory = 'cw4_cat';
@@ -368,11 +393,13 @@ class _CrosswordPageState extends State<CrosswordPage> {
   static const _saveUser = 'cw4_user';
   static const _saveSize = 'cw4_size';
   static const _saveStart = 'cw4_start';
+  static const _saveDir = 'cw4_dir';
+  static const _saveCursor = 'cw4_cursor';
 
   final rnd = Random();
 
   _Difficulty difficulty = _Difficulty.easy;
-  _Category? category; // choose first, like Word Search
+  _Category? category;
 
   late int n;
   late List<List<String?>> _solution; // null = block; else single letter
@@ -383,12 +410,28 @@ class _CrosswordPageState extends State<CrosswordPage> {
   late Map<int, String> _cluesAcross;
   late Map<int, String> _cluesDown;
 
+  // Interaction
+  _Direction _dir = _Direction.across;
+  int _curR = 0, _curC = 0; // current cursor
+  bool _autoCheck = true;
+
   bool _hasSave = false;
+
+  // Anim for highlight pulse
+  late final AnimationController _pulse =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
+        ..repeat(reverse: true);
 
   @override
   void initState() {
     super.initState();
     _restoreOrChooser();
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
   }
 
   /* ─────────── generator ─────────── */
@@ -400,12 +443,18 @@ class _CrosswordPageState extends State<CrosswordPage> {
       _Difficulty.hard => 11,
     };
 
-    final bank = List<String>.from(_wordBank[category!]!);
+    // choose words from category or mixed
+    List<String> bank;
+    if (category == _Category.mixed) {
+      bank = List<String>.from(_mixedClues.keys);
+    } else {
+      bank = List<String>.from(_wordBank[category!]!);
+    }
     bank.shuffle(rnd);
 
     final grid = List.generate(n, (_) => List<String?>.filled(n, null));
 
-    // Lay horizontal theme words with alternating offsets to promote crossings.
+    // Lay horizontal theme words with alternating offsets
     final offset = (n == 11) ? 3 : 2;
     int rowsToUse = min(n, bank.length);
     for (int r = 0; r < rowsToUse; r++) {
@@ -424,7 +473,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
       }
     }
 
-    // Light vertical encouragement: copy letters downward to create 2+ runs.
+    // Simple vertical encouragement
     for (int tries = 0; tries < n; tries++) {
       final c = rnd.nextInt(n);
       for (int r = 0; r < n - 2; r++) {
@@ -447,6 +496,19 @@ class _CrosswordPageState extends State<CrosswordPage> {
     _cluesAcross = ac;
     _cluesDown = dn;
     _startTime = DateTime.now();
+
+    // Set cursor to first non-block cell
+    outer:
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (_solution[r][c] != null) {
+          _curR = r;
+          _curC = c;
+          break outer;
+        }
+      }
+    }
+    _dir = _Direction.across;
   }
 
   List<List<int?>> _computeNumbers(List<List<String?>> sol) {
@@ -476,7 +538,8 @@ class _CrosswordPageState extends State<CrosswordPage> {
       List<List<String?>> sol, List<List<int?>> nums) {
     final across = <int, String>{};
     final down = <int, String>{};
-    final catClues = _clueBank[category!]!;
+    final catClues =
+        (category == _Category.mixed) ? _mixedClues : _clueBank[category!]!;
 
     // Across
     for (int r = 0; r < n; r++) {
@@ -490,10 +553,9 @@ class _CrosswordPageState extends State<CrosswordPage> {
             cc++;
           }
           final word = sb.toString();
-          if (word.length >= 2) {
+          if (word.length >= 2 && nums[r][c] != null) {
             final num = nums[r][c]!;
-            across[num] =
-                catClues[word] ?? '${_categoryLabel(category!)} item (${word.length})';
+            across[num] = catClues[word] ?? '${_categoryLabel(category!)} word (${word.length})';
           }
           c = cc;
         } else {
@@ -514,10 +576,9 @@ class _CrosswordPageState extends State<CrosswordPage> {
             rr++;
           }
           final word = sb.toString();
-          if (word.length >= 2) {
+          if (word.length >= 2 && nums[r][c] != null) {
             final num = nums[r][c]!;
-            down[num] =
-                catClues[word] ?? '${_categoryLabel(category!)} item (${word.length})';
+            down[num] = catClues[word] ?? '${_categoryLabel(category!)} word (${word.length})';
           }
           r = rr;
         } else {
@@ -529,6 +590,140 @@ class _CrosswordPageState extends State<CrosswordPage> {
     return (across, down);
   }
 
+  /* ─────────── helpers for active clue ─────────── */
+
+  bool _isBlock(int r, int c) => _solution[r][c] == null;
+
+  List<Point<int>> _cellsForRunFrom(int r, int c, _Direction dir) {
+    if (_isBlock(r, c)) return const [];
+    // move to start
+    int sr = r, sc = c;
+    if (dir == _Direction.across) {
+      while (sc - 1 >= 0 && !_isBlock(sr, sc - 1)) sc--;
+      final cells = <Point<int>>[];
+      while (sc < n && !_isBlock(sr, sc)) {
+        cells.add(Point(sr, sc));
+        sc++;
+      }
+      return cells;
+    } else {
+      while (sr - 1 >= 0 && !_isBlock(sr - 1, sc)) sr--;
+      final cells = <Point<int>>[];
+      while (sr < n && !_isBlock(sr, sc)) {
+        cells.add(Point(sr, sc));
+        sr++;
+      }
+      return cells;
+    }
+  }
+
+  int? _numberForStart(int r, int c) => _numbers[r][c];
+
+  int? get _activeNumber {
+    final cells = _cellsForRunFrom(_curR, _curC, _dir);
+    if (cells.isEmpty) return null;
+    final start = cells.first;
+    return _numberForStart(start.x, start.y);
+  }
+
+  String get _activeClue {
+    final num = _activeNumber;
+    if (num == null) return '';
+    return _dir == _Direction.across
+        ? (_cluesAcross[num] ?? '')
+        : (_cluesDown[num] ?? '');
+  }
+
+  void _selectCell(int r, int c) {
+    if (_curR == r && _curC == c) {
+      // toggle direction if tapping same cell and other run exists
+      final hasAcross =
+          _cellsForRunFrom(r, c, _Direction.across).length > 1;
+      final hasDown = _cellsForRunFrom(r, c, _Direction.down).length > 1;
+      if (hasAcross && hasDown) {
+        _dir = _dir == _Direction.across ? _Direction.down : _Direction.across;
+      }
+    } else {
+      // default prefer across if run > 1
+      final acrossLen = _cellsForRunFrom(r, c, _Direction.across).length;
+      final downLen = _cellsForRunFrom(r, c, _Direction.down).length;
+      if (acrossLen >= downLen) {
+        _dir = _Direction.across;
+      } else {
+        _dir = _Direction.down;
+      }
+      _curR = r;
+      _curC = c;
+    }
+    _persist();
+    setState(() {});
+  }
+
+  void _moveNextInRun() {
+    final run = _cellsForRunFrom(_curR, _curC, _dir);
+    if (run.isEmpty) return;
+    final idx = run.indexWhere((p) => p.x == _curR && p.y == _curC);
+    final next = (idx < run.length - 1) ? run[idx + 1] : run.last;
+    _curR = next.x;
+    _curC = next.y;
+  }
+
+  void _movePrevInRun() {
+    final run = _cellsForRunFrom(_curR, _curC, _dir);
+    if (run.isEmpty) return;
+    final idx = run.indexWhere((p) => p.x == _curR && p.y == _curC);
+    final prev = (idx > 0) ? run[idx - 1] : run.first;
+    _curR = prev.x;
+    _curC = prev.y;
+  }
+
+  List<int> _orderedNumbers(_Direction dir) {
+    final keys = (dir == _Direction.across ? _cluesAcross : _cluesDown).keys.toList()
+      ..sort();
+    return keys;
+  }
+
+  void _gotoNextClue() {
+    final list = _orderedNumbers(_dir);
+    final cur = _activeNumber;
+    if (cur == null || list.isEmpty) return;
+    final i = list.indexOf(cur);
+    final target = list[(i + 1) % list.length];
+    _gotoClue(target, _dir);
+  }
+
+  void _gotoPrevClue() {
+    final list = _orderedNumbers(_dir);
+    final cur = _activeNumber;
+    if (cur == null || list.isEmpty) return;
+    final i = list.indexOf(cur);
+    final target = list[(i - 1 + list.length) % list.length];
+    _gotoClue(target, _dir);
+  }
+
+  void _gotoClue(int number, _Direction dir) {
+    // find the cell with this number that starts the run for that dir
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (_numbers[r][c] == number) {
+          final run = _cellsForRunFrom(r, c, dir);
+          if (run.isNotEmpty) {
+            _dir = dir;
+            // place cursor at first empty in run or at start
+            final idx =
+                run.indexWhere((p) => (_cells[p.x][p.y] ?? '').isEmpty);
+            final p = idx == -1 ? run.first : run[idx];
+            _curR = p.x;
+            _curC = p.y;
+            _persist();
+            setState(() {});
+            return;
+          }
+        }
+      }
+    }
+  }
+
   /* ─────────── persistence ─────────── */
 
   Future<void> _persist() async {
@@ -538,6 +733,8 @@ class _CrosswordPageState extends State<CrosswordPage> {
     await p.setInt(_saveDifficulty, difficulty.index);
     await p.setInt(_saveCategory, category!.index);
     await p.setInt(_saveStart, _startTime.millisecondsSinceEpoch);
+    await p.setInt(_saveDir, _dir.index);
+    await p.setString(_saveCursor, '$_curR:$_curC');
 
     final flatGrid = <String>[];
     final flatUser = <String>[];
@@ -561,6 +758,8 @@ class _CrosswordPageState extends State<CrosswordPage> {
     await p.remove(_saveGrid);
     await p.remove(_saveUser);
     await p.remove(_saveStart);
+    await p.remove(_saveDir);
+    await p.remove(_saveCursor);
     _hasSave = false;
   }
 
@@ -605,14 +804,16 @@ class _CrosswordPageState extends State<CrosswordPage> {
         final (ac, dn) = _makeClues(_solution, _numbers);
         _cluesAcross = ac;
         _cluesDown = dn;
+        _dir = _Direction.values[p.getInt(_saveDir) ?? 0];
+        final cur = (p.getString(_saveCursor) ?? '0:0').split(':');
+        _curR = int.tryParse(cur[0]) ?? 0;
+        _curC = int.tryParse(cur[1]) ?? 0;
         _startTime = DateTime.fromMillisecondsSinceEpoch(
             start ?? DateTime.now().millisecondsSinceEpoch);
         _hasSave = true;
         setState(() {});
         return;
-      } catch (_) {
-        // fall through to chooser
-      }
+      } catch (_) {/* ignore and fall through */}
     }
     // No save — show chooser first.
     category = null;
@@ -648,7 +849,8 @@ class _CrosswordPageState extends State<CrosswordPage> {
     return true;
   }
 
-  Future<void> _hint() async {
+  Future<void> _revealOne({Point<int>? at}) async {
+    // reveal specific cell or a random incorrect one
     final points = <Point<int>>[];
     for (int r = 0; r < n; r++) {
       for (int c = 0; c < n; c++) {
@@ -657,20 +859,73 @@ class _CrosswordPageState extends State<CrosswordPage> {
       }
     }
     if (points.isEmpty) return;
-    final p = points[rnd.nextInt(points.length)];
+    final p = at ?? points[rnd.nextInt(points.length)];
     _cells[p.x][p.y] = _solution[p.x][p.y];
     await _persist();
     setState(() {});
+  }
+
+  Future<void> _revealTen() async {
+    int left = 10;
+    while (left-- > 0) {
+      await _revealOne();
+    }
+  }
+
+  /* ─────────── input from soft keyboard ─────────── */
+
+  void _typeLetter(String ch) async {
+    if (category == null) return;
+    if (_isBlock(_curR, _curC)) return;
+    if (ch == '⌫') {
+      if ((_cells[_curR][_curC] ?? '').isEmpty) {
+        _movePrevInRun();
+      }
+      _cells[_curR][_curC] = '';
+    } else {
+      _cells[_curR][_curC] = ch.toUpperCase();
+      _moveNextInRun();
+    }
+    await _persist();
+    setState(() {});
+
+    if (_complete()) {
+      await _clearPersisted();
+      final secs =
+          DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
+      final score = 1 / secs;
+      await ScoreStore.instance.add('crossword', score);
+      final high = await ScoreStore.instance.reportBest('crossword', score);
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(high ? 'New High Score!' : 'Crossword complete'),
+          content: Text('Time: ${secs}s'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close')),
+            FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _newPuzzle();
+                },
+                child: const Text('New')),
+          ],
+        ),
+      );
+    }
   }
 
   /* ─────────── UI ─────────── */
 
   @override
   Widget build(BuildContext context) {
-    // CHOOSER (balloons/bubbles): pick a category first
+    // CHOOSER (balloons/bubbles)
     if (category == null) {
       return _GameScaffold(
-        title: null, // remove "Crossword" at the top
+        title: null,
         child: Stack(
           children: [
             const _SoftBubblesBackground(),
@@ -699,7 +954,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
                           label: _categoryLabel(c),
                           onSelected: () {
                             setState(() => category = c);
-                            _newPuzzle(); // start after pop
+                            _newPuzzle();
                           },
                         );
                       }).toList(),
@@ -727,18 +982,14 @@ class _CrosswordPageState extends State<CrosswordPage> {
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // Back to category bubbles
           OutlinedButton.icon(
             onPressed: () async {
               await _clearPersisted();
-              setState(() {
-                category = null;
-              });
+              setState(() => category = null);
             },
             style: OutlinedButton.styleFrom(
-              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
+                visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
             icon: const Icon(Icons.bubble_chart_rounded, size: 16),
             label: const Text('Categories'),
           ),
@@ -760,14 +1011,32 @@ class _CrosswordPageState extends State<CrosswordPage> {
               _newPuzzle();
             },
           ),
+          FilterChip(
+            label: const Text('Auto-Check'),
+            avatar: Icon(_autoCheck ? Icons.check_circle : Icons.radio_button_unchecked, size: 18),
+            selected: _autoCheck,
+            onSelected: (v) => setState(() => _autoCheck = v),
+            selectedColor: const Color(0xFFEFFAF0),
+            side: const BorderSide(color: _ink),
+            backgroundColor: Colors.white,
+          ),
           FilledButton.icon(
-            onPressed: _hint,
+            onPressed: () => _revealOne(at: Point(_curR, _curC)),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
             ),
-            icon: const Icon(Icons.lightbulb_outline_rounded, size: 16),
-            label: const Text('Hint'),
+            icon: const Icon(Icons.text_fields_rounded, size: 16),
+            label: const Text('Reveal Tile'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _revealTen,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+            ),
+            icon: const Icon(Icons.pending_actions_rounded, size: 16),
+            label: const Text('+10 Letters'),
           ),
           OutlinedButton.icon(
             onPressed: _resetPuzzle,
@@ -787,29 +1056,60 @@ class _CrosswordPageState extends State<CrosswordPage> {
             icon: const Icon(Icons.fiber_new_rounded, size: 16),
             label: const Text('New'),
           ),
-          if (_hasSave)
-            Padding(
-              padding: const EdgeInsets.only(left: 2),
-              child: Chip(
-                label: Text(_categoryLabel(category!)),
-                avatar: Icon(_categoryIcon(category!), size: 16),
-                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: Chip(
+              label: Text(_categoryLabel(category!)),
+              avatar: Icon(_categoryIcon(category!), size: 16),
+              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
             ),
+          ),
         ],
       ),
     );
 
+    // Clue banner like screenshots (yellow bar with arrows)
+    final clueBanner = Container(
+      color: const Color(0xFFFFD54F),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _gotoPrevClue,
+            icon: const Icon(Icons.arrow_back_rounded),
+            splashRadius: 20,
+          ),
+          Expanded(
+            child: Text(
+              '${_activeNumber ?? ''}${_dir == _Direction.across ? 'a' : 'd'}. ${_activeClue}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+          ),
+          IconButton(
+            onPressed: _gotoNextClue,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            splashRadius: 20,
+          ),
+        ],
+      ),
+    );
+
+    final keyboard = _Keyboard(onKey: _typeLetter);
+
     return _GameScaffold(
-      title: null, // keep no title on gameplay too for consistency
+      title: null,
       child: Column(
         children: [
           topBar,
-          // GRID: classic crossword look (even spacing, black blocks)
+          clueBanner,
+          // GRID
           Expanded(
             flex: 6,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: AspectRatio(
                 aspectRatio: 1,
                 child: GridView.builder(
@@ -827,118 +1127,83 @@ class _CrosswordPageState extends State<CrosswordPage> {
                       return Container(color: Colors.black87);
                     }
 
-                    final ok =
-                        (_cells[r][c] ?? '').toUpperCase() == _solution[r][c];
+                    final activeRun = _cellsForRunFrom(_curR, _curC, _dir);
+                    final inActive = activeRun.any((p) => p.x == r && p.y == c);
+                    final isCursor = (_curR == r && _curC == c);
+
+                    final sol = _solution[r][c]!;
+                    final cur = (_cells[r][c] ?? '').toUpperCase();
+                    Color fill = Colors.white;
+                    if (isCursor) {
+                      final t = (0.85 + 0.15 * (sin(_pulse.value * 2 * pi) + 1) / 2);
+                      fill = Color.lerp(_warn, Colors.white, t)!;
+                    } else if (inActive) {
+                      fill = _warn.withOpacity(.55);
+                    }
+                    if (_autoCheck && cur.isNotEmpty) {
+                      if (cur == sol) {
+                        fill = _good;
+                      } else {
+                        fill = _bad;
+                      }
+                    }
+
                     final number = _numbers[r][c];
 
-                    return Stack(
-                      children: [
-                        // Cell frame
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(color: Colors.black54, width: 1),
-                            ),
-                          ),
+                    return GestureDetector(
+                      onTap: () => _selectCell(r, c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        curve: Curves.easeOut,
+                        decoration: BoxDecoration(
+                          color: fill,
+                          border: Border.all(color: Colors.black54, width: 1),
                         ),
-                        // Number
-                        if (number != null)
-                          Positioned(
-                            left: 4,
-                            top: 2,
-                            child: IgnorePointer(
-                              child: Text(
-                                '$number',
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black54,
+                        child: Stack(
+                          children: [
+                            if (number != null)
+                              Positioned(
+                                left: 3,
+                                top: 2,
+                                child: Text(
+                                  '$number',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ),
+                            Center(
+                              child: AnimatedScale(
+                                duration: const Duration(milliseconds: 120),
+                                scale: isCursor ? 1.1 : 1.0,
+                                child: Text(
+                                  cur,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 20,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        // Input
-                        TextField(
-                          controller: TextEditingController(text: _cells[r][c]),
-                          onChanged: (v) async {
-                            _cells[r][c] =
-                                v.isEmpty ? '' : v.substring(0, 1).toUpperCase();
-                            await _persist();
-                            setState(() {});
-                            if (_complete()) {
-                              await _clearPersisted();
-                              final secs = DateTime.now()
-                                  .difference(_startTime)
-                                  .inSeconds
-                                  .clamp(1, 99999);
-                              final score = 1 / secs;
-                              await ScoreStore.instance.add('crossword', score);
-                              final high = await ScoreStore.instance
-                                  .reportBest('crossword', score);
-                              if (!mounted) return;
-                              await showDialog(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: Text(
-                                      high ? 'New High Score!' : 'Crossword complete'),
-                                  content: Text('Time: ${secs}s'),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('Close')),
-                                    FilledButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          _newPuzzle();
-                                        },
-                                        child: const Text('New')),
-                                  ],
-                                ),
-                              );
-                            }
-                          },
-                          maxLength: 1,
-                          textAlign: TextAlign.center,
-                          decoration: InputDecoration(
-                            counterText: '',
-                            border: InputBorder.none, // frame handled by container
-                            isCollapsed: true,
-                            filled: true,
-                            fillColor: ok
-                                ? const Color(0xFFA7E0C9)
-                                : Colors.white,
-                            contentPadding: const EdgeInsets.only(top: 10),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     );
                   },
                 ),
               ),
             ),
           ),
-          // CLUES
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.95),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _ink),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _ClueList(title: 'Across', clues: _cluesAcross)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _ClueList(title: 'Down', clues: _cluesDown)),
-                  ],
-                ),
-              ),
+          // Keyboard & utility row
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(
+              children: [
+                Expanded(child: keyboard),
+              ],
             ),
           ),
         ],
@@ -947,35 +1212,60 @@ class _CrosswordPageState extends State<CrosswordPage> {
   }
 }
 
-/* ─────────────────── Widgets ─────────────────── */
+/* ─────────────────── Soft keyboard ─────────────────── */
 
-class _ClueList extends StatelessWidget {
-  final String title;
-  final Map<int, String> clues;
-  const _ClueList({required this.title, required this.clues});
+class _Keyboard extends StatelessWidget {
+  final void Function(String) onKey;
+  const _Keyboard({required this.onKey});
+
   @override
   Widget build(BuildContext context) {
-    final entries = clues.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+    const rows = [
+      ['Q','W','E','R','T','Y','U','I','O','P'],
+      ['A','S','D','F','G','H','J','K','L'],
+      ['Z','X','C','V','B','N','M'],
+      ['⌫']
+    ];
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title,
-            style:
-                const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-        const SizedBox(height: 6),
-        if (entries.isEmpty)
-          const Text('—', style: TextStyle(fontSize: 12)),
-        ...entries.map(
-          (e) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Text(
-              '${e.key}. ${e.value}',
-              style: const TextStyle(fontSize: 12.5, height: 1.2),
-              softWrap: true,
+        for (int i = 0; i < rows.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 8),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
+              children: rows[i].map((label) {
+                final wide = label == '⌫';
+                return SizedBox(
+                  width: wide ? 64 : 36,
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          wide ? const Color(0xFFB6E3FF) : const Color(0xFFBEE8DF),
+                      elevation: 1.5,
+                      shadowColor: Colors.black26,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () => onKey(label),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
-        ),
       ],
     );
   }
@@ -1040,7 +1330,6 @@ class _BubbleCategoryTileState extends State<_BubbleCategoryTile>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Ripple when popping
               if (_pop.value > 0)
                 Opacity(
                   opacity: (1 - _pop.value).clamp(0.0, 1.0),
@@ -1062,7 +1351,6 @@ class _BubbleCategoryTileState extends State<_BubbleCategoryTile>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Bubble
                         Container(
                           width: 120,
                           height: 120,
@@ -1084,7 +1372,6 @@ class _BubbleCategoryTileState extends State<_BubbleCategoryTile>
                           ),
                           child: Stack(
                             children: [
-                              // Soft highlight to feel like a balloon
                               Positioned(
                                 left: 16,
                                 top: 14,
@@ -1183,16 +1470,13 @@ class _BubblesPainter extends CustomPainter {
       final y = (b.y + b.dy * t) % 1.0;
       final center = Offset(x * size.width, y * size.height);
       final radius = b.r * size.shortestSide * (1 + 0.05 * sin(2 * pi * t));
-      // Bubble body
       paint.color = const Color(0xFF0D7C66).withOpacity(b.a * 0.45);
       canvas.drawCircle(center, radius, paint);
-      // Bubble rim
       final rim = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
         ..color = const Color(0xFF0D7C66).withOpacity(b.a * 0.55);
       canvas.drawCircle(center, radius, rim);
-      // Highlight
       final highlight = Paint()
         ..style = PaintingStyle.fill
         ..color = Colors.white.withOpacity(.35 * b.a);
