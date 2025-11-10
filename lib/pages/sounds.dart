@@ -53,7 +53,7 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Binaural Beats',
       category: 'Focus',
       imageUrl:
-          'https://images.unsplash.com/photo-1527443224154-c4f2a9b1d67a?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop',
       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     ),
     _SoundTrack(
@@ -85,7 +85,7 @@ class _SoundsPageState extends State<SoundsPage> {
       title: 'Lo-Fi Study',
       category: 'Study',
       imageUrl:
-          'https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1200&auto=format&fit=crop',
       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
     ),
     _SoundTrack(
