@@ -98,15 +98,17 @@ class MatchDifficultPage extends StatefulWidget {
 class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProviderStateMixin {
   static const int pairs = 10; // 20 cards
   final rnd = Random();
-  late List<int> deck;   // two of each id
-  late List<bool> faceUp;
-  late List<bool> removed; // cards removed after a successful match
+  late List<int> deck;      // two of each id
+  late List<bool> faceUp;   // shown state
+  late List<bool> removed;  // matched & removed (animated out)
+  late List<bool> _pressed; // tap-down press effect
+  late List<bool> _burst;   // sparkle burst on match
   int? first;
   int moves = 0;
   int matched = 0;
   late DateTime _start;
 
-  // richer icon set + emoji “stickers”
+  // richer icon set + emoji “sticker” faces
   late List<IconData> _iconSet;
   final List<String> _emojiSet = const [
     '🌊','✨','🍀','🦋','🧩','🎧','🌙','🌵','🍩','🦊',
@@ -131,18 +133,29 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
       Icons.bolt_rounded,
       Icons.face_retouching_natural_rounded,
     ]..shuffle(rnd);
+
     deck = List.generate(pairs, (i) => i)..addAll(List.generate(pairs, (i) => i));
     deck.shuffle(rnd);
-    faceUp = List.filled(deck.length, false);
+
+    faceUp  = List.filled(deck.length, false);
     removed = List.filled(deck.length, false);
+    _pressed = List.filled(deck.length, false);
+    _burst   = List.filled(deck.length, false);
+
     first = null; moves = 0; matched = 0;
     _start = DateTime.now();
     setState(() {});
   }
 
+  void _setPressed(int i, bool v) {
+    if (!mounted || removed[i]) return;
+    setState(() => _pressed[i] = v);
+  }
+
   Future<void> _flip(int i) async {
     if (removed[i] || faceUp[i]) return;
     setState(() { faceUp[i] = true; });
+
     if (first == null) {
       first = i;
     } else if (first != i) {
@@ -151,13 +164,30 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
         final a = first!;
         final b = i;
         first = null;
-        await Future.delayed(const Duration(milliseconds: 250));
+
+        // small delay so second card is visible
+        await Future.delayed(const Duration(milliseconds: 220));
         if (!mounted) return;
+
+        // sparkle burst + remove
+        setState(() {
+          _burst[a] = true;
+          _burst[b] = true;
+        });
+        await Future.delayed(const Duration(milliseconds: 240));
+        if (!mounted) return;
+
         setState(() {
           removed[a] = true;
           removed[b] = true;
         });
         matched += 2;
+
+        // hide bursts a bit later
+        Future.delayed(const Duration(milliseconds: 380), () {
+          if (!mounted) return;
+          setState(() { _burst[a] = false; _burst[b] = false; });
+        });
 
         if (matched == deck.length) {
           final secs = DateTime.now().difference(_start).inSeconds.clamp(1, 99999);
@@ -176,7 +206,7 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
       } else {
         final prev = first!;
         first = null;
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 420));
         if (!mounted) return;
         setState(() { faceUp[i] = false; faceUp[prev] = false; });
       }
@@ -202,7 +232,7 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
     final palette = Colors.primaries.take(pairs).toList();
     return _GameScaffold(
       title: 'Matching',
-      // ⬇️ Updated copy: new second sentence
+      // Updated copy (kept from your last change):
       rule: 'Flip cards to find pairs. Try to win in as little moves as possible.',
       topBar: Row(
         children: [
@@ -225,41 +255,73 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
           final gone = removed[i];
           final id = deck[i];
 
-          final tile = AnimatedOpacity(
+          // Press / open animated scale & tilt
+          final targetScale = gone ? 0.85 : (_pressed[i] ? 0.94 : (open ? 1.03 : 1.0));
+          final targetTurns = _pressed[i] ? -0.005 : (open ? 0.002 : 0.0);
+
+          final cardFace = AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
-            opacity: gone ? 0.0 : 1.0,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: ScaleTransition(scale: Tween(begin: 0.9, end: 1.0).animate(anim), child: child),
+            ),
+            child: open
+                ? Center(
+                    key: const ValueKey('open'),
+                    child: _faceFor(id, palette[id].shade900),
+                  )
+                : const Icon(Icons.help_outline_rounded,
+                    key: ValueKey('closed'), color: Colors.black54),
+          );
+
+          final card = AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            decoration: BoxDecoration(
+              gradient: open
+                  ? LinearGradient(colors: [palette[id].shade200, palette[id].shade400])
+                  : const LinearGradient(colors: [Colors.white, Color(0xFFF6F6F6)]),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _ink),
+              // soft glow when open
+              boxShadow: [
+                const BoxShadow(color: Colors.black12, blurRadius: 6),
+                if (open) BoxShadow(color: palette[id].shade200.withOpacity(.6), blurRadius: 16, spreadRadius: 1),
+              ],
+            ),
+            child: cardFace,
+          );
+
+          final interactive = GestureDetector(
+            onTapDown: (_) => _setPressed(i, true),
+            onTapUp:   (_) => _setPressed(i, false),
+            onTapCancel: () => _setPressed(i, false),
+            onTap: gone ? null : () => _flip(i),
             child: AnimatedScale(
-              duration: const Duration(milliseconds: 220),
-              scale: gone ? 0.85 : 1.0,
-              child: GestureDetector(
-                onTap: gone ? null : () => _flip(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  transform: Matrix4.identity()..scale(open ? 1.0 : 0.98),
-                  decoration: BoxDecoration(
-                    gradient: open
-                        ? LinearGradient(colors: [palette[id].shade200, palette[id].shade400])
-                        : const LinearGradient(colors: [Colors.white, Color(0xFFF6F6F6)]),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _ink),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: open
-                        ? Center(
-                            key: const ValueKey('open'),
-                            child: _faceFor(id, palette[id].shade900),
-                          )
-                        : const Icon(Icons.help_outline_rounded,
-                            key: ValueKey('closed'), color: Colors.black54),
-                  ),
-                ),
+              scale: targetScale,
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutBack,
+              child: AnimatedRotation(
+                turns: targetTurns,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                child: card,
               ),
             ),
           );
 
-          return tile;
+          // Sparkle burst overlay when a pair is found.
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // Even if removed, we keep the grid cell (it animates invisible and ignores input).
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                opacity: gone ? 0.0 : 1.0,
+                child: interactive,
+              ),
+              Positioned.fill(child: _SparkleBurst(show: _burst[i], color: palette[id])),
+            ],
+          );
         },
       ),
     );
@@ -267,15 +329,64 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
 
   // Builds either a fun emoji “sticker” or a richer icon for the given id.
   Widget _faceFor(int id, Color color) {
-    // Alternate between emoji “image” and icon to diversify visuals.
     if (id % 2 == 0) {
-      return Text(
-        _emojiSet[id],
-        style: const TextStyle(fontSize: 30),
-      );
+      return Text(_emojiSet[id], style: const TextStyle(fontSize: 30));
     } else {
       return Icon(_iconSet[id], size: 30, color: color);
     }
+  }
+}
+
+/* ─────────── Tiny sparkle burst for matched pairs ─────────── */
+class _SparkleBurst extends StatelessWidget {
+  final bool show;
+  final MaterialColor color;
+  const _SparkleBurst({required this.show, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    // 6 sparkles radiating from center
+    final dots = List.generate(6, (i) {
+      final angle = (i / 6) * 2 * pi;
+      final offset = Offset(cos(angle), sin(angle));
+      return _RadialDot(offset: offset, color: color);
+    });
+
+    return IgnorePointer(
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 260),
+        opacity: show ? 1 : 0,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 260),
+          scale: show ? 1 : .6,
+          child: Stack(children: dots),
+        ),
+      ),
+    );
+  }
+}
+
+class _RadialDot extends StatelessWidget {
+  final Offset offset;
+  final MaterialColor color;
+  const _RadialDot({required this.offset, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment(0, 0),
+      child: Transform.translate(
+        offset: Offset(offset.dx * 22, offset.dy * 22),
+        child: Container(
+          width: 6, height: 6,
+          decoration: BoxDecoration(
+            color: color.shade400,
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [BoxShadow(color: color.shade200, blurRadius: 6)],
+          ),
+        ),
+      ),
+    );
   }
 }
 
