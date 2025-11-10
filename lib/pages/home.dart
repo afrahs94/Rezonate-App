@@ -92,9 +92,21 @@ class _HomePageState extends State<HomePage> {
   DateTime? _firstLogTodayAt;
   DateTime? _lastLogBeforeTodayAt;
 
-  final List<int> _emojiTicks = const [0, 10];
-  final Map<int, String> _defaultEmojis = const {0: "😄", 10: "😢"};
-  late Map<int, String> _emojiForTick = Map<int, String>.from(_defaultEmojis);
+  /// Five-tick emoji scale (0, 2.5, 5, 7.5, 10).
+  /// We keep five editable choices in settings, but only **low** and **high** show on the chart axes.
+  final List<double> _emojiTicks = const [0.0, 2.5, 5.0, 7.5, 10.0];
+
+  /// Default five emojis (editable by the user).
+  /// Not const to avoid `double` key const-map restriction.
+  final Map<double, String> _defaultEmojis = {
+    0.0: "🙂",   // Low
+    2.5: "🙂",
+    5.0: "😐",
+    7.5: "🙁",
+    10.0: "😭",  // High
+  };
+
+  late Map<double, String> _emojiForTick = Map<double, String>.from(_defaultEmojis);
 
   Timer? _midnightTimer;
 
@@ -175,30 +187,33 @@ class _HomePageState extends State<HomePage> {
     _scheduleMidnightReset();
   }
 
+  // ---- emoji prefs keys helper (stable; avoids floating string drift) ----
+  String _prefKeyForTick(double t) => 'emoji_tick_${(t * 10).round()}';
+
   Future<void> _loadEmojis() async {
     final prefs = await SharedPreferences.getInstance();
-    final Map<int, String> loaded = {};
+    final Map<double, String> loaded = {};
     for (final t in _emojiTicks) {
-      loaded[t] = prefs.getString('emoji_tick_$t') ?? _defaultEmojis[t]!;
+      loaded[t] = prefs.getString(_prefKeyForTick(t)) ?? _defaultEmojis[t]!;
     }
     if (!mounted) return;
     setState(() => _emojiForTick = loaded);
   }
 
-  Future<void> _saveEmojis(Map<int, String> next) async {
+  Future<void> _saveEmojis(Map<double, String> next) async {
     final prefs = await SharedPreferences.getInstance();
     for (final t in _emojiTicks) {
-      await prefs.setString('emoji_tick_$t', next[t] ?? _defaultEmojis[t]!);
+      await prefs.setString(_prefKeyForTick(t), next[t] ?? _defaultEmojis[t]!);
     }
     if (!mounted) return;
-    setState(() => _emojiForTick = Map<int, String>.from(next));
+    setState(() => _emojiForTick = Map<double, String>.from(next));
   }
 
   Future<void> _openEmojiPicker() async {
-    final Map<int, String> draft = Map<int, String>.from(_emojiForTick);
+    final Map<double, String> draft = Map<double, String>.from(_emojiForTick);
     final controllers = {for (final t in _emojiTicks) t: TextEditingController(text: draft[t])};
 
-    String sanitize(String v, int tick) {
+    String sanitize(String v, double tick) {
       final trimmed = v.trim();
       if (trimmed.isEmpty) return _defaultEmojis[tick]!;
       return trimmed.characters.isNotEmpty ? trimmed.characters.first : _defaultEmojis[tick]!;
@@ -208,6 +223,14 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (ctx) {
         final dark = app.ThemeControllerScope.of(context).isDark;
+        final labelStyle = const TextStyle(fontWeight: FontWeight.w600, fontSize: 13);
+        Widget labelFor(double t) {
+          if (t == 0.0) return Text('Low (0)', style: labelStyle);
+          if (t == 10.0) return Text('High (10)', style: labelStyle);
+          // middle rows have no labels per request
+          return const SizedBox(width: 74);
+        }
+
         return AlertDialog(
           backgroundColor: dark ? const Color(0xFF123A36) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -220,18 +243,21 @@ class _HomePageState extends State<HomePage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SizedBox(
-                          width: 74,
-                          child: Text(t == 0 ? '0 (start)' : '10 (end)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        ),
+                        SizedBox(width: 86, child: labelFor(t)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: controllers[t],
                             maxLength: 2,
-                            buildCounter: (_, {required currentLength, required maxLength, required isFocused}) => const SizedBox.shrink(),
-                            decoration: const InputDecoration(isDense: true, hintText: 'Enter emoji', border: OutlineInputBorder()),
+                            buildCounter: (_, {required currentLength, required maxLength, required isFocused}) =>
+                                const SizedBox.shrink(),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              hintText: 'Enter emoji',
+                              border: OutlineInputBorder(),
+                            ),
                             onChanged: (v) => draft[t] = sanitize(v, t),
                           ),
                         ),
@@ -258,7 +284,10 @@ class _HomePageState extends State<HomePage> {
                         await _saveEmojis(draft);
                         if (mounted) Navigator.pop(ctx);
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D7C66), foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D7C66),
+                        foregroundColor: Colors.white,
+                      ),
                       child: const Text('Save'),
                     ),
                   ],
@@ -486,34 +515,27 @@ class _HomePageState extends State<HomePage> {
     final todayKey = _dayKey(today);
     final hasToday = _daysWithAnyLog.contains(todayKey);
 
-    // Build a set of DateTimes from the keys for quick contains() checks
     final loggedDates = _daysWithAnyLog.map((k) => DateTime.parse(k)).toSet();
 
-    // Choose the anchor day to end the streak window:
-    // - If logged today, streak ends at yesterday (don’t count same-day progress).
-    // - Else, end at the latest day with any log.
     DateTime anchor;
     if (hasToday) {
       anchor = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 1));
     } else {
-      // Find most recent logged day
       final all = loggedDates.toList()..sort();
       anchor = all.last;
     }
 
-    // If there was no log yesterday (and you logged today), streak is 0.
     if (!loggedDates.contains(DateTime(anchor.year, anchor.month, anchor.day))) {
       return 0;
     }
 
-    // Walk backwards day-by-day counting consecutive days present.
     int count = 0;
     DateTime d = anchor;
     while (loggedDates.contains(DateTime(d.year, d.month, d.day))) {
       count++;
       d = d.subtract(const Duration(days: 1));
     }
-    return count; // already excludes today by construction
+    return count;
   }
 
   LinearGradient _bg(BuildContext context) {
@@ -717,9 +739,13 @@ class _HomePageState extends State<HomePage> {
             reservedSize: 30,
             interval: 10,
             getTitlesWidget: (value, meta) {
+              // Only show LOW and HIGH emojis on the axis.
               final v = value.toInt();
-              if (v == 0 || v == 10) {
-                return Text(_emojiForTick[v]!, style: const TextStyle(fontSize: 20));
+              if (v == 0) {
+                return Text(_emojiForTick[0.0]!, style: const TextStyle(fontSize: 20));
+              }
+              if (v == 10) {
+                return Text(_emojiForTick[10.0]!, style: const TextStyle(fontSize: 20));
               }
               return const SizedBox.shrink();
             },
@@ -815,7 +841,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               _HeaderShadowIcon(
-                                icon: Icons.person_outline_rounded,
+                                icon: Icons.person_outline_rounded, // profile on the right
                                 tooltip: 'Edit profile',
                                 onTap: () => Navigator.push(
                                   context,
@@ -941,7 +967,7 @@ class _HomePageState extends State<HomePage> {
                                       Expanded(
                                         child: Row(
                                           children: [
-                                            Text(_emojiForTick[0] ?? "😄", style: const TextStyle(fontSize: 20)),
+                                            Text(_emojiForTick[0.0] ?? "🙂", style: const TextStyle(fontSize: 20)), // Low side
                                             Expanded(
                                               child: SliderTheme(
                                                 data: SliderTheme.of(context).copyWith(
@@ -958,7 +984,7 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                               ),
                                             ),
-                                            Text(_emojiForTick[10] ?? "😢", style: const TextStyle(fontSize: 20)),
+                                            Text(_emojiForTick[10.0] ?? "😭", style: const TextStyle(fontSize: 20)), // High side
                                           ],
                                         ),
                                       ),
@@ -1040,7 +1066,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 14),
 
-                          // ---- Add tracker (Showcase with required callbacks) ----
+                          // ---- Add tracker ----
                           Showcase(
                             key: OBKeys.addHabit,
                             description: 'Tap here to add your first habit tracker.',
@@ -1058,7 +1084,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 24),
 
-                          // ---- View selector (Showcase with required callbacks) ----
+                          // ---- View selector ----
                           Showcase(
                             key: OBKeys.chartSelector,
                             description: 'Switch between Weekly, Monthly, or Overall views.',
@@ -1138,7 +1164,7 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 6),
 
-                          // ---- Chart card with “More insights” INSIDE ----
+                          // ---- Chart card with “More insights” ----
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -1161,7 +1187,10 @@ class _HomePageState extends State<HomePage> {
                                   child: TextButton.icon(
                                     icon: const Icon(Icons.insights_outlined),
                                     label: const Text('More insights', style: TextStyle(fontWeight: FontWeight.w700)),
-                                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF0D7C66)),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0D7C66),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
                                     onPressed: () {
                                       Navigator.push(
                                         context,
@@ -1555,6 +1584,8 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+// ---------------- Painters for color picker ----------------
+
 class _HueRingPainter extends CustomPainter {
   _HueRingPainter({required this.ringWidth});
   final double ringWidth;
@@ -1656,6 +1687,8 @@ class _SVSquare extends StatelessWidget {
   }
 }
 
+// ---------------- Nav + small helpers ----------------
+
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
 
@@ -1705,7 +1738,7 @@ class _BottomNav extends StatelessWidget {
           ),
           Showcase(
             key: OBKeys.settingsTab,
-            description: 'Open Settings to customize the app.',
+            description: 'Open Tools.',
             disposeOnTap: true,
             onTargetClick: () {},
             onToolTipClick: () {},
@@ -1724,7 +1757,7 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-/// White icon with a soft green drop shadow (no frosted background).
+/// Single green icon (no white duplicate) with light shadow feel.
 class _HeaderShadowIcon extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -1734,73 +1767,16 @@ class _HeaderShadowIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const green = Color(0xFF0D7C66);
-
     return Tooltip(
       message: tooltip,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
-        child: Container(
+        child: SizedBox(
           width: 36,
           height: 36,
-          alignment: Alignment.center,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Green drop shadow behind the white icon
-              Positioned(
-                left: 1.5,
-                top: 1.5,
-                child: Icon(icon, size: 22, color: green.withOpacity(0.7)),
-              ),
-              const Icon(Icons.circle, size: 0), // layout stabilizer
-              Icon(icon, size: 22, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-/// Sleek themed icon badge for the header row. (Kept for compatibility if you use elsewhere)
-class _FrostedCircleIcon extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  const _FrostedCircleIcon({required this.icon, required this.tooltip, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    // Re-implemented as a white icon with a green drop shadow.
-    const green = Color(0xFF0D7C66);
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            color: Colors.transparent,
-            shape: BoxShape.circle,
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Green shadow behind the white icon
-              Positioned(
-                left: 1.2,
-                top: 1.2,
-                child: Icon(icon, size: 22, color: green.withOpacity(0.85)),
-              ),
-              const Icon(Icons.circle, size: 0), // layout stabilizer
-              const Icon(null), // noop
-              const SizedBox.shrink(),
-              Icon(icon, size: 22, color: Colors.white),
-            ],
+          child: Center(
+            child: Icon(icon, size: 22, color: green),
           ),
         ),
       ),
