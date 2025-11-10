@@ -1,8 +1,10 @@
 // lib/pages/crossword.dart
 //
-// Crossword with category chooser (first), default Easy difficulty,
-// descriptive clues, bigger grid / smaller keyboard, spaced keys,
-// small themed hint bar, and no overflow. Fully self-contained.
+// Crossword with category chooser (shows first), default Easy difficulty,
+// descriptive clues (no length parentheses), bigger grid / smaller keyboard,
+// spaced keys, small themed hint bar, and a Back button that returns to
+// the Stress Busters page via Navigator.pop(context).
+//
 // No external assets required.
 
 import 'dart:math';
@@ -73,128 +75,128 @@ IconData _categoryIcon(_Category c) => switch (c) {
       _Category.food => Icons.restaurant_rounded,
     };
 
-/* ───────────────── Word + Clue banks (descriptive) ───────────────── */
+/* ───────────────── Word + Clue banks (descriptive, no “(n)”) ───────────────── */
 
 final Map<_Category, Map<String, String>> _clueBank = {
   _Category.animals: {
-    'LION': '“King of the jungle” (4) — pride leader',
-    'TIGER': 'Striped big cat of Asia (5)',
-    'EAGLE': 'U.S. national bird (5)',
-    'DOLPHIN': 'Clever marine mammal (7)',
-    'PANDA': 'Bamboo-munching bear (5)',
-    'KOALA': 'Eucalyptus snacker (5) — not a bear',
-    'GIRAFFE': 'Tallest land animal (7)',
-    'ZEBRA': 'Striped grazer (5)',
-    'OTTER': 'Playful river mammal (5)',
-    'CHEETAH': 'Fastest sprinter (7)',
+    'LION': 'Maned big cat known for living in prides',
+    'TIGER': 'Largest striped cat native to Asia',
+    'EAGLE': 'Raptor celebrated for exceptional eyesight',
+    'DOLPHIN': 'Intelligent marine mammal that echolocates',
+    'PANDA': 'Bear that feeds mainly on bamboo',
+    'KOALA': 'Australian tree-dweller that eats eucalyptus',
+    'GIRAFFE': 'Hoofed mammal famous for an extremely long neck',
+    'ZEBRA': 'Equid with distinctive black-and-white stripes',
+    'OTTER': 'Playful swimmer that cracks shells on rocks',
+    'CHEETAH': 'Fastest land animal; a spotted sprinter',
   },
   _Category.history: {
-    'CAESAR': 'Julius ___, Roman statesman (6)',
-    'PYRAMID': 'Ancient tomb of Egypt (7)',
-    'EMPIRE': 'Realm of an emperor (6)',
-    'PHARAOH': 'Egyptian ruler title (7)',
-    'VIKING': 'Norse seafarer (6)',
-    'TREATY': 'Formal pact (6)',
-    'REPUBLIC': 'State without a monarch (8)',
-    'REVOLT': 'Uprising (6)',
-    'BYZANTINE': 'Eastern Roman culture (9)',
-    'ARMADA': 'Spanish fleet (6)',
+    'CAESAR': 'Roman general and statesman who crossed the Rubicon',
+    'PYRAMID': 'Ancient Egyptian royal tomb with triangular sides',
+    'EMPIRE': 'State ruled by an emperor over many peoples',
+    'PHARAOH': 'Title for rulers of ancient Egypt regarded as divine',
+    'VIKING': 'Norse seafarer known for raids and longships',
+    'TREATY': 'Formal written agreement between sovereigns',
+    'REPUBLIC': 'Government where power rests with elected reps',
+    'REVOLT': 'Organized uprising against established authority',
+    'BYZANTINE': 'Eastern Roman culture centered on Constantinople',
+    'ARMADA': 'Famous Spanish fleet defeated in 1588',
   },
   _Category.literature: {
-    'ODYSSEY': 'Homer’s voyage home (7)',
-    'HAMLET': 'Prince of Denmark (6)',
-    'GATSBY': 'Jazz-Age dreamer (6)',
-    'DUNE': 'Arrakis saga (4)',
-    'NARNIA': 'Wardrobe world (6)',
-    'HOBBIT': 'Bilbo’s tale (6)',
-    'ORWELL': 'Author of “1984” (6)',
-    'AUSTEN': '“Pride and Prejudice” author (6)',
-    'POE': 'Master of the macabre (3)',
-    'ILIAD': 'Wrath of Achilles (5)',
+    'ODYSSEY': 'Epic about a hero’s long voyage home to Ithaca',
+    'HAMLET': 'Shakespeare tragedy about a hesitant prince',
+    'GATSBY': 'Fitzgerald’s Jazz-Age tale of reinvention and longing',
+    'DUNE': 'Sci-fi saga set on the desert planet Arrakis',
+    'NARNIA': 'Fantasy realm entered through a wardrobe',
+    'HOBBIT': 'Bilbo’s adventure that precedes the Ring saga',
+    'ORWELL': 'Author of “1984” and “Animal Farm”',
+    'AUSTEN': 'Novelist of wit and manners; wrote “Pride and Prejudice”',
+    'POE': 'American master of the macabre and detective fiction',
+    'ILIAD': 'Epic focused on Achilles and the Trojan War',
   },
   _Category.popculture: {
-    'MARIO': 'Nintendo plumber (5)',
-    'POKEMON': 'Catch ’em all (7)',
-    'BATMAN': 'Dark Knight (6)',
-    'MARVEL': 'Avengers studio (6)',
-    'NETFLIX': 'Red-N streamer (7)',
-    'TIKTOK': 'Short video app (6)',
-    'EMOJI': 'Tiny pictograph (5)',
-    'ZELDA': 'Link’s adventures (5)',
-    'PODCAST': 'On-demand audio (7)',
-    'HASHTAG': 'Tagged phrase (7)',
+    'MARIO': 'Mustached Nintendo hero who jumps on Goombas',
+    'POKEMON': 'Franchise where trainers catch and evolve creatures',
+    'BATMAN': 'Gotham vigilante known as the Dark Knight',
+    'MARVEL': 'Studio behind the Avengers and the MCU',
+    'NETFLIX': 'Streaming platform binge-watched worldwide',
+    'TIKTOK': 'Short-video app with endless For You feed',
+    'EMOJI': 'Small pictograph used to add tone to messages',
+    'ZELDA': 'Series where Link seeks the Triforce',
+    'PODCAST': 'On-demand audio series released as episodes',
+    'HASHTAG': 'Clickable phrase beginning with a # symbol',
   },
   _Category.science: {
-    'GRAVITY': 'Keeps planets in orbit (7)',
-    'ATOM': 'Basic unit of matter (4)',
-    'NEURON': 'Nerve cell (6)',
-    'QUANTUM': 'Realm of the tiny (7)',
-    'VACCINE': 'Primes immunity (7)',
-    'LASER': 'Coherent light (5)',
-    'PHOTON': 'Light quantum (6)',
-    'ENZYME': 'Biological catalyst (6)',
-    'ORBIT': 'Curved path (5)',
-    'SPECIES': 'Taxonomic group (7)',
+    'GRAVITY': 'Attractive force that shapes orbits and tides',
+    'ATOM': 'Smallest unit of an element with a nucleus and electrons',
+    'NEURON': 'Nerve cell specialized for electrical signaling',
+    'QUANTUM': 'Physics of the very small with discrete energy levels',
+    'VACCINE': 'Biological preparation that trains the immune system',
+    'LASER': 'Device producing coherent, monochromatic light',
+    'PHOTON': 'Quantum of electromagnetic radiation',
+    'ENZYME': 'Protein catalyst that lowers activation energy',
+    'ORBIT': 'Curved path of a body around a larger mass',
+    'SPECIES': 'Group capable of interbreeding and producing fertile offspring',
   },
   _Category.geography: {
-    'EVEREST': 'Highest mountain (7)',
-    'SAHARA': 'Vast desert (6)',
-    'AMAZON': 'Rainforest & river (6)',
-    'ANDES': 'Long S. American range (5)',
-    'NILE': 'River flowing north (4)',
-    'ALPS': 'European range (4)',
-    'PACIFIC': 'Largest ocean (7)',
-    'DELTA': 'River-mouth fan (5)',
-    'ISLAND': 'Land in water (6)',
-    'VOLCANO': 'Eruptive mountain (7)',
+    'EVEREST': 'World’s highest peak on the Nepal–Tibet border',
+    'SAHARA': 'Vast hot desert spanning North Africa',
+    'AMAZON': 'Immense rainforest and river basin in South America',
+    'ANDES': 'Long mountain chain along South America’s west',
+    'NILE': 'Major African river flowing north to the Mediterranean',
+    'ALPS': 'European range including the Matterhorn and Mont Blanc',
+    'PACIFIC': 'Largest and deepest of Earth’s oceans',
+    'DELTA': 'Fan-shaped river mouth built by deposited silt',
+    'ISLAND': 'Landmass surrounded entirely by water',
+    'VOLCANO': 'Mountain that erupts lava and ash from Earth’s crust',
   },
   _Category.movies: {
-    'INCEPTION': 'Nolan dream-heist (9)',
-    'TITANIC': '1997 ocean tragedy (7)',
-    'MATRIX': 'Red pill, blue pill (6)',
-    'ROCKY': 'Philly boxer (5)',
-    'ALIEN': 'Xenomorph horror (5)',
-    'JAWS': 'Shark thriller (4)',
-    'JOKER': 'Gotham antihero (5)',
-    'PARASITE': 'Class satire (8)',
-    'AMELIE': 'Whimsical Paris romance (6)',
-    'AVENGERS': 'Earth’s heroes unite (8)',
+    'INCEPTION': 'Dream-heist thriller by Christopher Nolan',
+    'TITANIC': 'Tragic ocean liner romance from 1997',
+    'MATRIX': 'Cyberpunk story of simulated reality and choice',
+    'ROCKY': 'Underdog boxer who runs the Philadelphia steps',
+    'ALIEN': 'Spaceship horror featuring a xenomorph',
+    'JAWS': 'Amity Island terrorized by a great white shark',
+    'JOKER': 'Gritty origin tale of a Gotham villain',
+    'PARASITE': 'Korean class satire that won Best Picture',
+    'AMELIE': 'Whimsical Paris romance with a garden gnome',
+    'AVENGERS': 'Earth’s mightiest heroes unite to fight Thanos',
   },
   _Category.music: {
-    'BEATLES': 'Liverpool legends (7)',
-    'MOZART': 'Salzburg prodigy (6)',
-    'JAZZ': 'Improvised art form (4)',
-    'BLUES': 'Roots genre (5)',
-    'OPERA': 'Sung drama (5)',
-    'GUITAR': 'Six-string staple (6)',
-    'PIANO': 'Hammered keys (5)',
-    'CONCERT': 'Live performance (7)',
-    'CHOPIN': 'Poet of the piano (6)',
-    'REGGAE': 'Jamaican groove (6)',
+    'BEATLES': 'Liverpool band nicknamed the Fab Four',
+    'MOZART': 'Prolific composer of symphonies and operas',
+    'JAZZ': 'Improvisation-rich genre with swing and blue notes',
+    'BLUES': 'Twelve-bar form that influenced rock and soul',
+    'OPERA': 'Dramatic works set entirely to music',
+    'GUITAR': 'Six-string instrument played with frets',
+    'PIANO': 'Keyboard instrument with hammers and pedals',
+    'CONCERT': 'Public musical performance by soloists or ensembles',
+    'CHOPIN': 'Composer famous for nocturnes and piano poetry',
+    'REGGAE': 'Jamaican style with off-beat rhythm',
   },
   _Category.sports: {
-    'SOCCER': 'World game (6)',
-    'TENNIS': 'Racquet sport (6)',
-    'CRICKET': 'Bat & wickets (7)',
-    'BASEBALL': 'Diamond pastime (8)',
-    'HOCKEY': 'Ice sport (6)',
-    'RUGBY': 'Scrums & tries (5)',
-    'OLYMPICS': 'Global games (8)',
-    'MARATHON': '26.2-mile race (8)',
-    'ESPORTS': 'Competitive gaming (7)',
-    'GOLF': 'Greens & birdies (4)',
+    'SOCCER': 'Global game played on a pitch with a round ball',
+    'TENNIS': 'Racquet sport scored in games and sets',
+    'CRICKET': 'Bat-and-ball game with wickets and overs',
+    'BASEBALL': 'Diamond sport featuring home runs and innings',
+    'HOCKEY': 'Ice sport with sticks, skates, and a puck',
+    'RUGBY': 'Scrum-heavy oval-ball game with tries',
+    'OLYMPICS': 'International multi-sport event with five rings',
+    'MARATHON': 'Road race of 26.2 miles inspired by legend',
+    'ESPORTS': 'Organized competitive video-gaming scene',
+    'GOLF': 'Club-and-ball game aiming for par and birdies',
   },
   _Category.food: {
-    'PIZZA': 'Neapolitan classic (5)',
-    'SUSHI': 'Rice + fish (5)',
-    'TACO': 'Folded tortilla (4)',
-    'PASTA': 'Italian noodles (5)',
-    'CURRY': 'Spiced stew (5)',
-    'BAGEL': 'Boiled then baked ring (5)',
-    'CHEESE': 'Milk made solid (6)',
-    'WAFFLE': 'Grid breakfast (6)',
-    'NOODLES': 'Ramen or udon (7)',
-    'BROWNIE': 'Fudgy square (7)',
+    'PIZZA': 'Neapolitan classic baked with sauce and cheese',
+    'SUSHI': 'Japanese rice dish often topped with raw fish',
+    'TACO': 'Folded tortilla filled with meat and salsa',
+    'PASTA': 'Italian noodles cooked al dente and sauced',
+    'CURRY': 'Spiced stew with regional variations',
+    'BAGEL': 'Boiled-then-baked ring often served with schmear',
+    'CHEESE': 'Dairy product formed by curds and whey',
+    'WAFFLE': 'Batter cooked in a grid and topped with syrup',
+    'NOODLES': 'Long strands served in broths or stir-fries',
+    'BROWNIE': 'Fudgy chocolate square baked in a pan',
   },
 };
 
@@ -211,7 +213,6 @@ Map<String, String> get _mixedClues {
 /* ───────────────── Game model ───────────────── */
 
 class _Run {
-  // consecutive non-block cells
   final int number; // clue number
   final bool across; // true: across; false: down
   final int r, c, len;
@@ -240,11 +241,10 @@ class _CrosswordPageState extends State<CrosswordPage> {
   late List<List<String?>> _solution; // null => block; else single letter
   late List<List<String>> _cells; // "" for empty, "A" for typed
   late List<List<int?>> _numbers;
-  List<_Run> _runs = []; // initialize empty to avoid LateInitializationError
+  List<_Run> _runs = [];
   int _activeRunIndex = 0;
   int _cursorR = 0, _cursorC = 0;
 
-  // ————— Utilities
   Map<String, String> get _clues => switch (_category) {
         _Category.mixed || null => _mixedClues,
         _ => _clueBank[_category]!,
@@ -256,19 +256,16 @@ class _CrosswordPageState extends State<CrosswordPage> {
         _Difficulty.hard => 11,
       };
 
-  /* ─────────── Build puzzle (simple compact generator) ─────────── */
+  /* ─────────── Build puzzle ─────────── */
 
   void _buildPuzzle() {
     n = _sizeFor(_difficulty);
 
-    // pool of words for this category; make sure all are <= n
     var pool = _clues.keys.where((w) => w.length <= n).toList();
     pool.shuffle(rnd);
 
-    // start with empty (null) = block
     final grid = List.generate(n, (_) => List<String?>.filled(n, null));
 
-    // place across seed words on alternating rows, offset to create crossings
     final offset = (n == 11) ? 3 : 2;
     int r = 0;
     int placed = 0;
@@ -284,7 +281,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
       r++;
     }
 
-    // encourage some vertical runs by copying letters downward occasionally
     for (int t = 0; t < n; t++) {
       final c = rnd.nextInt(n);
       for (int rr = 0; rr < n - 2; rr++) {
@@ -294,25 +290,19 @@ class _CrosswordPageState extends State<CrosswordPage> {
       }
     }
 
-    // convert to solution/cell matrices
-    _solution = List.generate(
-      n,
-      (r) => List.generate(n, (c) => grid[r][c]),
-    );
+    _solution = List.generate(n, (r) => List.generate(n, (c) => grid[r][c]));
     _cells = List.generate(n, (_) => List.generate(n, (_) => ''));
-
     _numbers = _computeNumbers(_solution);
     _runs = _computeRuns(_solution, _numbers);
-    // place cursor at first run
-    if (_runs.isEmpty) {
-      // fallback: at least one cell
-      _cursorR = 0;
-      _cursorC = 0;
-      _activeRunIndex = 0;
-    } else {
+
+    if (_runs.isNotEmpty) {
       _activeRunIndex = 0;
       _cursorR = _runs[0].r;
       _cursorC = _runs[0].c;
+    } else {
+      _activeRunIndex = 0;
+      _cursorR = 0;
+      _cursorC = 0;
     }
 
     setState(() {});
@@ -344,40 +334,30 @@ class _CrosswordPageState extends State<CrosswordPage> {
   List<_Run> _computeRuns(List<List<String?>> sol, List<List<int?>> numbers) {
     final list = <_Run>[];
 
-    // across
     for (int r = 0; r < n; r++) {
       int c = 0;
       while (c < n) {
         if (sol[r][c] != null && (c == 0 || sol[r][c - 1] == null)) {
-          int cc = c;
-          int len = 0;
+          int cc = c, len = 0;
           while (cc < n && sol[r][cc] != null) {
-            len++;
-            cc++;
+            len++; cc++;
           }
-          if (len >= 2) {
-            list.add(_Run(numbers[r][c]!, true, r, c, len));
-          }
+          if (len >= 2) list.add(_Run(numbers[r][c]!, true, r, c, len));
           c = cc;
         } else {
           c++;
         }
       }
     }
-    // down
     for (int c = 0; c < n; c++) {
       int r = 0;
       while (r < n) {
         if (sol[r][c] != null && (r == 0 || sol[r - 1][c] == null)) {
-          int rr = r;
-          int len = 0;
+          int rr = r, len = 0;
           while (rr < n && sol[rr][c] != null) {
-            len++;
-            rr++;
+            len++; rr++;
           }
-          if (len >= 2) {
-            list.add(_Run(numbers[r][c]!, false, r, c, len));
-          }
+          if (len >= 2) list.add(_Run(numbers[r][c]!, false, r, c, len));
           r = rr;
         } else {
           r++;
@@ -385,11 +365,9 @@ class _CrosswordPageState extends State<CrosswordPage> {
       }
     }
 
-    // order by clue number then across before down for same start
     list.sort((a, b) {
       final d = a.number.compareTo(b.number);
       if (d != 0) return d;
-      // prefer across first like standard crosswords
       return (a.across ? 0 : 1) - (b.across ? 0 : 1);
     });
     return list;
@@ -400,8 +378,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
   _Run get _run => _runs[_activeRunIndex];
 
   void _selectCell(int r, int c) {
-    // try to pick the run that contains the cell and matches current direction;
-    // otherwise pick any run containing it.
     final sameDir = _runs.indexWhere((ru) => ru.across == _run.across && ru.contains(r, c));
     final any = _runs.indexWhere((ru) => ru.contains(r, c));
     _activeRunIndex = (sameDir >= 0) ? sameDir : (any >= 0 ? any : _activeRunIndex);
@@ -411,7 +387,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
   }
 
   void _moveCursor(int delta) {
-    // delta = ±1 along active run
     final r = _run.r, c = _run.c, len = _run.len;
     if (_run.across) {
       int idx = (_cursorC - c) + delta;
@@ -426,7 +401,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
   }
 
   void _nextRun(int dir) {
-    // dir = +1 next, -1 prev
     if (_runs.isEmpty) return;
     _activeRunIndex = (_activeRunIndex + dir) % _runs.length;
     if (_activeRunIndex < 0) _activeRunIndex += _runs.length;
@@ -450,15 +424,13 @@ class _CrosswordPageState extends State<CrosswordPage> {
     if (_solution[_cursorR][_cursorC] != null) {
       _cells[_cursorR][_cursorC] = ch;
     }
-    // move forward
     _moveCursor(1);
   }
 
-  /* ─────────── Clue text for active run ─────────── */
+  /* ─────────── Clue text (no length parentheses) ─────────── */
 
   String _activeClue() {
     final ru = _run;
-    // build word string from solution for lookup
     final letters = <String>[];
     for (int i = 0; i < ru.len; i++) {
       final rr = ru.across ? ru.r : ru.r + i;
@@ -468,18 +440,27 @@ class _CrosswordPageState extends State<CrosswordPage> {
     final word = letters.join();
     final base = ru.across ? '${ru.number}a' : '${ru.number}d';
     final clueText = _clues[word] ?? '${_categoryLabel(_category!)} word';
-    return '$base. $clueText (${ru.len})';
+    return '$base. $clueText';
   }
 
   /* ─────────── UI: chooser ─────────── */
 
   Widget _buildChooser() {
-    // default to Easy
     _difficulty = _Difficulty.easy;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).pop(), // back to Stress Busters
+        ),
+      ),
       body: Container(
         decoration: _bg(context),
         child: SafeArea(
@@ -495,8 +476,10 @@ class _CrosswordPageState extends State<CrosswordPage> {
                         .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
-                const Text('Starts on Easy (7×7). You can change difficulty in-game.',
-                    style: TextStyle(fontSize: 12.5)),
+                const Text(
+                  'Starts on Easy (7×7). You can change difficulty in-game.',
+                  style: TextStyle(fontSize: 12.5),
+                ),
                 const SizedBox(height: 14),
                 Expanded(
                   child: GridView.count(
@@ -535,7 +518,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
       ['Z','X','C','V','B','N','M'],
     ];
 
-    // LayoutBuilder to compute key width so nothing overflows.
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 8.0;
@@ -571,7 +553,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
             const SizedBox(height: 6),
             buildRow(rows[2], indent: baseKeyW * 1.3),
             const SizedBox(height: 8),
-            // controls row: Backspace / Prev / Next
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -613,7 +594,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
   /* ─────────── UI: grid ─────────── */
 
   Widget _grid() {
-    // bigger grid, crisp borders, highlight active run + cursor
     return AspectRatio(
       aspectRatio: 1,
       child: GridView.builder(
@@ -640,13 +620,12 @@ class _CrosswordPageState extends State<CrosswordPage> {
               duration: const Duration(milliseconds: 120),
               decoration: BoxDecoration(
                 color: isCursor
-                    ? const Color(0xFFA7E0C9) // cursor cell
+                    ? const Color(0xFFA7E0C9)
                     : (inActive ? Colors.white : Colors.white.withOpacity(.96)),
                 border: Border.all(color: Colors.black54, width: 1),
               ),
               child: Stack(
                 children: [
-                  // clue number
                   if (_numbers[r][c] != null)
                     Positioned(
                       left: 3,
@@ -660,7 +639,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
                         ),
                       ),
                     ),
-                  // letter
                   Center(
                     child: Text(
                       (_cells[r][c].isEmpty) ? '' : _cells[r][c],
@@ -680,10 +658,9 @@ class _CrosswordPageState extends State<CrosswordPage> {
     );
   }
 
-  /* ─────────── UI: gameplay scaffold ─────────── */
+  /* ─────────── UI: gameplay ─────────── */
 
   Widget _buildGame() {
-    // small themed hint bar
     final hintBar = Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -704,14 +681,13 @@ class _CrosswordPageState extends State<CrosswordPage> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 14, // smaller
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: _ink,
               ),
             ),
           ),
           const SizedBox(width: 8),
-          // difficulty switcher
           DropdownButton<_Difficulty>(
             value: _difficulty,
             underline: const SizedBox.shrink(),
@@ -769,7 +745,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
             children: [
               topControls,
               hintBar,
-              // Bigger grid, smaller keyboard (no overflow)
               Expanded(
                 flex: 7,
                 child: Padding(
@@ -795,9 +770,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Always go to category chooser first (default Easy).
     if (_category == null) return _buildChooser();
-    // Ensure we have a built puzzle if someone hot-reloads on the game view.
     if (_solution.isEmpty || _runs.isEmpty) {
       _buildPuzzle();
     }
@@ -807,7 +780,6 @@ class _CrosswordPageState extends State<CrosswordPage> {
   @override
   void initState() {
     super.initState();
-    // important: initialize matrices to avoid late errors before first build
     n = _sizeFor(_difficulty);
     _solution = List.generate(n, (_) => List<String?>.filled(n, null));
     _cells = List.generate(n, (_) => List<String>.filled(n, ''));
@@ -899,7 +871,7 @@ class _KeyButtonState extends State<_KeyButton> with SingleTickerProviderStateMi
 
 class _KeyIconButton extends StatelessWidget {
   final IconData icon;
-  final String? label; // use either icon or label (for backspace symbol)
+  final String? label;
   final VoidCallback onTap;
   const _KeyIconButton({required this.icon, this.label, required this.onTap});
 
