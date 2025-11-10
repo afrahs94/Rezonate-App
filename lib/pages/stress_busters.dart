@@ -1,22 +1,23 @@
-
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:new_rezonate/main.dart' as app;
 
-// Import the six game pages:
+// Firebase
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// Game pages
 import 'word_search.dart';
 import 'crossword.dart';
 import 'matching.dart';
 import 'sudoku.dart';
-import 'uplingo.dart'; // changed from wordle.dart
+import 'uplingo.dart';
 import 'scramble.dart';
 
 /* ─────────────────── Shared theme helpers ─────────────────── */
 
 BoxDecoration _bg(BuildContext context) {
   final dark = app.ThemeControllerScope.of(context).isDark;
-  // Match Tools/Home gradient but slightly softer to feel relaxing.
   return BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topCenter,
@@ -30,10 +31,66 @@ BoxDecoration _bg(BuildContext context) {
 
 const _ink = Colors.black;
 
+/* ─────────────────── Firestore helpers ─────────────────── */
+
+DocumentReference<Map<String, dynamic>> _playsDoc(String uid) =>
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('stats')
+        .doc('stress_busters');
+
+Future<int> _fetchTotalPlays() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return 0;
+  final snap = await _playsDoc(user.uid).get();
+  final data = snap.data();
+  return (data?['totalPlays'] ?? 0 as num).toInt();
+}
+
+Future<void> _incrementTotalPlays() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  await _playsDoc(user.uid).set(
+    {'totalPlays': FieldValue.increment(1)},
+    SetOptions(merge: true),
+  );
+}
+
 /* ─────────────────── Main page ─────────────────── */
 
-class StressBustersPage extends StatelessWidget {
+class StressBustersPage extends StatefulWidget {
   const StressBustersPage({super.key});
+
+  @override
+  State<StressBustersPage> createState() => _StressBustersPageState();
+}
+
+class _StressBustersPageState extends State<StressBustersPage> {
+  // Local notifier for the header count.
+  final ValueNotifier<int> _plays = ValueNotifier<int>(0);
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlays();
+  }
+
+  Future<void> _initPlays() async {
+    final total = await _fetchTotalPlays();
+    _plays.value = total;
+  }
+
+  void _recordPlay() {
+    _plays.value = _plays.value + 1; // instant UI update
+    _incrementTotalPlays();          // async Firestore write
+  }
+
+  @override
+  void dispose() {
+    _plays.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +113,7 @@ class StressBustersPage extends StatelessWidget {
           top: true,
           child: CustomScrollView(
             slivers: [
-              const SliverToBoxAdapter(child: _CalmHeader()),
+              SliverToBoxAdapter(child: _CalmHeader(playsNotifier: _plays)),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 sliver: SliverGrid(
@@ -69,51 +126,56 @@ class StressBustersPage extends StatelessWidget {
                   delegate: SliverChildListDelegate.fixed([
                     _GameCard(
                       title: 'Word Search',
-                      subtitle: 'Find all hidden words',
+                      subtitle: 'Find the hidden words',
                       colors: const [Color(0xFFE8F8FF), Color(0xFFB6E3FF)],
                       icon: Icons.grid_on_rounded,
                       iconColor: const Color(0xFF1C638C),
-                      builder: (_) =>
-                          const WordSearchCategoryPage(), // ✅ FIXED
+                      onPlayed: _recordPlay,
+                      builder: (_) => const WordSearchCategoryPage(),
                     ),
                     _GameCard(
                       title: 'Crossword',
-                      subtitle: '7×7 with hints',
+                      subtitle: 'Quick 7×7 mini',
                       colors: const [Color(0xFFE9FFFE), Color(0xFFBDF5F1)],
                       icon: Icons.view_quilt_rounded,
                       iconColor: const Color(0xFF0C5E4D),
+                      onPlayed: _recordPlay,
                       builder: (_) => const CrosswordPage(),
                     ),
                     _GameCard(
                       title: 'Matching',
-                      subtitle: 'Flip pairs (animated)',
+                      subtitle: 'Match the card pairs',
                       colors: const [Color(0xFFFFF6E8), Color(0xFFFFE5BA)],
                       icon: Icons.extension_rounded,
                       iconColor: const Color(0xFF916D00),
+                      onPlayed: _recordPlay,
                       builder: (_) => const MatchDifficultPage(),
                     ),
                     _GameCard(
                       title: 'Sudoku',
-                      subtitle: 'Relaxing 9×9 logic',
+                      subtitle: 'Classic 9×9',
                       colors: const [Color(0xFFEFF7FF), Color(0xFFCAE2FF)],
                       icon: Icons.grid_4x4_rounded,
                       iconColor: const Color(0xFF0A4C7A),
+                      onPlayed: _recordPlay,
                       builder: (_) => const SudokuPage(),
                     ),
                     _GameCard(
-                      title: 'Uplingo', // changed
-                      subtitle: 'Guess the calm word',
+                      title: 'Uplingo',
+                      subtitle: 'Guess the secret word',
                       colors: const [Color(0xFFE9FFF4), Color(0xFFC9F2E7)],
                       icon: Icons.emoji_emotions_rounded,
                       iconColor: const Color(0xFF146548),
-                      builder: (_) => const UplingoPage(), // changed
+                      onPlayed: _recordPlay,
+                      builder: (_) => const UplingoPage(),
                     ),
                     _GameCard(
                       title: 'Scramble',
-                      subtitle: 'Unscramble letters',
+                      subtitle: 'Unscramble the letters',
                       colors: const [Color(0xFFF7ECFF), Color(0xFFDAC8FF)],
                       icon: Icons.text_fields_rounded,
                       iconColor: const Color(0xFF5B2785),
+                      onPlayed: _recordPlay,
                       builder: (_) => const ScramblePage(),
                     ),
                   ]),
@@ -129,29 +191,9 @@ class StressBustersPage extends StatelessWidget {
 
 /* ─────────────────── Calm header ─────────────────── */
 
-class _CalmHeader extends StatefulWidget {
-  const _CalmHeader();
-  @override
-  State<_CalmHeader> createState() => _CalmHeaderState();
-}
-
-class _CalmHeaderState extends State<_CalmHeader> {
-  int plays = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final p = await SharedPreferences.getInstance();
-    int total = 0;
-    for (final k in p.getKeys()) {
-      if (k.startsWith('sbp_')) total += (p.getStringList(k) ?? []).length;
-    }
-    if (mounted) setState(() => plays = total);
-  }
+class _CalmHeader extends StatelessWidget {
+  const _CalmHeader({required this.playsNotifier});
+  final ValueNotifier<int> playsNotifier;
 
   @override
   Widget build(BuildContext context) {
@@ -178,9 +220,12 @@ class _CalmHeaderState extends State<_CalmHeader> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                'Pick a calm game.\n$plays total plays saved.',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              child: ValueListenableBuilder<int>(
+                valueListenable: playsNotifier,
+                builder: (_, total, __) => Text(
+                  'Pick a calm game.\n$total total plays saved.',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
@@ -198,6 +243,7 @@ class _GameCard extends StatelessWidget {
   final IconData icon;
   final WidgetBuilder builder;
   final Color? iconColor;
+  final VoidCallback onPlayed;
 
   const _GameCard({
     required this.title,
@@ -205,6 +251,7 @@ class _GameCard extends StatelessWidget {
     required this.colors,
     required this.icon,
     required this.builder,
+    required this.onPlayed,
     this.iconColor,
   });
 
@@ -214,8 +261,10 @@ class _GameCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () =>
-            Navigator.of(context).push(MaterialPageRoute(builder: builder)),
+        onTap: () {
+          onPlayed(); // bump local + Firestore
+          Navigator.of(context).push(MaterialPageRoute(builder: builder));
+        },
         child: Ink(
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: colors),
@@ -246,8 +295,7 @@ class _GameCard extends StatelessWidget {
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: _ink),
