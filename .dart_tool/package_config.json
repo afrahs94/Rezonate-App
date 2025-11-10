@@ -1028,6 +1028,18 @@
       "languageVersion": "3.1"
     },
     {
+      "name": "sudoku_dart",
+      "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/sudoku_dart-1.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "sudoku_solver_generator",
+      "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/sudoku_solver_generator-2.1.0+1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "synchronized",
       "rootUri": "file:///Users/saniaahmad/.pub-cache/hosted/pub.dev/synchronized-3.3.1",
       "packageUri": "lib/",

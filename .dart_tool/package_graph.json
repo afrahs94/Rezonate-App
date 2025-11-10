@@ -31,6 +31,8 @@
         "shared_preferences",
         "showcaseview",
         "sqflite",
+        "sudoku_dart",
+        "sudoku_solver_generator",
         "table_calendar",
         "timezone",
         "url_launcher",
@@ -124,6 +126,16 @@
         "test_api",
         "vector_math"
       ]
+    },
+    {
+      "name": "sudoku_solver_generator",
+      "version": "2.1.0+1",
+      "dependencies": []
+    },
+    {
+      "name": "sudoku_dart",
+      "version": "1.2.0",
+      "dependencies": []
     },
     {
       "name": "audioplayers",
