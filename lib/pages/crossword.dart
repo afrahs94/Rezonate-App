@@ -1,17 +1,15 @@
 // lib/pages/crossword.dart
 //
-// Crossword with balloon-style category chooser, pop-to-start animation,
-// difficulty controls, classic evenly spaced crossword grid, bigger clue
-// panel, on-screen keyboard, Auto-Check, Reveal Tile, +10 Letters, clue
-// navigation banner, animated highlights, and a Mixed category.
-// No external assets.
+// Crossword with category chooser (first), default Easy difficulty,
+// descriptive clues, bigger grid / smaller keyboard, spaced keys,
+// small themed hint bar, and no overflow. Fully self-contained.
+// No external assets required.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:new_rezonate/main.dart' as app;
 
-/* ─────────────────── Theme helpers ─────────────────── */
+/* ───────────────── Theme helpers ───────────────── */
 
 BoxDecoration _bg(BuildContext context) {
   final dark = app.ThemeControllerScope.of(context).isDark;
@@ -26,64 +24,12 @@ BoxDecoration _bg(BuildContext context) {
   );
 }
 
+const _themeGreen = Color(0xFF0D7C66);
 const _ink = Colors.black;
-const _good = Color(0xFFA7E0C9);
-const _warn = Color(0xFFFFE9A8);
-const _bad = Color(0xFFFFC5C5);
 
-/* ─────────────────── Game scaffold ─────────────────── */
-
-class _GameScaffold extends StatelessWidget {
-  final String? title; // null => no title text
-  final Widget child;
-  const _GameScaffold({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title:
-            title == null ? null : Text(title!, style: const TextStyle(fontWeight: FontWeight.w900)),
-      ),
-      body: Container(decoration: _bg(context), child: SafeArea(child: child)),
-    );
-  }
-}
-
-/* ─────────────────── Score store ─────────────────── */
-
-class ScoreStore {
-  ScoreStore._();
-  static final instance = ScoreStore._();
-  Future<void> add(String gameKey, double v) async {
-    final prefs = await SharedPreferences.getInstance();
-    final k = 'sbp_$gameKey';
-    final cur = prefs.getStringList(k) ?? [];
-    cur.add(v.toString());
-    await prefs.setStringList(k, cur);
-  }
-
-  Future<bool> reportBest(String gameKey, double score) async {
-    final prefs = await SharedPreferences.getInstance();
-    final bestKey = 'sbp_best_$gameKey';
-    final prev = prefs.getDouble(bestKey) ?? double.negativeInfinity;
-    if (score > prev) {
-      await prefs.setDouble(bestKey, score);
-      return true;
-    }
-    return false;
-  }
-}
-
-/* ─────────────────── Data: difficulty, categories ─────────────────── */
+/* ───────────────── Category / Difficulty ───────────────── */
 
 enum _Difficulty { easy, medium, hard }
-enum _Direction { across, down }
 
 enum _Category {
   mixed,
@@ -127,256 +73,154 @@ IconData _categoryIcon(_Category c) => switch (c) {
       _Category.food => Icons.restaurant_rounded,
     };
 
-/* ------------- Word banks + clues (keys match word lists) ------------- */
+/* ───────────────── Word + Clue banks (descriptive) ───────────────── */
 
 final Map<_Category, Map<String, String>> _clueBank = {
   _Category.animals: {
-    'LION': '“King of the jungle”; maned big cat (4)',
+    'LION': '“King of the jungle” (4) — pride leader',
     'TIGER': 'Striped big cat of Asia (5)',
-    'EAGLE': 'National bird of the U.S. (5)',
+    'EAGLE': 'U.S. national bird (5)',
     'DOLPHIN': 'Clever marine mammal (7)',
     'PANDA': 'Bamboo-munching bear (5)',
-    'KANGAROO': 'Hopping marsupial (8)',
-    'KOALA': 'Eucalyptus snacker (5)',
-    'PENGUIN': 'Tuxedoed bird that can’t fly (7)',
+    'KOALA': 'Eucalyptus snacker (5) — not a bear',
     'GIRAFFE': 'Tallest land animal (7)',
     'ZEBRA': 'Striped grazer (5)',
-    'OTTER': 'River raft-loving mammal (5)',
-    'RHINO': 'Horned heavyweight (5)',
+    'OTTER': 'Playful river mammal (5)',
     'CHEETAH': 'Fastest sprinter (7)',
-    'JAGUAR': 'Spotted American big cat (6)',
-    'WALRUS': 'Arctic tusker (6)',
-    'MEERKAT': 'Sentry mongoose relative (7)',
-    'RACCOON': 'Masked scavenger (7)',
-    'PLATYPUS': 'Bill-bearing egg-layer (8)',
-    'HEDGEHOG': 'Spiny insect eater (8)',
-    'ORANGUTAN': 'Red ape; “man of the forest” (9)',
-    'SEAHORSE': 'Curly-tailed fish (8)',
-    'BISON': 'Massive grazer (5)',
-    'COYOTE': 'Wily canid (6)',
   },
   _Category.history: {
     'CAESAR': 'Julius ___, Roman statesman (6)',
-    'PYRAMID': 'Ancient tomb (7)',
+    'PYRAMID': 'Ancient tomb of Egypt (7)',
     'EMPIRE': 'Realm of an emperor (6)',
-    'RENAISSANCE': 'European “rebirth” (11)',
     'PHARAOH': 'Egyptian ruler title (7)',
-    'SPARTA': 'Warrior city-state (6)',
     'VIKING': 'Norse seafarer (6)',
-    'COLONY': 'Overseas possession (6)',
-    'MONARCH': 'King or queen (7)',
-    'CONSTITUTION': 'Foundational law (12)',
-    'CRUSADE': 'Medieval holy war (7)',
-    'REPUBLIC': 'State without a monarch (8)',
-    'ARMADA': 'Spanish fleet 1588 (6)',
     'TREATY': 'Formal pact (6)',
+    'REPUBLIC': 'State without a monarch (8)',
     'REVOLT': 'Uprising (6)',
     'BYZANTINE': 'Eastern Roman culture (9)',
-    'AZTEC': 'Empire of Tenochtitlán (5)',
-    'MAYA': 'Yucatán civilization (4)',
-    'PILGRIM': 'Mayflower settler (7)',
-    'COLOSSEUM': 'Roman amphitheater (9)',
+    'ARMADA': 'Spanish fleet (6)',
   },
   _Category.literature: {
     'ODYSSEY': 'Homer’s voyage home (7)',
     'HAMLET': 'Prince of Denmark (6)',
     'GATSBY': 'Jazz-Age dreamer (6)',
-    'QUIXOTE': 'Windmill-tilting knight (6)',
-    'INFERNO': 'Dante’s first cantica (7)',
-    'ILIAD': 'Wrath of Achilles (5)',
     'DUNE': 'Arrakis saga (4)',
     'NARNIA': 'Wardrobe world (6)',
-    'SHERLOCK': 'Baker Street sleuth (8)',
-    'ORWELL': '“1984” author (6)',
-    'POE': 'Master of the macabre (3)',
-    'AUSTEN': '“Pride and Prejudice” author (6)',
-    'BRONTE': 'Sisters of the moors (6)',
     'HOBBIT': 'Bilbo’s tale (6)',
-    'POTTER': 'Boy wizard (6)',
-    'ATTICUS': 'Finch of Maycomb (7)',
-    'TWAIN': 'Humorist of Huck Finn (5)',
-    'AENEID': 'Virgil’s epic (6)',
-    'FAULKNER': 'Southern Nobel writer (8)',
-    'WONDERLAND': 'Alice’s destination (10)',
+    'ORWELL': 'Author of “1984” (6)',
+    'AUSTEN': '“Pride and Prejudice” author (6)',
+    'POE': 'Master of the macabre (3)',
+    'ILIAD': 'Wrath of Achilles (5)',
   },
   _Category.popculture: {
     'MARIO': 'Nintendo plumber (5)',
     'POKEMON': 'Catch ’em all (7)',
-    'AVATAR': 'Na’vi on Pandora (6)',
     'BATMAN': 'Dark Knight (6)',
-    'STARWARS': 'The Force saga (8)',
     'MARVEL': 'Avengers studio (6)',
-    'DISNEY': 'Mickey’s house (6)',
-    'NETFLIX': 'Streaming giant (7)',
-    'TIKTOK': 'Short-video app (6)',
-    'MEME': 'Viral in-joke (4)',
-    'INSTAGRAM': 'Photo-sharing app (9)',
-    'YOUTUBE': 'Creators’ platform (7)',
-    'SPIDERMAN': 'Friendly neighborhood hero (9)',
-    'FORTNITE': 'Battle royale hit (8)',
-    'ZELDA': 'Link’s adventures (5)',
-    'HASHTAG': 'Tagged phrase (7)',
-    'STREAMER': 'Live content host (8)',
-    'PODCAST': 'On-demand audio (7)',
+    'NETFLIX': 'Red-N streamer (7)',
+    'TIKTOK': 'Short video app (6)',
     'EMOJI': 'Tiny pictograph (5)',
+    'ZELDA': 'Link’s adventures (5)',
+    'PODCAST': 'On-demand audio (7)',
+    'HASHTAG': 'Tagged phrase (7)',
   },
   _Category.science: {
     'GRAVITY': 'Keeps planets in orbit (7)',
-    'ATOM': 'Element’s basic unit (4)',
+    'ATOM': 'Basic unit of matter (4)',
     'NEURON': 'Nerve cell (6)',
     'QUANTUM': 'Realm of the tiny (7)',
-    'EVOLUTION': 'Change across generations (9)',
-    'DNA': 'Double helix (3)',
-    'PROTEIN': 'Amino-acid chain (7)',
-    'PLANET': 'Orbits a star (6)',
-    'GALAXY': 'Milky Way is one (6)',
     'VACCINE': 'Primes immunity (7)',
     'LASER': 'Coherent light (5)',
     'PHOTON': 'Light quantum (6)',
-    'ION': 'Charged atom (3)',
     'ENZYME': 'Biological catalyst (6)',
-    'CELL': 'Unit of life (4)',
     'ORBIT': 'Curved path (5)',
-    'FUSION': 'Nuclei join (6)',
-    'NANOTECH': 'Engineering tiny things (8)',
-    'CLIMATE': 'Long-term weather (7)',
-    'SPECIES': 'Interbreeding group (7)',
-    'TESLA': 'SI unit of magnetic flux density (5)',
+    'SPECIES': 'Taxonomic group (7)',
   },
   _Category.geography: {
     'EVEREST': 'Highest mountain (7)',
-    'SAHARA': 'North African desert (6)',
+    'SAHARA': 'Vast desert (6)',
     'AMAZON': 'Rainforest & river (6)',
     'ANDES': 'Long S. American range (5)',
-    'NILE': 'Flows north to Med (4)',
+    'NILE': 'River flowing north (4)',
     'ALPS': 'European range (4)',
     'PACIFIC': 'Largest ocean (7)',
-    'ATLANTIC': 'Ocean between continents (8)',
+    'DELTA': 'River-mouth fan (5)',
     'ISLAND': 'Land in water (6)',
     'VOLCANO': 'Eruptive mountain (7)',
-    'URALS': 'Europe–Asia divide (5)',
-    'BALKANS': 'SE European peninsula (7)',
-    'SAVANNA': 'Tropical grassland (7)',
-    'TAIGA': 'Subarctic forest (5)',
-    'ISTHMUS': 'Narrow land bridge (7)',
-    'DELTA': 'River mouth fan (5)',
-    'HIMALAYA': 'Roof of the World (8)',
-    'CARIBBEAN': 'Sea of islands (9)',
-    'PENINSULA': 'Almost an island (9)',
   },
   _Category.movies: {
     'INCEPTION': 'Nolan dream-heist (9)',
     'TITANIC': '1997 ocean tragedy (7)',
     'MATRIX': 'Red pill, blue pill (6)',
-    'GODFATHER': 'Corleone classic (9)',
-    'FROZEN': 'Disney sisters (6)',
     'ROCKY': 'Philly boxer (5)',
     'ALIEN': 'Xenomorph horror (5)',
     'JAWS': 'Shark thriller (4)',
-    'PSYCHO': 'Shower scene (6)',
-    'CASABLANCA': 'Wartime romance (10)',
-    'AVENGERS': 'Earth’s heroes unite (8)',
-    'GLADIATOR': '“Are you not entertained?” (9)',
-    'ARRIVAL': 'Linguistics & aliens (7)',
-    'WHIPLASH': 'Jazz obsession (8)',
-    'PARASITE': 'Class satire (8)',
     'JOKER': 'Gotham antihero (5)',
+    'PARASITE': 'Class satire (8)',
     'AMELIE': 'Whimsical Paris romance (6)',
-    'SKYFALL': 'Bond returns home (7)',
-    'LALALAND': 'City of stars (8)',
+    'AVENGERS': 'Earth’s heroes unite (8)',
   },
   _Category.music: {
     'BEATLES': 'Liverpool legends (7)',
     'MOZART': 'Salzburg prodigy (6)',
-    'BEETHOVEN': 'Fifth Symphony (9)',
     'JAZZ': 'Improvised art form (4)',
-    'BLUES': '12-bar roots genre (5)',
-    'HIPHOP': 'Rap + DJ culture (6)',
+    'BLUES': 'Roots genre (5)',
     'OPERA': 'Sung drama (5)',
     'GUITAR': 'Six-string staple (6)',
     'PIANO': 'Hammered keys (5)',
     'CONCERT': 'Live performance (7)',
-    'BACH': 'Counterpoint master (4)',
     'CHOPIN': 'Poet of the piano (6)',
-    'ADELE': '“Hello” singer (5)',
-    'RIHANNA': 'Fenty founder (7)',
-    'DRAKE': 'Toronto rapper (5)',
-    'EDM': 'Festival sound (3)',
-    'KPOP': 'Korean pop (4)',
-    'COUNTRY': 'Nashville twang (7)',
-    'TECHNO': 'Detroit electronic (6)',
     'REGGAE': 'Jamaican groove (6)',
   },
   _Category.sports: {
     'SOCCER': 'World game (6)',
-    'BASKETBALL': 'Hoops & dunks (10)',
     'TENNIS': 'Racquet sport (6)',
     'CRICKET': 'Bat & wickets (7)',
     'BASEBALL': 'Diamond pastime (8)',
     'HOCKEY': 'Ice sport (6)',
-    'GOLF': 'Greens & birdies (4)',
     'RUGBY': 'Scrums & tries (5)',
     'OLYMPICS': 'Global games (8)',
     'MARATHON': '26.2-mile race (8)',
-    'TRIATHLON': 'Swim-bike-run (9)',
-    'SNOWBOARD': 'Sideways on snow (9)',
-    'FREESTYLE': 'Trick-heavy style (9)',
     'ESPORTS': 'Competitive gaming (7)',
-    'FORMULAONE': 'Grand prix series (10)',
-    'POLEVAULT': 'Jump with a pole (9)',
-    'HANDBALL': 'Fast indoor game (8)',
-    'BILLIARDS': 'Cues and pockets (9)',
-    'EQUESTRIAN': 'Horse events (10)',
+    'GOLF': 'Greens & birdies (4)',
   },
   _Category.food: {
     'PIZZA': 'Neapolitan classic (5)',
     'SUSHI': 'Rice + fish (5)',
     'TACO': 'Folded tortilla (4)',
-    'BURRITO': 'Wrapped cylinder (7)',
     'PASTA': 'Italian noodles (5)',
     'CURRY': 'Spiced stew (5)',
-    'CHOCOLATE': 'Cacao treat (9)',
     'BAGEL': 'Boiled then baked ring (5)',
     'CHEESE': 'Milk made solid (6)',
     'WAFFLE': 'Grid breakfast (6)',
-    'AVOCADO': 'Toast topper (7)',
     'NOODLES': 'Ramen or udon (7)',
-    'RISOTTO': 'Creamy rice (7)',
-    'GNOCCHI': 'Potato pillows (7)',
-    'RAMEN': 'Japanese noodle soup (5)',
-    'BIBIMBAP': 'Mixed Korean bowl (8)',
-    'SAMOSA': 'Triangular pastry (6)',
     'BROWNIE': 'Fudgy square (7)',
-    'SMOOTHIE': 'Blended drink (8)',
-    'PINEAPPLE': 'Spiky tropical fruit (9)',
-    'STRAWBERRY': 'Seed-speckled berry (10)',
-    'LASAGNA': 'Layered pasta bake (7)',
   },
 };
 
-// For each category, the playable word list is its clue keys.
-Map<_Category, List<String>> get _wordBank {
-  final base = _clueBank.map((k, v) => MapEntry(k, v.keys.toList()));
-  // Mixed = union of all others
-  base[_Category.mixed] = _clueBank.entries
-      .where((e) => e.key != _Category.mixed)
-      .expand((e) => e.value.keys)
-      .toSet()
-      .toList();
-  return base;
-}
-
-// Clues map for Mixed = union of all
+// Mixed = union of all others.
 Map<String, String> get _mixedClues {
-  final m = <String, String>{};
-  _clueBank.forEach((cat, map) {
-    if (cat == _Category.mixed) return;
-    m.addAll(map);
+  final out = <String, String>{};
+  _clueBank.forEach((_Category k, v) {
+    if (k == _Category.mixed) return;
+    out.addAll(v);
   });
-  return m;
+  return out;
 }
 
-/* ─────────────────── Crossword page ─────────────────── */
+/* ───────────────── Game model ───────────────── */
+
+class _Run {
+  // consecutive non-block cells
+  final int number; // clue number
+  final bool across; // true: across; false: down
+  final int r, c, len;
+  _Run(this.number, this.across, this.r, this.c, this.len);
+  bool contains(int rr, int cc) =>
+      across ? (rr == r && cc >= c && cc < c + len) : (cc == c && rr >= r && rr < r + len);
+}
+
+/* ───────────────── Page ───────────────── */
 
 class CrosswordPage extends StatefulWidget {
   const CrosswordPage({super.key});
@@ -384,178 +228,135 @@ class CrosswordPage extends StatefulWidget {
   State<CrosswordPage> createState() => _CrosswordPageState();
 }
 
-class _CrosswordPageState extends State<CrosswordPage>
-    with SingleTickerProviderStateMixin {
-  // persistence keys
-  static const _saveDifficulty = 'cw4_diff';
-  static const _saveCategory = 'cw4_cat';
-  static const _saveGrid = 'cw4_grid';
-  static const _saveUser = 'cw4_user';
-  static const _saveSize = 'cw4_size';
-  static const _saveStart = 'cw4_start';
-  static const _saveDir = 'cw4_dir';
-  static const _saveCursor = 'cw4_cursor';
-
+class _CrosswordPageState extends State<CrosswordPage> {
   final rnd = Random();
 
-  _Difficulty difficulty = _Difficulty.easy;
-  _Category? category;
+  // chooser -> then game. Start at chooser (category null).
+  _Category? _category;
+  _Difficulty _difficulty = _Difficulty.easy;
 
+  // grid
   late int n;
-  late List<List<String?>> _solution; // null = block; else single letter
-  late List<List<String?>> _cells; // null = block; "" or "A"
-  late DateTime _startTime;
-
+  late List<List<String?>> _solution; // null => block; else single letter
+  late List<List<String>> _cells; // "" for empty, "A" for typed
   late List<List<int?>> _numbers;
-  late Map<int, String> _cluesAcross;
-  late Map<int, String> _cluesDown;
+  List<_Run> _runs = []; // initialize empty to avoid LateInitializationError
+  int _activeRunIndex = 0;
+  int _cursorR = 0, _cursorC = 0;
 
-  // Interaction
-  _Direction _dir = _Direction.across;
-  int _curR = 0, _curC = 0; // current cursor
-  bool _autoCheck = true;
+  // ————— Utilities
+  Map<String, String> get _clues => switch (_category) {
+        _Category.mixed || null => _mixedClues,
+        _ => _clueBank[_category]!,
+      };
 
-  bool _hasSave = false;
+  int _sizeFor(_Difficulty d) => switch (d) {
+        _Difficulty.easy => 7,
+        _Difficulty.medium => 9,
+        _Difficulty.hard => 11,
+      };
 
-  // Anim for highlight pulse
-  late final AnimationController _pulse =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
-        ..repeat(reverse: true);
-
-  @override
-  void initState() {
-    super.initState();
-    _restoreOrChooser();
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  /* ─────────── generator ─────────── */
+  /* ─────────── Build puzzle (simple compact generator) ─────────── */
 
   void _buildPuzzle() {
-    n = switch (difficulty) {
-      _Difficulty.easy => 7,
-      _Difficulty.medium => 9,
-      _Difficulty.hard => 11,
-    };
+    n = _sizeFor(_difficulty);
 
-    // choose words from category or mixed
-    List<String> bank;
-    if (category == _Category.mixed) {
-      bank = List<String>.from(_mixedClues.keys);
-    } else {
-      bank = List<String>.from(_wordBank[category!]!);
-    }
-    bank.shuffle(rnd);
+    // pool of words for this category; make sure all are <= n
+    var pool = _clues.keys.where((w) => w.length <= n).toList();
+    pool.shuffle(rnd);
 
+    // start with empty (null) = block
     final grid = List.generate(n, (_) => List<String?>.filled(n, null));
 
-    // Lay horizontal theme words with alternating offsets
+    // place across seed words on alternating rows, offset to create crossings
     final offset = (n == 11) ? 3 : 2;
-    int rowsToUse = min(n, bank.length);
-    for (int r = 0; r < rowsToUse; r++) {
-      final w = bank[r];
+    int r = 0;
+    int placed = 0;
+    while (r < n && placed < pool.length) {
+      final w = pool[placed];
       final start = (r.isOdd) ? offset : 0;
-      if (w.length > n - start) continue;
-      for (int i = 0; i < w.length; i++) {
-        grid[r][start + i] = w[i];
+      if (w.length <= n - start) {
+        for (int i = 0; i < w.length; i++) {
+          grid[r][start + i] = w[i];
+        }
       }
+      placed++;
+      r++;
     }
 
-    // Turn nulls into blocks for clean entries.
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        grid[r][c] ??= '#';
-      }
-    }
-
-    // Simple vertical encouragement
-    for (int tries = 0; tries < n; tries++) {
+    // encourage some vertical runs by copying letters downward occasionally
+    for (int t = 0; t < n; t++) {
       final c = rnd.nextInt(n);
-      for (int r = 0; r < n - 2; r++) {
-        if (grid[r][c] != '#' && grid[r + 1][c] == '#' && grid[r + 2][c] == '#') {
-          grid[r + 1][c] = grid[r][c];
+      for (int rr = 0; rr < n - 2; rr++) {
+        if (grid[rr][c] != null && grid[rr + 1][c] == null) {
+          grid[rr + 1][c] = grid[rr][c];
         }
       }
     }
 
+    // convert to solution/cell matrices
     _solution = List.generate(
       n,
-      (r) => List.generate(n, (c) => grid[r][c] == '#' ? null : grid[r][c]),
+      (r) => List.generate(n, (c) => grid[r][c]),
     );
-    _cells = List.generate(
-      n,
-      (r) => List.generate(n, (c) => _solution[r][c] == null ? null : ''),
-    );
-    _numbers = _computeNumbers(_solution);
-    final (ac, dn) = _makeClues(_solution, _numbers);
-    _cluesAcross = ac;
-    _cluesDown = dn;
-    _startTime = DateTime.now();
+    _cells = List.generate(n, (_) => List.generate(n, (_) => ''));
 
-    // Set cursor to first non-block cell
-    outer:
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        if (_solution[r][c] != null) {
-          _curR = r;
-          _curC = c;
-          break outer;
-        }
-      }
+    _numbers = _computeNumbers(_solution);
+    _runs = _computeRuns(_solution, _numbers);
+    // place cursor at first run
+    if (_runs.isEmpty) {
+      // fallback: at least one cell
+      _cursorR = 0;
+      _cursorC = 0;
+      _activeRunIndex = 0;
+    } else {
+      _activeRunIndex = 0;
+      _cursorR = _runs[0].r;
+      _cursorC = _runs[0].c;
     }
-    _dir = _Direction.across;
+
+    setState(() {});
   }
 
   List<List<int?>> _computeNumbers(List<List<String?>> sol) {
     final nums = List.generate(n, (_) => List<int?>.filled(n, null));
     int counter = 0;
-    bool isStartAcross(int r, int c) =>
+    bool startAcross(int r, int c) =>
         sol[r][c] != null &&
         (c == 0 || sol[r][c - 1] == null) &&
         (c + 1 < n && sol[r][c + 1] != null);
-    bool isStartDown(int r, int c) =>
+    bool startDown(int r, int c) =>
         sol[r][c] != null &&
         (r == 0 || sol[r - 1][c] == null) &&
         (r + 1 < n && sol[r + 1][c] != null);
+
     for (int r = 0; r < n; r++) {
       for (int c = 0; c < n; c++) {
         if (sol[r][c] == null) continue;
-        if (isStartAcross(r, c) || isStartDown(r, c)) {
-          counter++;
-          nums[r][c] = counter;
+        if (startAcross(r, c) || startDown(r, c)) {
+          nums[r][c] = ++counter;
         }
       }
     }
     return nums;
   }
 
-  (Map<int, String>, Map<int, String>) _makeClues(
-      List<List<String?>> sol, List<List<int?>> nums) {
-    final across = <int, String>{};
-    final down = <int, String>{};
-    final catClues =
-        (category == _Category.mixed) ? _mixedClues : _clueBank[category!]!;
+  List<_Run> _computeRuns(List<List<String?>> sol, List<List<int?>> numbers) {
+    final list = <_Run>[];
 
-    // Across
+    // across
     for (int r = 0; r < n; r++) {
       int c = 0;
       while (c < n) {
         if (sol[r][c] != null && (c == 0 || sol[r][c - 1] == null)) {
           int cc = c;
-          final sb = StringBuffer();
+          int len = 0;
           while (cc < n && sol[r][cc] != null) {
-            sb.write(sol[r][cc]);
+            len++;
             cc++;
           }
-          final word = sb.toString();
-          if (word.length >= 2 && nums[r][c] != null) {
-            final num = nums[r][c]!;
-            across[num] = catClues[word] ?? '${_categoryLabel(category!)} word (${word.length})';
+          if (len >= 2) {
+            list.add(_Run(numbers[r][c]!, true, r, c, len));
           }
           c = cc;
         } else {
@@ -563,22 +364,19 @@ class _CrosswordPageState extends State<CrosswordPage>
         }
       }
     }
-
-    // Down
+    // down
     for (int c = 0; c < n; c++) {
       int r = 0;
       while (r < n) {
         if (sol[r][c] != null && (r == 0 || sol[r - 1][c] == null)) {
           int rr = r;
-          final sb = StringBuffer();
+          int len = 0;
           while (rr < n && sol[rr][c] != null) {
-            sb.write(sol[rr][c]);
+            len++;
             rr++;
           }
-          final word = sb.toString();
-          if (word.length >= 2 && nums[r][c] != null) {
-            final num = nums[r][c]!;
-            down[num] = catClues[word] ?? '${_categoryLabel(category!)} word (${word.length})';
+          if (len >= 2) {
+            list.add(_Run(numbers[r][c]!, false, r, c, len));
           }
           r = rr;
         } else {
@@ -587,851 +385,482 @@ class _CrosswordPageState extends State<CrosswordPage>
       }
     }
 
-    return (across, down);
+    // order by clue number then across before down for same start
+    list.sort((a, b) {
+      final d = a.number.compareTo(b.number);
+      if (d != 0) return d;
+      // prefer across first like standard crosswords
+      return (a.across ? 0 : 1) - (b.across ? 0 : 1);
+    });
+    return list;
   }
 
-  /* ─────────── helpers for active clue ─────────── */
+  /* ─────────── Input handling ─────────── */
 
-  bool _isBlock(int r, int c) => _solution[r][c] == null;
-
-  List<Point<int>> _cellsForRunFrom(int r, int c, _Direction dir) {
-    if (_isBlock(r, c)) return const [];
-    // move to start
-    int sr = r, sc = c;
-    if (dir == _Direction.across) {
-      while (sc - 1 >= 0 && !_isBlock(sr, sc - 1)) sc--;
-      final cells = <Point<int>>[];
-      while (sc < n && !_isBlock(sr, sc)) {
-        cells.add(Point(sr, sc));
-        sc++;
-      }
-      return cells;
-    } else {
-      while (sr - 1 >= 0 && !_isBlock(sr - 1, sc)) sr--;
-      final cells = <Point<int>>[];
-      while (sr < n && !_isBlock(sr, sc)) {
-        cells.add(Point(sr, sc));
-        sr++;
-      }
-      return cells;
-    }
-  }
-
-  int? _numberForStart(int r, int c) => _numbers[r][c];
-
-  int? get _activeNumber {
-    final cells = _cellsForRunFrom(_curR, _curC, _dir);
-    if (cells.isEmpty) return null;
-    final start = cells.first;
-    return _numberForStart(start.x, start.y);
-  }
-
-  String get _activeClue {
-    final num = _activeNumber;
-    if (num == null) return '';
-    return _dir == _Direction.across
-        ? (_cluesAcross[num] ?? '')
-        : (_cluesDown[num] ?? '');
-  }
+  _Run get _run => _runs[_activeRunIndex];
 
   void _selectCell(int r, int c) {
-    if (_curR == r && _curC == c) {
-      // toggle direction if tapping same cell and other run exists
-      final hasAcross =
-          _cellsForRunFrom(r, c, _Direction.across).length > 1;
-      final hasDown = _cellsForRunFrom(r, c, _Direction.down).length > 1;
-      if (hasAcross && hasDown) {
-        _dir = _dir == _Direction.across ? _Direction.down : _Direction.across;
-      }
+    // try to pick the run that contains the cell and matches current direction;
+    // otherwise pick any run containing it.
+    final sameDir = _runs.indexWhere((ru) => ru.across == _run.across && ru.contains(r, c));
+    final any = _runs.indexWhere((ru) => ru.contains(r, c));
+    _activeRunIndex = (sameDir >= 0) ? sameDir : (any >= 0 ? any : _activeRunIndex);
+    _cursorR = r;
+    _cursorC = c;
+    setState(() {});
+  }
+
+  void _moveCursor(int delta) {
+    // delta = ±1 along active run
+    final r = _run.r, c = _run.c, len = _run.len;
+    if (_run.across) {
+      int idx = (_cursorC - c) + delta;
+      idx = idx.clamp(0, len - 1);
+      _cursorC = c + idx;
     } else {
-      // default prefer across if run > 1
-      final acrossLen = _cellsForRunFrom(r, c, _Direction.across).length;
-      final downLen = _cellsForRunFrom(r, c, _Direction.down).length;
-      if (acrossLen >= downLen) {
-        _dir = _Direction.across;
-      } else {
-        _dir = _Direction.down;
-      }
-      _curR = r;
-      _curC = c;
+      int idx = (_cursorR - r) + delta;
+      idx = idx.clamp(0, len - 1);
+      _cursorR = r + idx;
     }
-    _persist();
     setState(() {});
   }
 
-  void _moveNextInRun() {
-    final run = _cellsForRunFrom(_curR, _curC, _dir);
-    if (run.isEmpty) return;
-    final idx = run.indexWhere((p) => p.x == _curR && p.y == _curC);
-    final next = (idx < run.length - 1) ? run[idx + 1] : run.last;
-    _curR = next.x;
-    _curC = next.y;
-  }
-
-  void _movePrevInRun() {
-    final run = _cellsForRunFrom(_curR, _curC, _dir);
-    if (run.isEmpty) return;
-    final idx = run.indexWhere((p) => p.x == _curR && p.y == _curC);
-    final prev = (idx > 0) ? run[idx - 1] : run.first;
-    _curR = prev.x;
-    _curC = prev.y;
-  }
-
-  List<int> _orderedNumbers(_Direction dir) {
-    final keys = (dir == _Direction.across ? _cluesAcross : _cluesDown).keys.toList()
-      ..sort();
-    return keys;
-  }
-
-  void _gotoNextClue() {
-    final list = _orderedNumbers(_dir);
-    final cur = _activeNumber;
-    if (cur == null || list.isEmpty) return;
-    final i = list.indexOf(cur);
-    final target = list[(i + 1) % list.length];
-    _gotoClue(target, _dir);
-  }
-
-  void _gotoPrevClue() {
-    final list = _orderedNumbers(_dir);
-    final cur = _activeNumber;
-    if (cur == null || list.isEmpty) return;
-    final i = list.indexOf(cur);
-    final target = list[(i - 1 + list.length) % list.length];
-    _gotoClue(target, _dir);
-  }
-
-  void _gotoClue(int number, _Direction dir) {
-    // find the cell with this number that starts the run for that dir
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        if (_numbers[r][c] == number) {
-          final run = _cellsForRunFrom(r, c, dir);
-          if (run.isNotEmpty) {
-            _dir = dir;
-            // place cursor at first empty in run or at start
-            final idx =
-                run.indexWhere((p) => (_cells[p.x][p.y] ?? '').isEmpty);
-            final p = idx == -1 ? run.first : run[idx];
-            _curR = p.x;
-            _curC = p.y;
-            _persist();
-            setState(() {});
-            return;
-          }
-        }
-      }
-    }
-  }
-
-  /* ─────────── persistence ─────────── */
-
-  Future<void> _persist() async {
-    if (category == null) return;
-    final p = await SharedPreferences.getInstance();
-    await p.setInt(_saveSize, n);
-    await p.setInt(_saveDifficulty, difficulty.index);
-    await p.setInt(_saveCategory, category!.index);
-    await p.setInt(_saveStart, _startTime.millisecondsSinceEpoch);
-    await p.setInt(_saveDir, _dir.index);
-    await p.setString(_saveCursor, '$_curR:$_curC');
-
-    final flatGrid = <String>[];
-    final flatUser = <String>[];
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        flatGrid.add(_solution[r][c] ?? '#');
-        final u = _cells[r][c];
-        flatUser.add(u == null ? '#' : (u!.isEmpty ? '' : u!));
-      }
-    }
-    await p.setStringList(_saveGrid, flatGrid);
-    await p.setStringList(_saveUser, flatUser);
-    _hasSave = true;
-  }
-
-  Future<void> _clearPersisted() async {
-    final p = await SharedPreferences.getInstance();
-    await p.remove(_saveSize);
-    await p.remove(_saveDifficulty);
-    await p.remove(_saveCategory);
-    await p.remove(_saveGrid);
-    await p.remove(_saveUser);
-    await p.remove(_saveStart);
-    await p.remove(_saveDir);
-    await p.remove(_saveCursor);
-    _hasSave = false;
-  }
-
-  Future<void> _restoreOrChooser() async {
-    final p = await SharedPreferences.getInstance();
-    final savedN = p.getInt(_saveSize);
-    final dIdx = p.getInt(_saveDifficulty);
-    final cIdx = p.getInt(_saveCategory);
-    final flatGrid = p.getStringList(_saveGrid);
-    final flatUser = p.getStringList(_saveUser);
-    final start = p.getInt(_saveStart);
-
-    if (savedN != null &&
-        dIdx != null &&
-        cIdx != null &&
-        flatGrid != null &&
-        flatUser != null) {
-      try {
-        n = savedN;
-        difficulty = _Difficulty.values[dIdx];
-        category = _Category.values[cIdx];
-        _solution = List.generate(
-          n,
-          (r) => List.generate(
-            n,
-            (c) => (flatGrid[r * n + c] == '#') ? null : flatGrid[r * n + c],
-          ),
-        );
-        _cells = List.generate(
-          n,
-          (r) => List.generate(
-            n,
-            (c) {
-              final v = flatUser[r * n + c];
-              return v == '#'
-                  ? null
-                  : (v.isEmpty ? '' : v);
-            },
-          ),
-        );
-        _numbers = _computeNumbers(_solution);
-        final (ac, dn) = _makeClues(_solution, _numbers);
-        _cluesAcross = ac;
-        _cluesDown = dn;
-        _dir = _Direction.values[p.getInt(_saveDir) ?? 0];
-        final cur = (p.getString(_saveCursor) ?? '0:0').split(':');
-        _curR = int.tryParse(cur[0]) ?? 0;
-        _curC = int.tryParse(cur[1]) ?? 0;
-        _startTime = DateTime.fromMillisecondsSinceEpoch(
-            start ?? DateTime.now().millisecondsSinceEpoch);
-        _hasSave = true;
-        setState(() {});
-        return;
-      } catch (_) {/* ignore and fall through */}
-    }
-    // No save — show chooser first.
-    category = null;
+  void _nextRun(int dir) {
+    // dir = +1 next, -1 prev
+    if (_runs.isEmpty) return;
+    _activeRunIndex = (_activeRunIndex + dir) % _runs.length;
+    if (_activeRunIndex < 0) _activeRunIndex += _runs.length;
+    final ru = _runs[_activeRunIndex];
+    _cursorR = ru.r;
+    _cursorC = ru.c;
     setState(() {});
   }
 
-  void _newPuzzle() {
-    _buildPuzzle();
-    _persist();
-    setState(() {});
-  }
-
-  void _resetPuzzle() {
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        if (_cells[r][c] != null) _cells[r][c] = '';
+  void _onKey(String label) {
+    if (_runs.isEmpty) return;
+    if (label == '⌫') {
+      if (_solution[_cursorR][_cursorC] != null) {
+        _cells[_cursorR][_cursorC] = '';
       }
+      _moveCursor(-1);
+      return;
     }
-    _startTime = DateTime.now();
-    _persist();
-    setState(() {});
+    if (!RegExp(r'^[A-Za-z]$').hasMatch(label)) return;
+    final ch = label.toUpperCase();
+    if (_solution[_cursorR][_cursorC] != null) {
+      _cells[_cursorR][_cursorC] = ch;
+    }
+    // move forward
+    _moveCursor(1);
   }
 
-  bool _complete() {
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        final sol = _solution[r][c];
-        final cur = _cells[r][c];
-        if (sol == null) continue;
-        if ((cur ?? '').toUpperCase() != sol) return false;
-      }
+  /* ─────────── Clue text for active run ─────────── */
+
+  String _activeClue() {
+    final ru = _run;
+    // build word string from solution for lookup
+    final letters = <String>[];
+    for (int i = 0; i < ru.len; i++) {
+      final rr = ru.across ? ru.r : ru.r + i;
+      final cc = ru.across ? ru.c + i : ru.c;
+      letters.add(_solution[rr][cc] ?? '');
     }
-    return true;
+    final word = letters.join();
+    final base = ru.across ? '${ru.number}a' : '${ru.number}d';
+    final clueText = _clues[word] ?? '${_categoryLabel(_category!)} word';
+    return '$base. $clueText (${ru.len})';
   }
 
-  Future<void> _revealOne({Point<int>? at}) async {
-    // reveal specific cell or a random incorrect one
-    final points = <Point<int>>[];
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        if (_solution[r][c] == null) continue;
-        if ((_cells[r][c] ?? '') != _solution[r][c]) points.add(Point(r, c));
-      }
-    }
-    if (points.isEmpty) return;
-    final p = at ?? points[rnd.nextInt(points.length)];
-    _cells[p.x][p.y] = _solution[p.x][p.y];
-    await _persist();
-    setState(() {});
-  }
+  /* ─────────── UI: chooser ─────────── */
 
-  Future<void> _revealTen() async {
-    int left = 10;
-    while (left-- > 0) {
-      await _revealOne();
-    }
-  }
+  Widget _buildChooser() {
+    // default to Easy
+    _difficulty = _Difficulty.easy;
 
-  /* ─────────── input from soft keyboard ─────────── */
-
-  void _typeLetter(String ch) async {
-    if (category == null) return;
-    if (_isBlock(_curR, _curC)) return;
-    if (ch == '⌫') {
-      if ((_cells[_curR][_curC] ?? '').isEmpty) {
-        _movePrevInRun();
-      }
-      _cells[_curR][_curC] = '';
-    } else {
-      _cells[_curR][_curC] = ch.toUpperCase();
-      _moveNextInRun();
-    }
-    await _persist();
-    setState(() {});
-
-    if (_complete()) {
-      await _clearPersisted();
-      final secs =
-          DateTime.now().difference(_startTime).inSeconds.clamp(1, 99999);
-      final score = 1 / secs;
-      await ScoreStore.instance.add('crossword', score);
-      final high = await ScoreStore.instance.reportBest('crossword', score);
-      if (!mounted) return;
-      await showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(high ? 'New High Score!' : 'Crossword complete'),
-          content: Text('Time: ${secs}s'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close')),
-            FilledButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _newPuzzle();
-                },
-                child: const Text('New')),
-          ],
-        ),
-      );
-    }
-  }
-
-  /* ─────────── UI ─────────── */
-
-  @override
-  Widget build(BuildContext context) {
-    // CHOOSER (balloons/bubbles)
-    if (category == null) {
-      return _GameScaffold(
-        title: null,
-        child: Stack(
-          children: [
-            const _SoftBubblesBackground(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 6),
-                  Text(
-                    'Choose a Category',
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: _bg(context),
+        child: SafeArea(
+          top: true,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Choose a Category',
                     style: Theme.of(context)
                         .textTheme
                         .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                        ?.copyWith(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                const Text('Starts on Easy (7×7). You can change difficulty in-game.',
+                    style: TextStyle(fontSize: 12.5)),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: GridView.count(
+                    physics: const BouncingScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    children: _Category.values.map((c) {
+                      return _CategoryCard(
+                        icon: _categoryIcon(c),
+                        label: _categoryLabel(c),
+                        onTap: () {
+                          setState(() {
+                            _category = c;
+                            _buildPuzzle();
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
-                  const SizedBox(height: 14),
-                  Expanded(
-                    child: GridView.count(
-                      physics: const BouncingScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      children: _Category.values.map((c) {
-                        return _BubbleCategoryTile(
-                          icon: _categoryIcon(c),
-                          label: _categoryLabel(c),
-                          onSelected: () {
-                            setState(() => category = c);
-                            _newPuzzle();
-                          },
-                        );
-                      }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /* ─────────── UI: keyboard ─────────── */
+
+  Widget _keyboard() {
+    const rows = [
+      ['Q','W','E','R','T','Y','U','I','O','P'],
+      ['A','S','D','F','G','H','J','K','L'],
+      ['Z','X','C','V','B','N','M'],
+    ];
+
+    // LayoutBuilder to compute key width so nothing overflows.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final maxRowLen = rows.map((r) => r.length).reduce(max);
+        final baseKeyW = ((constraints.maxWidth - gap * (maxRowLen - 1)) / maxRowLen)
+            .clamp(30.0, 50.0);
+        final keyH = 44.0;
+        final ctrlW = baseKeyW * 1.25;
+
+        Widget buildRow(List<String> letters, {double indent = 0}) {
+          return Padding(
+            padding: EdgeInsets.only(left: indent),
+            child: Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: letters
+                  .map((ch) => SizedBox(
+                        width: baseKeyW,
+                        height: keyH,
+                        child: _KeyButton(label: ch, onTap: () => _onKey(ch)),
+                      ))
+                  .toList(),
+            ),
+          );
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            buildRow(rows[0]),
+            const SizedBox(height: 6),
+            buildRow(rows[1], indent: baseKeyW * .4),
+            const SizedBox(height: 6),
+            buildRow(rows[2], indent: baseKeyW * 1.3),
+            const SizedBox(height: 8),
+            // controls row: Backspace / Prev / Next
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: ctrlW,
+                  height: keyH,
+                  child: _KeyIconButton(
+                    icon: Icons.backspace_rounded,
+                    label: '⌫',
+                    onTap: () => _onKey('⌫'),
+                  ),
+                ),
+                const SizedBox(width: gap),
+                SizedBox(
+                  width: ctrlW,
+                  height: keyH,
+                  child: _KeyIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => _nextRun(-1),
+                  ),
+                ),
+                const SizedBox(width: gap),
+                SizedBox(
+                  width: ctrlW,
+                  height: keyH,
+                  child: _KeyIconButton(
+                    icon: Icons.arrow_forward_rounded,
+                    onTap: () => _nextRun(1),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /* ─────────── UI: grid ─────────── */
+
+  Widget _grid() {
+    // bigger grid, crisp borders, highlight active run + cursor
+    return AspectRatio(
+      aspectRatio: 1,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: n,
+          crossAxisSpacing: 0,
+          mainAxisSpacing: 0,
+        ),
+        itemCount: n * n,
+        itemBuilder: (_, i) {
+          final r = i ~/ n, c = i % n;
+          final sol = _solution[r][c];
+          if (sol == null) {
+            return Container(color: Colors.black87);
+          }
+          final inActive = _run.contains(r, c);
+          final isCursor = (r == _cursorR && c == _cursorC);
+
+          return InkWell(
+            onTap: () => _selectCell(r, c),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                color: isCursor
+                    ? const Color(0xFFA7E0C9) // cursor cell
+                    : (inActive ? Colors.white : Colors.white.withOpacity(.96)),
+                border: Border.all(color: Colors.black54, width: 1),
+              ),
+              child: Stack(
+                children: [
+                  // clue number
+                  if (_numbers[r][c] != null)
+                    Positioned(
+                      left: 3,
+                      top: 1.5,
+                      child: Text(
+                        '${_numbers[r][c]}',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                  // letter
+                  Center(
+                    child: Text(
+                      (_cells[r][c].isEmpty) ? '' : _cells[r][c],
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      );
-    }
-
-    // GAME
-    final topBar = Container(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.95),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _ink),
-      ),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          OutlinedButton.icon(
-            onPressed: () async {
-              await _clearPersisted();
-              setState(() => category = null);
-            },
-            style: OutlinedButton.styleFrom(
-                visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-            icon: const Icon(Icons.bubble_chart_rounded, size: 16),
-            label: const Text('Categories'),
-          ),
-          const SizedBox(width: 6),
-          const Text('Difficulty:',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-          DropdownButton<_Difficulty>(
-            value: difficulty,
-            isDense: true,
-            iconSize: 16,
-            items: const [
-              DropdownMenuItem(value: _Difficulty.easy, child: Text('Easy (7×7)')),
-              DropdownMenuItem(value: _Difficulty.medium, child: Text('Medium (9×9)')),
-              DropdownMenuItem(value: _Difficulty.hard, child: Text('Hard (11×11)')),
-            ],
-            onChanged: (d) {
-              if (d == null) return;
-              setState(() => difficulty = d);
-              _newPuzzle();
-            },
-          ),
-          FilterChip(
-            label: const Text('Auto-Check'),
-            avatar: Icon(_autoCheck ? Icons.check_circle : Icons.radio_button_unchecked, size: 18),
-            selected: _autoCheck,
-            onSelected: (v) => setState(() => _autoCheck = v),
-            selectedColor: const Color(0xFFEFFAF0),
-            side: const BorderSide(color: _ink),
-            backgroundColor: Colors.white,
-          ),
-          FilledButton.icon(
-            onPressed: () => _revealOne(at: Point(_curR, _curC)),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-            ),
-            icon: const Icon(Icons.text_fields_rounded, size: 16),
-            label: const Text('Reveal Tile'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _revealTen,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-            ),
-            icon: const Icon(Icons.pending_actions_rounded, size: 16),
-            label: const Text('+10 Letters'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _resetPuzzle,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-            ),
-            icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Reset'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _newPuzzle,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-            ),
-            icon: const Icon(Icons.fiber_new_rounded, size: 16),
-            label: const Text('New'),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 2),
-            child: Chip(
-              label: Text(_categoryLabel(category!)),
-              avatar: Icon(_categoryIcon(category!), size: 16),
-              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
 
-    // Clue banner like screenshots (yellow bar with arrows)
-    final clueBanner = Container(
-      color: const Color(0xFFFFD54F),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  /* ─────────── UI: gameplay scaffold ─────────── */
+
+  Widget _buildGame() {
+    // small themed hint bar
+    final hintBar = Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4C4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE3BC32)),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: _gotoPrevClue,
-            icon: const Icon(Icons.arrow_back_rounded),
-            splashRadius: 20,
-          ),
+          Icon(Icons.lightbulb_outline, color: _themeGreen, size: 18),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${_activeNumber ?? ''}${_dir == _Direction.across ? 'a' : 'd'}. ${_activeClue}',
+              _activeClue(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 16),
-            ),
-          ),
-          IconButton(
-            onPressed: _gotoNextClue,
-            icon: const Icon(Icons.arrow_forward_rounded),
-            splashRadius: 20,
-          ),
-        ],
-      ),
-    );
-
-    final keyboard = _Keyboard(onKey: _typeLetter);
-
-    return _GameScaffold(
-      title: null,
-      child: Column(
-        children: [
-          topBar,
-          clueBanner,
-          // GRID
-          Expanded(
-            flex: 6,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: n,
-                    crossAxisSpacing: 0,
-                    mainAxisSpacing: 0,
-                  ),
-                  itemCount: n * n,
-                  itemBuilder: (_, i) {
-                    final r = i ~/ n, c = i % n;
-                    if (_solution[r][c] == null) {
-                      return Container(color: Colors.black87);
-                    }
-
-                    final activeRun = _cellsForRunFrom(_curR, _curC, _dir);
-                    final inActive = activeRun.any((p) => p.x == r && p.y == c);
-                    final isCursor = (_curR == r && _curC == c);
-
-                    final sol = _solution[r][c]!;
-                    final cur = (_cells[r][c] ?? '').toUpperCase();
-                    Color fill = Colors.white;
-                    if (isCursor) {
-                      final t = (0.85 + 0.15 * (sin(_pulse.value * 2 * pi) + 1) / 2);
-                      fill = Color.lerp(_warn, Colors.white, t)!;
-                    } else if (inActive) {
-                      fill = _warn.withOpacity(.55);
-                    }
-                    if (_autoCheck && cur.isNotEmpty) {
-                      if (cur == sol) {
-                        fill = _good;
-                      } else {
-                        fill = _bad;
-                      }
-                    }
-
-                    final number = _numbers[r][c];
-
-                    return GestureDetector(
-                      onTap: () => _selectCell(r, c),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        curve: Curves.easeOut,
-                        decoration: BoxDecoration(
-                          color: fill,
-                          border: Border.all(color: Colors.black54, width: 1),
-                        ),
-                        child: Stack(
-                          children: [
-                            if (number != null)
-                              Positioned(
-                                left: 3,
-                                top: 2,
-                                child: Text(
-                                  '$number',
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ),
-                            Center(
-                              child: AnimatedScale(
-                                duration: const Duration(milliseconds: 120),
-                                scale: isCursor ? 1.1 : 1.0,
-                                child: Text(
-                                  cur,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 20,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                fontSize: 14, // smaller
+                fontWeight: FontWeight.w700,
+                color: _ink,
               ),
             ),
           ),
-          // Keyboard & utility row
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Row(
-              children: [
-                Expanded(child: keyboard),
-              ],
-            ),
+          const SizedBox(width: 8),
+          // difficulty switcher
+          DropdownButton<_Difficulty>(
+            value: _difficulty,
+            underline: const SizedBox.shrink(),
+            iconSize: 18,
+            items: const [
+              DropdownMenuItem(value: _Difficulty.easy, child: Text('Easy')),
+              DropdownMenuItem(value: _Difficulty.medium, child: Text('Med')),
+              DropdownMenuItem(value: _Difficulty.hard, child: Text('Hard')),
+            ],
+            onChanged: (d) {
+              if (d == null) return;
+              setState(() => _difficulty = d);
+              _buildPuzzle();
+            },
           ),
         ],
       ),
     );
-  }
-}
 
-/* ─────────────────── Soft keyboard ─────────────────── */
-
-class _Keyboard extends StatelessWidget {
-  final void Function(String) onKey;
-  const _Keyboard({required this.onKey});
-
-  @override
-  Widget build(BuildContext context) {
-    const rows = [
-      ['Q','W','E','R','T','Y','U','I','O','P'],
-      ['A','S','D','F','G','H','J','K','L'],
-      ['Z','X','C','V','B','N','M'],
-      ['⌫']
-    ];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (int i = 0; i < rows.length; i++)
-          Padding(
-            padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 8),
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 6,
-              runSpacing: 6,
-              children: rows[i].map((label) {
-                final wide = label == '⌫';
-                return SizedBox(
-                  width: wide ? 64 : 36,
-                  height: 46,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          wide ? const Color(0xFFB6E3FF) : const Color(0xFFBEE8DF),
-                      elevation: 1.5,
-                      shadowColor: Colors.black26,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onPressed: () => onKey(label),
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+    final topControls = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => setState(() {
+              _category = null; // back to categories
+            }),
+            icon: const Icon(Icons.bubble_chart_rounded, size: 16),
+            label: const Text('Categories'),
           ),
-      ],
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () => _buildPuzzle(),
+            icon: const Icon(Icons.fiber_new_rounded, size: 16),
+            label: const Text('New'),
+          ),
+          const Spacer(),
+          Chip(
+            visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+            avatar: Icon(_categoryIcon(_category!), size: 16),
+            label: Text(_categoryLabel(_category!)),
+          ),
+        ],
+      ),
     );
-  }
-}
 
-/* ─────────────────── Bubble Category Tile ─────────────────── */
-
-class _BubbleCategoryTile extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onSelected;
-  const _BubbleCategoryTile({
-    required this.icon,
-    required this.label,
-    required this.onSelected,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<_BubbleCategoryTile> createState() => _BubbleCategoryTileState();
-}
-
-class _BubbleCategoryTileState extends State<_BubbleCategoryTile>
-    with TickerProviderStateMixin {
-  late final AnimationController _bob =
-      AnimationController(vsync: this, duration: const Duration(seconds: 3))
-        ..repeat(reverse: true);
-  late final Animation<double> _bobAnim =
-      Tween(begin: -4.0, end: 4.0).animate(CurvedAnimation(parent: _bob, curve: Curves.easeInOut));
-
-  late final AnimationController _pop =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
-  late final Animation<double> _scale =
-      TweenSequence<double>([
-        TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.15).chain(CurveTween(curve: Curves.easeOut)), weight: 40),
-        TweenSequenceItem(tween: Tween(begin: 1.15, end: 0.0).chain(CurveTween(curve: Curves.easeIn)), weight: 60),
-      ]).animate(_pop);
-  late final Animation<double> _fade =
-      Tween(begin: 1.0, end: 0.0).animate(CurvedAnimation(parent: _pop, curve: Curves.easeIn));
-
-  @override
-  void dispose() {
-    _bob.dispose();
-    _pop.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleTap() async {
-    await _pop.forward();
-    if (!mounted) return;
-    widget.onSelected();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final themeGreen = const Color(0xFF0D7C66);
-    return AnimatedBuilder(
-      animation: Listenable.merge([_bob, _pop]),
-      builder: (context, _) {
-        return Transform.translate(
-          offset: Offset(0, _bobAnim.value),
-          child: Stack(
-            alignment: Alignment.center,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: _bg(context),
+        child: SafeArea(
+          top: true,
+          child: Column(
             children: [
-              if (_pop.value > 0)
-                Opacity(
-                  opacity: (1 - _pop.value).clamp(0.0, 1.0),
-                  child: Container(
-                    width: 120 + 120 * _pop.value,
-                    height: 120 + 120 * _pop.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.6 * (1 - _pop.value)), width: 2),
-                    ),
-                  ),
+              topControls,
+              hintBar,
+              // Bigger grid, smaller keyboard (no overflow)
+              Expanded(
+                flex: 7,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: _grid(),
                 ),
-              FadeTransition(
-                opacity: _fade,
-                child: ScaleTransition(
-                  scale: _scale,
-                  child: GestureDetector(
-                    onTap: _handleTap,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFFEFF9F6), Color(0xFFE5F0FF)],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeGreen.withOpacity(.25),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                            border: Border.all(color: Colors.black54, width: 1),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                left: 16,
-                                top: 14,
-                                child: Container(
-                                  width: 28,
-                                  height: 18,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(.7),
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                ),
-                              ),
-                              Center(child: Icon(widget.icon, size: 44, color: themeGreen)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          widget.label,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
+              ),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: _keyboard(),
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  /* ─────────── lifecycle ─────────── */
+
+  @override
+  Widget build(BuildContext context) {
+    // Always go to category chooser first (default Easy).
+    if (_category == null) return _buildChooser();
+    // Ensure we have a built puzzle if someone hot-reloads on the game view.
+    if (_solution.isEmpty || _runs.isEmpty) {
+      _buildPuzzle();
+    }
+    return _buildGame();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // important: initialize matrices to avoid late errors before first build
+    n = _sizeFor(_difficulty);
+    _solution = List.generate(n, (_) => List<String?>.filled(n, null));
+    _cells = List.generate(n, (_) => List<String>.filled(n, ''));
+    _numbers = List.generate(n, (_) => List<int?>.filled(n, null));
+    _runs = [];
+  }
+}
+
+/* ───────────────── Small widgets ───────────────── */
+
+class _CategoryCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _CategoryCard({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.95),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _ink),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: _themeGreen),
+            const SizedBox(height: 10),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/* ─────────────────── Floating Background Bubbles ─────────────────── */
-
-class _SoftBubblesBackground extends StatefulWidget {
-  const _SoftBubblesBackground();
+class _KeyButton extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _KeyButton({required this.label, required this.onTap});
 
   @override
-  State<_SoftBubblesBackground> createState() => _SoftBubblesBackgroundState();
+  State<_KeyButton> createState() => _KeyButtonState();
 }
 
-class _SoftBubblesBackgroundState extends State<_SoftBubblesBackground>
-    with SingleTickerProviderStateMixin {
+class _KeyButtonState extends State<_KeyButton> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(seconds: 18))..repeat();
-  final rnd = Random();
-  late final List<_Bubble> _bubbles = List.generate(
-    18,
-    (i) => _Bubble(
-      x: rnd.nextDouble(),
-      y: rnd.nextDouble(),
-      r: .02 + rnd.nextDouble() * .05,
-      dx: (rnd.nextDouble() - 0.5) * .015,
-      dy: (-.015 + rnd.nextDouble() * .01),
-      a: .18 + rnd.nextDouble() * .18,
-    ),
-  );
-
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
   @override
   void dispose() {
     _c.dispose();
@@ -1440,50 +869,56 @@ class _SoftBubblesBackgroundState extends State<_SoftBubblesBackground>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        return CustomPaint(
-          painter: _BubblesPainter(_bubbles, _c.value),
-          size: Size.infinite,
-        );
-      },
+    return ScaleTransition(
+      scale: Tween(begin: 1.0, end: .95).animate(_c),
+      child: ElevatedButton(
+        onPressed: () async {
+          await _c.forward(from: 0);
+          widget.onTap();
+          _c.reverse();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFE1F6F0),
+          elevation: 1.5,
+          shadowColor: Colors.black26,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(
+          widget.label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: Colors.black,
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _Bubble {
-  double x, y, r, dx, dy, a;
-  _Bubble({required this.x, required this.y, required this.r, required this.dx, required this.dy, required this.a});
-}
-
-class _BubblesPainter extends CustomPainter {
-  final List<_Bubble> bubbles;
-  final double t; // 0..1
-  _BubblesPainter(this.bubbles, this.t);
+class _KeyIconButton extends StatelessWidget {
+  final IconData icon;
+  final String? label; // use either icon or label (for backspace symbol)
+  final VoidCallback onTap;
+  const _KeyIconButton({required this.icon, this.label, required this.onTap});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    for (final b in bubbles) {
-      final x = (b.x + b.dx * t) % 1.0;
-      final y = (b.y + b.dy * t) % 1.0;
-      final center = Offset(x * size.width, y * size.height);
-      final radius = b.r * size.shortestSide * (1 + 0.05 * sin(2 * pi * t));
-      paint.color = const Color(0xFF0D7C66).withOpacity(b.a * 0.45);
-      canvas.drawCircle(center, radius, paint);
-      final rim = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = const Color(0xFF0D7C66).withOpacity(b.a * 0.55);
-      canvas.drawCircle(center, radius, rim);
-      final highlight = Paint()
-        ..style = PaintingStyle.fill
-        ..color = Colors.white.withOpacity(.35 * b.a);
-      canvas.drawCircle(center.translate(-radius * .35, -radius * .35), radius * .25, highlight);
-    }
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFE1F6F0),
+        elevation: 1.5,
+        shadowColor: Colors.black26,
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        side: const BorderSide(color: Colors.black26),
+      ),
+      child: label != null
+          ? Text(label!,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.black))
+          : Icon(icon, color: Colors.black, size: 18),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant _BubblesPainter oldDelegate) => true;
 }
