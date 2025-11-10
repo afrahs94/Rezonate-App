@@ -100,13 +100,17 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
   final rnd = Random();
   late List<int> deck;   // two of each id
   late List<bool> faceUp;
-  late List<bool> removed; // NEW: cards removed after a successful match
+  late List<bool> removed; // cards removed after a successful match
   int? first;
   int moves = 0;
   int matched = 0;
   late DateTime _start;
 
+  // richer icon set + emoji “stickers”
   late List<IconData> _iconSet;
+  final List<String> _emojiSet = const [
+    '🌊','✨','🍀','🦋','🧩','🎧','🌙','🌵','🍩','🦊',
+  ];
 
   // Win animation overlay
   OverlayEntry? _winOverlay;
@@ -116,16 +120,16 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
 
   void _new() {
     _iconSet = [
+      Icons.rocket_launch_rounded,
+      Icons.coffee_rounded,
+      Icons.camera_alt_rounded,
       Icons.spa_rounded,
-      Icons.ac_unit_rounded,
-      Icons.waves_rounded,
-      Icons.star_rounded,
-      Icons.favorite_rounded,
-      Icons.landscape_rounded,
-      Icons.pets_rounded,
-      Icons.local_florist_rounded,
-      Icons.park_rounded,
-      Icons.flutter_dash,
+      Icons.palette_rounded,
+      Icons.sports_esports_rounded,
+      Icons.music_note_rounded,
+      Icons.beach_access_rounded,
+      Icons.bolt_rounded,
+      Icons.face_retouching_natural_rounded,
     ]..shuffle(rnd);
     deck = List.generate(pairs, (i) => i)..addAll(List.generate(pairs, (i) => i));
     deck.shuffle(rnd);
@@ -147,7 +151,6 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
         final a = first!;
         final b = i;
         first = null;
-        // brief delay so the second card is visible, then animate removal
         await Future.delayed(const Duration(milliseconds: 250));
         if (!mounted) return;
         setState(() {
@@ -199,7 +202,8 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
     final palette = Colors.primaries.take(pairs).toList();
     return _GameScaffold(
       title: 'Matching',
-      rule: 'Flip cards to find pairs. New icons & colors each shuffle.',
+      // ⬇️ Updated copy: new second sentence
+      rule: 'Flip cards to find pairs. Try to win in as little moves as possible.',
       topBar: Row(
         children: [
           Text('Moves: $moves', style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -207,7 +211,7 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
           OutlinedButton.icon(
             onPressed: _new,
             icon: const Icon(Icons.restart_alt_rounded, size: 18),
-            label: const Text('Restart'), // was "Shuffle"
+            label: const Text('Restart'),
           ),
         ],
       ),
@@ -221,7 +225,6 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
           final gone = removed[i];
           final id = deck[i];
 
-          // When removed, fade & scale out and ignore taps.
           final tile = AnimatedOpacity(
             duration: const Duration(milliseconds: 220),
             opacity: gone ? 0.0 : 1.0,
@@ -244,19 +247,35 @@ class _MatchDifficultPageState extends State<MatchDifficultPage> with TickerProv
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: open
-                        ? Icon(_iconSet[id], key: const ValueKey('open'), size: 28, color: palette[id].shade900)
-                        : const Icon(Icons.help_outline_rounded, key: ValueKey('closed'), color: Colors.black54),
+                        ? Center(
+                            key: const ValueKey('open'),
+                            child: _faceFor(id, palette[id].shade900),
+                          )
+                        : const Icon(Icons.help_outline_rounded,
+                            key: ValueKey('closed'), color: Colors.black54),
                   ),
                 ),
               ),
             ),
           );
 
-          // Even if removed, we keep the grid cell (it animates invisible and ignores input).
           return tile;
         },
       ),
     );
+  }
+
+  // Builds either a fun emoji “sticker” or a richer icon for the given id.
+  Widget _faceFor(int id, Color color) {
+    // Alternate between emoji “image” and icon to diversify visuals.
+    if (id % 2 == 0) {
+      return Text(
+        _emojiSet[id],
+        style: const TextStyle(fontSize: 30),
+      );
+    } else {
+      return Icon(_iconSet[id], size: 30, color: color);
+    }
   }
 }
 
