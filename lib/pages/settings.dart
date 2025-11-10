@@ -13,7 +13,7 @@ import 'package:new_rezonate/pages/security_privacy.dart';
 import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
 import 'package:new_rezonate/pages/login_page.dart';
-import 'package:new_rezonate/pages/landing_page.dart'; // <-- added
+import 'package:new_rezonate/pages/landing_page.dart';
 
 import 'onboarding.dart';
 import 'package:showcaseview/showcaseview.dart';
@@ -35,6 +35,14 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  // --- size tokens (smaller & consistent across all rows) ---
+  static const double _rowHPad = 16.0;
+  static const double _rowVPad = 10.0;
+  static const double _rowRadius = 20.0;
+  static const double _rowIconSize = 20.0;
+  static const double _rowFontSize = 16.5;
+  static const double _rowMinHeight = 56.0;
+
   final TextEditingController _searchCtrl = TextEditingController();
   late List<_Item> _all;
   late List<_Item> _shown;
@@ -45,6 +53,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _startedSearchShowcase = false; // avoid double-start
   Timer? _replayAutoFinishTimer;       // auto-complete in replay
+
+  // Daily Quote toggle state
+  bool _dailyQuoteOn = true;
 
   @override
   void initState() {
@@ -88,6 +99,8 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
         builder: () => PushNotificationsPage(userName: widget.userName),
       ),
+      // Daily Quote toggle row
+      _Item.dailyQuote(),
       _Item.replayTutorial(),
       _Item(
         label: 'Deactivate Account',
@@ -104,6 +117,15 @@ class _SettingsPageState extends State<SettingsPage> {
     ];
     _shown = List.of(_all);
     _searchCtrl.addListener(_onSearch);
+    _loadDailyQuotePref();
+  }
+
+  Future<void> _loadDailyQuotePref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _dailyQuoteOn = prefs.getBool('daily_quote_enabled') ?? true;
+    });
   }
 
   @override
@@ -125,7 +147,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _startedSearchShowcase = true;
 
     if (Onboarding.isFreshSignup) {
-      Onboarding.isFreshSignup = false; // clear the flag after first use
+      Onboarding.isFreshSignup = false;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -138,10 +160,8 @@ class _SettingsPageState extends State<SettingsPage> {
       });
     }
 
-    // Start the showcase
     await OBShowcase.startWhenReady(ctx, keys: [_settingsSearchKey]);
 
-    // Auto-finish if in replay mode
     if (Onboarding.isReplayActive || stage == OnboardingStage.replayingTutorial) {
       final show = ShowCaseWidget.of(ctx);
       _replayAutoFinishTimer?.cancel();
@@ -149,7 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
         try {
           if (show.mounted) show.dismiss();
         } catch (_) {}
-        await Onboarding.completeReplay(); // marks done
+        await Onboarding.completeReplay();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tutorial finished ✨')),
@@ -277,7 +297,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 ...results.map((it) => ListTile(
                       leading: const Icon(Icons.tune, color: Color(0xFF0D7C66)),
-                      title: Text(it.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      title: const Text('Open', style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(it.label),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(builder: (_) => it.builder()));
@@ -323,12 +344,9 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (root) {
         return Builder(
           builder: (ctxUnderShowcase) {
-            // Capture the ShowCase state synchronously (no async-gap context use).
             final show = ShowCaseWidget.of(ctxUnderShowcase);
 
-            // If onboarding says to show the tooltip, kick it off.
             if (!_startedSearchShowcase) {
-              // fire-and-forget; it handles its own waits & timers
               _maybeStartSettingsShowcase(ctxUnderShowcase);
             }
 
@@ -341,9 +359,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: SafeArea(
                   child: Column(
                     children: [
-                      // Header: black back button (further left), centered title "Settings"
+                      // Header
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 29, 16, 8), // moved more to the left
+                        padding: const EdgeInsets.fromLTRB(16, 29, 16, 8),
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -365,20 +383,21 @@ class _SettingsPageState extends State<SettingsPage> {
                             const Center(
                               child: Text(
                                 'Settings',
-                                style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: Colors.black),
+                                // smaller title
+                                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.black),
                               ),
                             ),
                           ],
                         ),
                       ),
 
-                      // 🔎 Search (showcased)
+                      // Search
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                         child: Showcase(
                           key: _settingsSearchKey,
                           description:
-                              'Search anything in Settings — try “password”, “notifications”, or “dark mode”. It’s the fastest way to find options.',
+                              'Search anything in Settings — try “password”, “notifications”, or “dark mode”.',
                           disposeOnTap: true,
                           onTargetClick: () => _finishTutorial(show),
                           onToolTipClick: () => _finishTutorial(show),
@@ -452,11 +471,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                   if (it.type == _RowType.darkMode) return _darkModeRow(context);
                                   if (it.type == _RowType.logout) return _logoutRow(context);
                                   if (it.type == _RowType.replay) return _replayRow(context);
+                                  if (it.type == _RowType.dailyQuote) return _dailyQuoteRow(context);
                                   return _linkRow(context, it);
                                 },
                               ),
                       ),
-                      // (Bottom navigation bar removed)
                     ],
                   ),
                 ),
@@ -468,31 +487,38 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // ——— shared row container ———
+  Widget _rowShell({required Widget child}) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: _rowMinHeight),
+      padding: const EdgeInsets.symmetric(horizontal: _rowHPad, vertical: _rowVPad),
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(131, 0, 150, 135),
+        borderRadius: BorderRadius.circular(_rowRadius),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.24), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: child,
+    );
+  }
+
   // ——— UI parts ———
 
   Widget _linkRow(BuildContext context, _Item it) {
-    final bg = const Color.fromARGB(131, 0, 150, 135);
     return InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => it.builder())),
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.24), blurRadius: 8, offset: Offset(0, 3))],
-        ),
+      borderRadius: BorderRadius.circular(_rowRadius),
+      child: _rowShell(
         child: Row(
           children: [
-            Icon(it.icon, color: Colors.white, size: 22),
+            Icon(it.icon, color: Colors.white, size: _rowIconSize),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 it.label,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600),
               ),
             ),
-            const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: _rowIconSize),
           ],
         ),
       ),
@@ -500,7 +526,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _replayRow(BuildContext context) {
-    final bg = const Color.fromARGB(131, 0, 150, 135);
     Future<void> _startReplay() async {
       final ok = await showDialog<bool>(
         context: context,
@@ -515,7 +540,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
       if (ok == true) {
-        await Onboarding.startReplay(); // ephemeral replay mode
+        await Onboarding.startReplay();
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
@@ -527,23 +552,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return InkWell(
       onTap: _startReplay,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.24), blurRadius: 8, offset: Offset(0, 3))],
-        ),
-        child: const Row(
+      borderRadius: BorderRadius.circular(_rowRadius),
+      child: _rowShell(
+        child: Row(
           children: [
-            Icon(Icons.school_outlined, color: Colors.white, size: 22),
-            SizedBox(width: 12),
+            const Icon(Icons.school_outlined, color: Colors.white, size: _rowIconSize),
+            const SizedBox(width: 12),
             Expanded(
               child: Text('Replay Tutorial',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600)),
             ),
-            Icon(Icons.play_circle_outline, color: Colors.white),
+            const Icon(Icons.play_circle_outline, color: Colors.white, size: _rowIconSize),
           ],
         ),
       ),
@@ -553,20 +572,15 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _darkModeRow(BuildContext context) {
     final ctrl = app.ThemeControllerScope.of(context);
     final on = ctrl.isDark;
-    final bg = const Color.fromARGB(131, 0, 150, 135);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: Offset(0, 3))],
-      ),
+
+    return _rowShell(
       child: Row(
         children: [
-          const Icon(Icons.brightness_6_rounded, color: Colors.white, size: 22),
+          const Icon(Icons.brightness_6_rounded, color: Colors.white, size: _rowIconSize),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Text('Dark Mode', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text('Dark Mode',
+                style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600)),
           ),
           GestureDetector(
             onTap: () => ctrl.toggleTheme(),
@@ -579,8 +593,48 @@ class _SettingsPageState extends State<SettingsPage> {
                         : Tween<double>(begin: .25, end: 1).animate(anim),
                     child: FadeTransition(opacity: anim, child: child),
                   ),
-              child: Icon(on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
-                  key: ValueKey(on ? 'moon' : 'sun'), size: 26, color: on ? Colors.amber : Colors.white),
+              child: Icon(
+                on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
+                key: ValueKey(on ? 'moon' : 'sun'),
+                size: _rowIconSize,
+                color: on ? Colors.amber : Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Daily Quote toggle row (same size as others; compact white switch)
+  Widget _dailyQuoteRow(BuildContext context) {
+    return _rowShell(
+      child: Row(
+        children: [
+          const Icon(Icons.format_quote_outlined, color: Colors.white, size: _rowIconSize),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Daily Quote',
+              style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Transform.scale(
+            scale: 0.86, // compact to match row height
+            child: Switch.adaptive(
+              value: _dailyQuoteOn,
+              onChanged: (v) async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('daily_quote_enabled', v);
+                if (!mounted) return;
+                setState(() => _dailyQuoteOn = v);
+              },
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              // make the switch white (thumb + track)
+              activeColor: Colors.white,        // thumb (Material) / track (Cupertino) when ON
+              activeTrackColor: Colors.white,    // Material track when ON
+              inactiveThumbColor: Colors.white,  // thumb when OFF
+              inactiveTrackColor: Colors.white70,// track when OFF (slightly dimmer)
             ),
           ),
         ],
@@ -589,7 +643,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _logoutRow(BuildContext context) {
-    final bg = const Color.fromARGB(131, 0, 150, 135);
     Future<void> _confirmLogout() async {
       final theme = Theme.of(context);
       final ok = await showDialog<bool>(
@@ -616,7 +669,6 @@ class _SettingsPageState extends State<SettingsPage> {
         await prefs.remove('user_name');
         await FirebaseAuth.instance.signOut();
         if (!context.mounted) return;
-        // ⬇️ Navigate to LandingPage instead of LoginPage
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const LandingPage()),
@@ -627,20 +679,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return InkWell(
       onTap: _confirmLogout,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: Offset(0, 3))],
-        ),
-        child: const Row(
+      borderRadius: BorderRadius.circular(_rowRadius),
+      child: _rowShell(
+        child: Row(
           children: [
-            Icon(Icons.logout_rounded, color: Colors.white, size: 22),
-            SizedBox(width: 12),
-            Expanded(child: Text('Log out', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600))),
-            Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            const Icon(Icons.logout_rounded, color: Colors.white, size: _rowIconSize),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Log out',
+                  style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: _rowIconSize),
           ],
         ),
       ),
@@ -661,7 +710,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
 // ——— models / helpers ———
 
-enum _RowType { link, darkMode, logout, replay }
+enum _RowType { link, darkMode, logout, replay, dailyQuote }
 
 class _Item {
   final String label;
@@ -695,6 +744,15 @@ class _Item {
         Icons.school_outlined,
         const ['replay tutorial', 'tutorial', 'tour', 'walkthrough', 'guide', 'help', 'how to', 'onboarding', 'showcase', 'intro'],
         _RowType.replay,
+      );
+
+  factory _Item.dailyQuote() => _Item._special(
+        'Daily Quote',
+        Icons.format_quote_outlined,
+        const [
+          'daily quote','quote','inspirational quote','motivation','opening quote','home quote','launch quote'
+        ],
+        _RowType.dailyQuote,
       );
 
   Widget builder() => _builder!.call();
