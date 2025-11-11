@@ -15,6 +15,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:characters/characters.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ← added
 import 'package:new_rezonate/main.dart' as app;
 
 /* ───────── Theme helpers ───────── */
@@ -36,6 +37,60 @@ const _ink = Colors.black;
 const _green = Color(0xFF0D7C66);  // correct
 const _yellow = Color(0xFFE9C46A); // present
 const _grey = Color(0xFFCBD5E1);   // absent
+
+/* ───────── Minimal score store (integer) ───────── */
+
+class _UplingoScores {
+  _UplingoScores._();
+  static final _UplingoScores instance = _UplingoScores._();
+
+  static const String _histKey = 'sbp_uplingo';   // history list
+  static const String _bestKey1 = 'uplingo_best'; // checked by Scoreboard helper
+  static const String _bestKey2 = 'sb_best_uplingo'; // extra alias
+
+  Future<int> best() async {
+    final p = await SharedPreferences.getInstance();
+    final a = p.getInt(_bestKey1) ?? 0;
+    final b = p.getInt(_bestKey2) ?? 0;
+    return a > b ? a : b;
+  }
+
+  /// Save an integer score; returns true if it's a new high score.
+  Future<bool> record(int score) async {
+    final p = await SharedPreferences.getInstance();
+    // history "score|epoch"
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final list = p.getStringList(_histKey) ?? <String>[];
+    list.add('$score|$now');
+    await p.setStringList(_histKey, list);
+
+    // update best under both keys so Stress Busters can find it
+    final prev = await best();
+    if (score > prev) {
+      await p.setInt(_bestKey1, score);
+      await p.setInt(_bestKey2, score);
+      return true;
+    }
+    return false;
+  }
+
+  Future<List<_ScoreRow>> history() async {
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList(_histKey) ?? <String>[];
+    return list.reversed.map((row) {
+      final parts = row.split('|');
+      final s = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
+      final ts = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+      return _ScoreRow(score: s, at: DateTime.fromMillisecondsSinceEpoch(ts * 1000));
+    }).toList();
+  }
+}
+
+class _ScoreRow {
+  final int score;
+  final DateTime at;
+  _ScoreRow({required this.score, required this.at});
+}
 
 /* ───────── Dictionary ───────── */
 
@@ -170,11 +225,103 @@ class _UplingoPageState extends State<UplingoPage> {
 
   final Random _rnd = Random();
 
+  // ---- Best score (integer) & history button ----
+  int _best = 0; // ← shown under the rules
+
   @override
   void initState() {
     super.initState();
     _answer = _pickAnswer();
     _loadDictionary(); // try loading full dictionary from asset
+    _loadBest();       // ← added
+  }
+
+  Future<void> _loadBest() async {
+    _best = await _UplingoScores.instance.best();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openScores() async {
+    final hist = await _UplingoScores.instance.history();
+    final best = await _UplingoScores.instance.best();
+
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 4),
+              const Text(
+                'Uplingo — Score History',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _ink),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.emoji_events_rounded, color: Color(0xFF0D7C66), size: 18),
+                      const SizedBox(width: 6),
+                      Text('Best Score: $best',
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: hist.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Text('No games played yet.',
+                            style: TextStyle(color: Colors.black54)),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: hist.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final e = hist[i];
+                          final when =
+                              '${e.at.year.toString().padLeft(4, '0')}-${e.at.month.toString().padLeft(2, '0')}-${e.at.day.toString().padLeft(2, '0')} '
+                              '${e.at.hour.toString().padLeft(2, '0')}:${e.at.minute.toString().padLeft(2, '0')}';
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                            leading: const Icon(Icons.emoji_events_rounded,
+                                color: Color(0xFF0D7C66)),
+                            title: Text('Score ${e.score}',
+                                style: const TextStyle(fontWeight: FontWeight.w700)),
+                            subtitle: Text(when),
+                            dense: true,
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    _best = best;
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadDictionary() async {
@@ -227,7 +374,13 @@ class _UplingoPageState extends State<UplingoPage> {
     setState(() => _guesses[_row] = cur.substring(0, cur.length - 1));
   }
 
-  void _submit() {
+  // Integer score: first-try win = 60, last-try win = 10, loss = 0.
+  int _scoreForWin(int attemptsUsed) {
+    final remaining = (kMaxRows - (attemptsUsed - 1)).clamp(1, kMaxRows);
+    return remaining * 10;
+  }
+
+  void _submit() async {
     if (_row >= kMaxRows) return;
     final guess = _guesses[_row];
     if (guess.length != kWordLen) {
@@ -244,13 +397,26 @@ class _UplingoPageState extends State<UplingoPage> {
     _updateKeyStatus(guess, marks);
 
     if (guess == _answer) {
+      final attemptsUsed = _row + 1; // 1..6
+      final score = _scoreForWin(attemptsUsed);
+      final isBest = await _UplingoScores.instance.record(score);
+      if (isBest) {
+        _best = score;
+        if (mounted) setState(() {});
+      }
       setState(() => _row = kMaxRows);
       _snack('Correct! 🎉');
       return;
     }
 
+    // Not correct -> advance row; if this was the last attempt, record a 0
+    final nextRow = _row + 1;
+    if (nextRow == kMaxRows) {
+      await _UplingoScores.instance.record(0);
+      _best = await _UplingoScores.instance.best();
+    }
     setState(() {
-      _row += 1;
+      _row = nextRow;
       if (_row == kMaxRows) {
         _snack('The word was "${_answer.toUpperCase()}".');
       }
@@ -449,6 +615,11 @@ class _UplingoPageState extends State<UplingoPage> {
               const Text('Uplingo', style: TextStyle(fontWeight: FontWeight.w900)),
           actions: [
             IconButton(
+              tooltip: 'Scores',                            // ← added
+              onPressed: _openScores,                       // ← added
+              icon: const Icon(Icons.equalizer_rounded),   // ← added
+            ),
+            IconButton(
               tooltip: 'New game',
               onPressed: _restart,
               icon: const Icon(Icons.refresh_rounded),
@@ -477,6 +648,29 @@ class _UplingoPageState extends State<UplingoPage> {
                       child: const Text(
                         'Guess the 5-letter word. Real words only. Press Submit.',
                         textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Best score chip (matches Matching style)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _ink),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.emoji_events_rounded,
+                                color: Color(0xFF0D7C66), size: 18),
+                            const SizedBox(width: 6),
+                            Text('Best Score: $_best',
+                                style: const TextStyle(fontWeight: FontWeight.w800)),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

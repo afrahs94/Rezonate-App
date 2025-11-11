@@ -110,6 +110,14 @@ List<String> _fieldCandidates(String game) {
     ]);
   }
 
+  // ⬇️ Explicitly include Uplingo’s keys used by its page storage.
+  if (game == _GameId.uplingo) {
+    keys.addAll([
+      'uplingo_best',
+      'sb_best_uplingo',
+    ]);
+  }
+
   return keys;
 }
 
