@@ -404,7 +404,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           style: TextStyle(
             fontWeight: FontWeight.w800,
             color: Colors.black,
-            fontSize: 28,
+            fontSize: 24, // ↓ a bit smaller
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
