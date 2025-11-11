@@ -9,6 +9,26 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_cropper/image_cropper.dart';
 
+/// Match the back button used on the Word Search page.
+class _BackButtonIOS extends StatelessWidget {
+  const _BackButtonIOS({this.onPressed, this.iconSize = 22, super.key});
+  final VoidCallback? onPressed;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2B2B2B)),
+      iconSize: iconSize,
+      padding: const EdgeInsets.only(left: 6),
+      constraints: const BoxConstraints.tightFor(width: 52, height: 52),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+    );
+  }
+}
+
 class EditProfilePage extends StatefulWidget {
   final String userName;
   const EditProfilePage({super.key, required this.userName});
@@ -415,11 +435,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     children: [
                       Row(
                         children: [
-                          IconButton(
-                            icon: Icon(Icons.arrow_back,
-                                color: isDark ? Colors.white : Colors.black),
-                            onPressed: () => Navigator.pop(context),
-                          ),
+                          _BackButtonIOS(onPressed: () => Navigator.pop(context), iconSize: 22),
                           const SizedBox(width: 6),
                           Text(
                             'Edit Profile',
