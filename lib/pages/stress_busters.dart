@@ -83,7 +83,10 @@ List<String> _fieldCandidates(String game) {
     _GameId.scramble  : 'sc',
   }[game]!;
   final camel = game.split('_').map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join();
-  return <String>[
+
+  // Existing possibilities + the SharedPreferences keys used by the games.
+  final keys = <String>[
+    // generic/old patterns
     '${game}_best',
     'best_$game',
     '${camel}Best',
@@ -94,13 +97,27 @@ List<String> _fieldCandidates(String game) {
     'highScore',
     'max',
     'score',
+    // new common keys used by mini-games
+    'sb_best_$game',
+    'sbp_best_$game',
   ];
+
+  // Matching historically also wrote to "*matchhard*" keys — include them.
+  if (game == _GameId.matching) {
+    keys.addAll([
+      'sbp_best_matchhard',
+      'sb_best_matchhard',
+    ]);
+  }
+
+  return keys;
 }
 
 Future<int> _readBestForGame(String game) async {
   final user = FirebaseAuth.instance.currentUser;
   int best = 0;
 
+  // Firestore (if signed in)
   if (user != null) {
     for (final doc in _candidateDocs(user.uid, game)) {
       try {
@@ -116,6 +133,7 @@ Future<int> _readBestForGame(String game) async {
     }
   }
 
+  // Local SharedPreferences fallback
   try {
     final prefs = await SharedPreferences.getInstance();
     for (final f in _fieldCandidates(game)) {
