@@ -1,12 +1,15 @@
 // lib/pages/uplingo.dart
 //
 // Uplingo (Wordle-style)
-// - Real-word validation (against _validWords)
+// - Keyboard keys reflect board colors (green/yellow/gray).
+// - Real-word validation against a large dictionary.
+//   -> Loads an external 5-letter word list if present at:
+//        assets/words/words_5.txt
+//      (one word per line, lowercase)
+//      Falls back to a built-in mini list if the asset is missing.
+//
 // - Submit button (no auto-submit)
-// - Smaller on-screen keyboard
-// - Fix: NO black band at the bottom. We wrap the Scaffold with a full-screen
-//   gradient Container so the background fills the whole window (including the
-//   home-indicator area). No bottomNavigationBar is used.
+// - No black band at the bottom: the Scaffold sits on a full-screen gradient.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -30,57 +33,62 @@ BoxDecoration _bg(BuildContext context) {
 }
 
 const _ink = Colors.black;
+const _green = Color(0xFF0D7C66);  // correct
+const _yellow = Color(0xFFE9C46A); // present
+const _grey = Color(0xFFCBD5E1);   // absent
 
-/* ───────── Word lists ───────── */
+/* ───────── Dictionary ───────── */
 
-const Set<String> _validWords = {
-  // compact common dictionary (lowercase)
+// Small built-in fallback (so the game still runs without the asset).
+final Set<String> _builtinWords = {
   'about','above','actor','acute','adopt','adult','after','again','agent','agree','ahead','alarm',
   'album','alert','alike','allow','alone','along','alter','among','angle','angry','apple','apply',
   'april','argue','arise','array','aside','asset','audio','audit','avoid','awake','aware','badge',
-  'basic','beach','begin','being','below','bench','bible','birth','black','blade','blame','blank',
-  'blast','blind','block','blood','board','boost','booth','bound','brain','brand','bread','break',
-  'breed','brick','brief','bring','broad','broke','brown','brush','build','buyer','cabin','cable',
-  'carry','catch','cause','chain','chair','chart','chase','cheap','check','cheek','chess','chief',
-  'child','china','choir','chose','civil','claim','class','clean','clear','clerk','click','clock',
-  'close','coach','coast','could','count','court','cover','craft','cream','crime','cross','crowd',
-  'crown','cycle','daily','dance','dated','dealt','death','debut','delay','depth','dirty','doubt',
-  'dozen','draft','drama','drawn','dream','dress','drill','drink','drive','drove','dying','eager',
-  'early','earth','eight','elite','empty','enemy','enjoy','enter','entry','equal','error','event',
-  'every','exact','exist','extra','faith','false','fault','favor','fewer','fiber','field','fifth',
-  'fifty','fight','final','finds','first','fixed','flash','fleet','floor','fluid','focus','force',
-  'forth','forty','forum','found','frame','fresh','front','fruit','fully','funny','giant','given',
-  'glass','globe','going','grace','grade','grain','grand','grant','grass','great','green','greet',
-  'group','growl','grown','guard','guess','guest','guide','habit','happy','harsh','heart','heavy',
-  'hence','hobby','honor','horse','hotel','house','human','humor','ideal','image','imply','index',
-  'inner','input','issue','jeans','joint','judge','juice','kneel','knife','known','label','labor',
-  'large','laser','later','laugh','layer','learn','least','leave','legal','lemon','level','light',
-  'limit','local','logic','loose','lucky','lunch','magic','major','maker','march','match','maybe',
-  'mayor','meant','media','metal','minor','mixed','model','money','month','moral','motor','mount',
-  'mouse','mouth','movie','music','naive','nasty','nerve','never','newer','night','ninth','noble',
-  'noise','north','novel','nurse','occur','ocean','offer','often','older','olive','onion','order',
-  'other','ought','paint','panel','paper','party','pause','peace','pearl','phase','phone','photo',
-  'piece','pilot','pitch','place','plain','plane','plant','plate','plead','point','polar','porch',
-  'pound','power','press','price','pride','prime','print','prior','prize','proof','proud','prove',
-  'queen','quick','quiet','quite','quota','quote','radio','raise','range','rapid','ratio','reach',
-  'react','ready','realm','refer','right','rigid','rival','river','robot','rough','round','route',
-  'royal','rural','sadly','safer','salad','scale','scene','scope','score','scout','screw','seize',
-  'sense','serve','seven','sever','shade','shake','shall','shame','shape','share','sharp','sheep',
-  'sheer','sheet','shelf','shell','shift','shine','shirt','shock','shoot','shore','short','shown',
-  'sight','since','skill','skirt','sleep','slide','slope','small','smart','smile','smoke','solid',
-  'solve','sorry','sound','south','space','spare','speak','speed','spend','spent','spice','spite',
-  'split','spoke','sport','staff','stage','stain','stair','stake','stand','stare','start','state',
-  'steam','steel','steep','stick','still','stock','stone','stood','store','storm','story','stove',
-  'strap','straw','strip','stuck','study','stuff','style','sugar','suite','sunny','super','sweet',
-  'table','taken','taste','taxes','teach','teeth','terry','thank','their','theme','there','these',
-  'thick','thing','think','third','those','three','threw','throw','tight','tired','title','today',
-  'tooth','topic','total','touch','tough','tower','trace','track','trade','trail','train','treat',
-  'trend','trial','tribe','trick','truck','truly','trust','truth','twice','uncle','under','union',
-  'unity','until','upper','upset','urban','usage','usual','vague','valid','value','video','virus',
-  'visit','vital','vivid','voice','voter','waste','watch','water','weary','weigh','weird','whale',
-  'wheat','wheel','where','which','while','white','whole','whose','widow','width','woman','women',
-  'worst','worth','wound','write','wrong','young','youth',
+  'basic','beach','begin','being','below','bench','birth','black','blade','blame','blank','blast',
+  'blind','block','blood','board','boost','booth','bound','brain','brand','bread','break','breed',
+  'brick','brief','bring','broad','broke','brown','brush','build','buyer','cabin','cable','carry',
+  'catch','cause','chain','chair','chart','chase','cheap','check','cheek','chess','chief','child',
+  'choir','chose','civil','claim','class','clean','clear','clerk','click','clock','close','coach',
+  'coast','could','count','court','cover','craft','cream','crime','cross','crowd','crown','cycle',
+  'daily','dance','dated','dealt','death','debut','delay','depth','dirty','doubt','dozen','draft',
+  'drama','drawn','dream','dress','drill','drink','drive','drove','dying','eager','early','earth',
+  'eight','elite','empty','enemy','enjoy','enter','entry','equal','error','event','every','exact',
+  'exist','extra','faith','false','fault','favor','fewer','fiber','field','fifth','fifty','fight',
+  'final','finds','first','fixed','flash','fleet','floor','fluid','focus','force','forth','forty',
+  'forum','found','frame','fresh','front','fruit','fully','funny','giant','given','glass','globe',
+  'going','grace','grade','grain','grand','grant','grass','great','green','greet','group','grown',
+  'guard','guess','guest','guide','habit','happy','harsh','heart','heavy','hence','hobby','honor',
+  'horse','hotel','house','human','humor','ideal','image','imply','index','inner','input','issue',
+  'jeans','joint','judge','juice','kneel','knife','known','label','labor','large','laser','later',
+  'laugh','layer','learn','least','leave','legal','lemon','level','light','limit','local','logic',
+  'loose','lucky','lunch','magic','major','maker','march','match','maybe','mayor','meant','media',
+  'metal','minor','mixed','model','money','month','moral','motor','mount','mouse','mouth','movie',
+  'music','naive','nasty','nerve','never','newer','night','ninth','noble','noise','north','novel',
+  'nurse','occur','ocean','offer','often','older','olive','onion','order','other','ought','paint',
+  'panel','paper','party','pause','peace','pearl','phase','phone','photo','piece','pilot','pitch',
+  'place','plain','plane','plant','plate','plead','point','polar','porch','pound','power','press',
+  'price','pride','prime','print','prior','prize','proof','proud','prove','queen','quick','quiet',
+  'quite','quota','quote','radio','raise','range','rapid','ratio','reach','react','ready','realm',
+  'refer','right','rigid','rival','river','robot','rough','round','route','royal','rural','sadly',
+  'safer','salad','scale','scene','scope','score','scout','seize','sense','serve','seven','shade',
+  'shake','shall','shame','shape','share','sharp','sheep','sheet','shelf','shell','shift','shine',
+  'shirt','shock','shoot','shore','short','shown','sight','since','skill','skirt','sleep','slide',
+  'slope','small','smart','smile','smoke','solid','solve','sorry','sound','south','space','spare',
+  'speak','speed','spend','spent','spice','spite','split','spoke','sport','staff','stage','stain',
+  'stair','stake','stand','stare','start','state','steam','steel','steep','stick','still','stock',
+  'stone','stood','store','storm','story','stove','strap','straw','strip','stuck','study','stuff',
+  'style','sugar','suite','sunny','super','sweet','table','taken','taste','taxes','teach','teeth',
+  'thank','their','theme','there','these','thick','thing','think','third','those','three','threw',
+  'throw','tight','tired','title','today','tooth','topic','total','touch','tough','tower','trace',
+  'track','trade','trail','train','treat','trend','trial','tribe','trick','truck','truly','trust',
+  'truth','twice','uncle','under','union','unity','until','upper','upset','urban','usage','usual',
+  'vague','valid','value','video','virus','visit','vital','vivid','voice','voter','waste','watch',
+  'water','weary','weigh','weird','whale','wheat','wheel','where','which','while','white','whole',
+  'whose','widow','width','woman','women','worst','worth','wound','write','wrong','young','youth',
 };
+
+// Runtime dictionary (starts with fallback; expanded with asset if available).
+Set<String> _validWords = {..._builtinWords};
 
 const List<String> _answers = [
   'apple','share','train','night','prize','teeth','water','music','green',
@@ -91,6 +99,51 @@ List<String> get _answersSafe {
   final filtered =
       _answers.where((w) => w.length == 5 && _validWords.contains(w)).toList();
   return filtered.isEmpty ? const ['apple'] : filtered;
+}
+
+/* ───────── Scoring ───────── */
+
+enum _Mark { unknown, absent, present, correct }
+
+int _rank(_Mark m) {
+  switch (m) {
+    case _Mark.unknown:
+      return 0;
+    case _Mark.absent:
+      return 1;
+    case _Mark.present:
+      return 2;
+    case _Mark.correct:
+      return 3;
+  }
+}
+
+/// Wordle-style two-pass scoring to handle duplicates.
+List<_Mark> _scoreGuess(String guess, String answer) {
+  final res = List<_Mark>.filled(guess.length, _Mark.absent);
+  final used = List<bool>.filled(answer.length, false);
+
+  // pass 1: greens
+  for (var i = 0; i < guess.length; i++) {
+    if (guess[i] == answer[i]) {
+      res[i] = _Mark.correct;
+      used[i] = true;
+    }
+  }
+
+  // pass 2: yellows
+  for (var i = 0; i < guess.length; i++) {
+    if (res[i] == _Mark.correct) continue;
+    final ch = guess[i];
+    for (var j = 0; j < answer.length; j++) {
+      if (!used[j] && answer[j] == ch) {
+        res[i] = _Mark.present;
+        used[j] = true;
+        break;
+      }
+    }
+  }
+  return res;
 }
 
 /* ───────── Page ───────── */
@@ -109,12 +162,38 @@ class _UplingoPageState extends State<UplingoPage> {
   int _row = 0;
   final List<String> _guesses =
       List<String>.filled(kMaxRows, '', growable: false);
+  final List<List<_Mark>?> _rowMarks =
+      List<List<_Mark>?>.filled(kMaxRows, null, growable: false);
+
+  // Tracks the best-known status per keyboard letter (A–Z).
+  final Map<String, _Mark> _keyStatus = {};
+
   final Random _rnd = Random();
 
   @override
   void initState() {
     super.initState();
     _answer = _pickAnswer();
+    _loadDictionary(); // try loading full dictionary from asset
+  }
+
+  Future<void> _loadDictionary() async {
+    try {
+      // Put your full list at assets/words/words_5.txt (lowercase, one per line)
+      final txt = await rootBundle.loadString('assets/words/words_5.txt');
+      final lines = txt
+          .split(RegExp(r'\r?\n'))
+          .map((s) => s.trim().toLowerCase())
+          .where((s) => s.length == 5 && RegExp(r'^[a-z]+$').hasMatch(s));
+      setState(() {
+        _validWords = {..._validWords, ...lines};
+        // ensure all answer words are allowed even if not in file
+        _validWords.addAll(_answers);
+      });
+    } catch (_) {
+      // asset missing -> fallback list already loaded
+      _validWords.addAll(_answers);
+    }
   }
 
   String _pickAnswer() {
@@ -128,7 +207,9 @@ class _UplingoPageState extends State<UplingoPage> {
       _row = 0;
       for (var i = 0; i < kMaxRows; i++) {
         _guesses[i] = '';
+        _rowMarks[i] = null;
       }
+      _keyStatus.clear();
     });
   }
 
@@ -157,11 +238,17 @@ class _UplingoPageState extends State<UplingoPage> {
       _snack('Not in word list.');
       return;
     }
+
+    final marks = _scoreGuess(guess, _answer);
+    _rowMarks[_row] = marks;
+    _updateKeyStatus(guess, marks);
+
     if (guess == _answer) {
-      _snack('Correct! 🎉');
       setState(() => _row = kMaxRows);
+      _snack('Correct! 🎉');
       return;
     }
+
     setState(() {
       _row += 1;
       if (_row == kMaxRows) {
@@ -170,20 +257,41 @@ class _UplingoPageState extends State<UplingoPage> {
     });
   }
 
+  void _updateKeyStatus(String guess, List<_Mark> marks) {
+    for (var i = 0; i < guess.length; i++) {
+      final key = guess[i].toUpperCase();
+      final next = marks[i];
+      final prev = _keyStatus[key] ?? _Mark.unknown;
+      if (_rank(next) > _rank(prev)) {
+        _keyStatus[key] = next;
+      }
+    }
+    setState(() {});
+  }
+
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Color _colorForMark(_Mark m) {
+    switch (m) {
+      case _Mark.correct:
+        return _green;
+      case _Mark.present:
+        return _yellow;
+      case _Mark.absent:
+        return _grey;
+      case _Mark.unknown:
+        return Colors.white;
+    }
+  }
+
   Color _tileColor(int r, int c) {
-    final guess = _guesses[r];
-    if (r >= _row) return Colors.white; // current/future rows
-    if (c >= guess.length) return Colors.white;
-    final ch = guess[c];
-    if (_answer[c] == ch) return const Color(0xFF0D7C66); // correct
-    if (_answer.contains(ch)) return const Color(0xFFE9C46A); // present
-    return const Color(0xFFCBD5E1); // absent
+    final marks = _rowMarks[r];
+    if (marks == null) return Colors.white;
+    return _colorForMark(marks[c]);
   }
 
   Color _tileBorder(int r) => r < _row ? Colors.transparent : _ink;
@@ -227,6 +335,7 @@ class _UplingoPageState extends State<UplingoPage> {
   }
 
   Widget _kbdKey(String label, double w, double h) {
+    final status = _keyStatus[label] ?? _Mark.unknown;
     return SizedBox(
       width: w,
       height: h,
@@ -234,16 +343,16 @@ class _UplingoPageState extends State<UplingoPage> {
         onPressed: () => _typeLetter(label),
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero,
-          backgroundColor: Colors.white,
+          backgroundColor: _colorForMark(status),
           elevation: 0,
           side: const BorderSide(color: _ink),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            color: _ink,
-            fontWeight: FontWeight.w700,
+          style: TextStyle(
+            color: status == _Mark.unknown ? _ink : Colors.black,
+            fontWeight: FontWeight.w800,
             fontSize: 16,
           ),
         ),
@@ -291,7 +400,8 @@ class _UplingoPageState extends State<UplingoPage> {
         children.add(const SizedBox(width: gap));
       }
       for (final k in keys.characters) {
-        children.add(_kbdKey(k, keyW, keyH));
+        final key = k.toUpperCase();
+        children.add(_kbdKey(key, keyW, keyH));
         children.add(const SizedBox(width: gap));
       }
       if (children.isNotEmpty) children.removeLast();
@@ -329,8 +439,7 @@ class _UplingoPageState extends State<UplingoPage> {
       child: Scaffold(
         extendBody: true,
         extendBodyBehindAppBar: true,
-        backgroundColor: Colors
-            .transparent, // keep transparent so the outer gradient is visible
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -346,9 +455,7 @@ class _UplingoPageState extends State<UplingoPage> {
             ),
           ],
         ),
-        // No bottomNavigationBar (that can reintroduce a black strip)
         body: SafeArea(
-          // allow content above the home-indicator while gradient remains behind it
           bottom: true,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
