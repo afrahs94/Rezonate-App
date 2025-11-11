@@ -12,7 +12,6 @@ import 'package:new_rezonate/pages/change_password.dart';
 import 'package:new_rezonate/pages/security_privacy.dart';
 import 'package:new_rezonate/pages/push_notifs.dart';
 import 'package:new_rezonate/pages/deactivate.dart';
-import 'package:new_rezonate/pages/login_page.dart';
 import 'package:new_rezonate/pages/landing_page.dart';
 
 import 'onboarding.dart';
@@ -29,32 +28,29 @@ class SettingsPage extends StatefulWidget {
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation,
-          Animation<double> secondaryAnimation, Widget child) =>
+  Widget buildTransitions(
+          BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) =>
       child;
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // --- size tokens (smaller & consistent across all rows) ---
-  static const double _rowHPad = 16.0;
-  static const double _rowVPad = 10.0;
-  static const double _rowRadius = 20.0;
-  static const double _rowIconSize = 20.0;
-  static const double _rowFontSize = 16.5;
-  static const double _rowMinHeight = 56.0;
+  // smaller option rows
+  static const double _rowHPad = 14.0;
+  static const double _rowVPad = 8.0;
+  static const double _rowRadius = 18.0;
+  static const double _rowIconSize = 18.0;
+  static const double _rowFontSize = 14.5;
+  static const double _rowMinHeight = 48.0;
 
   final TextEditingController _searchCtrl = TextEditingController();
   late List<_Item> _all;
   late List<_Item> _shown;
   late List<String> _suggestions;
 
-  // Showcase target for the search box
   final GlobalKey _settingsSearchKey = GlobalKey();
+  bool _startedSearchShowcase = false;
+  Timer? _replayAutoFinishTimer;
 
-  bool _startedSearchShowcase = false; // avoid double-start
-  Timer? _replayAutoFinishTimer;       // auto-complete in replay
-
-  // Daily Quote toggle state
   bool _dailyQuoteOn = true;
 
   @override
@@ -99,7 +95,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
         builder: () => PushNotificationsPage(userName: widget.userName),
       ),
-      // Daily Quote toggle row
       _Item.dailyQuote(),
       _Item.replayTutorial(),
       _Item(
@@ -123,9 +118,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _loadDailyQuotePref() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() {
-      _dailyQuoteOn = prefs.getBool('daily_quote_enabled') ?? true;
-    });
+    setState(() => _dailyQuoteOn = prefs.getBool('daily_quote_enabled') ?? true);
   }
 
   @override
@@ -140,21 +133,17 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_startedSearchShowcase) return;
 
     final stage = await Onboarding.getStage();
-    final shouldShow = stage == OnboardingStage.settingsSearch ||
-        stage == OnboardingStage.replayingTutorial;
+    final shouldShow = stage == OnboardingStage.settingsSearch || stage == OnboardingStage.replayingTutorial;
     if (!shouldShow) return;
 
     _startedSearchShowcase = true;
 
     if (Onboarding.isFreshSignup) {
       Onboarding.isFreshSignup = false;
-
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Welcome! Let’s walk through the Settings briefly.'),
-            ),
+            const SnackBar(content: Text('Welcome! Let’s walk through the Settings briefly.')),
           );
         }
       });
@@ -171,9 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
         } catch (_) {}
         await Onboarding.completeReplay();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tutorial finished ✨')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tutorial finished ✨')));
       });
     }
   }
@@ -181,7 +168,8 @@ class _SettingsPageState extends State<SettingsPage> {
   // ---------- search helpers ----------
   String _norm(String s) => s.toLowerCase().trim();
   int _lev(String a, String b) {
-    a = _norm(a); b = _norm(b);
+    a = _norm(a);
+    b = _norm(b);
     if (a == b) return 0;
     if (a.isEmpty) return b.length;
     if (b.isEmpty) return a.length;
@@ -192,11 +180,7 @@ class _SettingsPageState extends State<SettingsPage> {
     for (var i = 1; i <= m; i++) {
       for (var j = 1; j <= n; j++) {
         final cost = a[i - 1] == b[j - 1] ? 0 : 1;
-        dp[i][j] = [
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + cost
-        ].reduce((x, y) => x < y ? x : y);
+        dp[i][j] = [dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost].reduce((x, y) => x < y ? x : y);
       }
     }
     return dp[m][n];
@@ -219,8 +203,7 @@ class _SettingsPageState extends State<SettingsPage> {
         if (best == 0) break;
       }
       if (best <= 3) {
-        scores[it.label] =
-            scores[it.label] == null ? best : (best < scores[it.label]! ? best : scores[it.label]!);
+        scores[it.label] = scores[it.label] == null ? best : (best < scores[it.label]! ? best : scores[it.label]!);
       }
     }
     final sorted = scores.entries.toList()
@@ -231,7 +214,10 @@ class _SettingsPageState extends State<SettingsPage> {
   void _onSearch() {
     final q = _searchCtrl.text.toLowerCase().trim();
     if (q.isEmpty) {
-      setState(() { _shown = List.of(_all); _suggestions = []; });
+      setState(() {
+        _shown = List.of(_all);
+        _suggestions = [];
+      });
       return;
     }
     final tokens = q.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
@@ -258,60 +244,6 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  Future<void> _goToSearchResult() async {
-    final results = _shown.where((it) => it.type == _RowType.link).toList();
-    if (results.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No matching settings found')));
-      return;
-    }
-    if (results.length == 1) {
-      if (!mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => results.first.builder()));
-      return;
-    }
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        final dark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xFF123A36) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
-          ),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  height: 4, width: 44, margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(20)),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text('Select a setting', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-                ...results.map((it) => ListTile(
-                      leading: const Icon(Icons.tune, color: Color(0xFF0D7C66)),
-                      title: const Text('Open', style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(it.label),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => it.builder()));
-                      },
-                    )),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   List<Color> _gradient(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return dark
@@ -329,9 +261,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await Onboarding.markDone();
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('You’re all set ✨')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You’re all set ✨')));
   }
 
   @override
@@ -339,146 +269,167 @@ class _SettingsPageState extends State<SettingsPage> {
     final g = _gradient(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final searchFill = isDark ? const Color(0x1AF5F5F5) : Colors.white;
+    final bottomPad = MediaQuery.of(context).viewPadding.bottom;
 
     return ShowCaseWidget(
       builder: (root) {
         return Builder(
           builder: (ctxUnderShowcase) {
             final show = ShowCaseWidget.of(ctxUnderShowcase);
-
             if (!_startedSearchShowcase) {
               _maybeStartSettingsShowcase(ctxUnderShowcase);
             }
 
             return Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: g, begin: Alignment.topCenter, end: Alignment.bottomCenter),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    children: [
-                      // Header
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 29, 16, 8),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: IconButton(
-                                tooltip: 'Back',
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
-                                onPressed: () => Navigator.pushReplacement(
-                                  context,
-                                  NoTransitionPageRoute(
-                                    builder: (_) => HomePage(userName: widget.userName),
+              // Fill any uncovered area (like under the iOS home indicator)
+              backgroundColor: g.last, // <— eliminates black at bottom
+              extendBody: true,
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: g, begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                      ),
+                    ),
+                  ),
+                  // Entire screen scrolls (header INCLUDED)
+                  SafeArea(
+                    bottom: false,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.only(bottom: 12 + bottomPad),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Header (scrollable)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 29, 16, 8),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: IconButton(
+                                    tooltip: 'Back',
+                                    splashColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
+                                    onPressed: () => Navigator.pushReplacement(
+                                      context,
+                                      NoTransitionPageRoute(
+                                        builder: (_) => HomePage(userName: widget.userName),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const Center(
+                                  child: Text(
+                                    'Settings',
+                                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.black),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Search
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                            child: Showcase(
+                              key: _settingsSearchKey,
+                              description:
+                                  'Search anything in Settings — try “password”, “notifications”, or “dark mode”.',
+                              disposeOnTap: true,
+                              onTargetClick: () => _finishTutorial(show),
+                              onToolTipClick: () => _finishTutorial(show),
+                              onBarrierClick: () => _finishTutorial(show),
+                              child: Material(
+                                elevation: 4,
+                                shadowColor: Colors.black12,
+                                borderRadius: BorderRadius.circular(28),
+                                child: TextField(
+                                  controller: _searchCtrl,
+                                  textInputAction: TextInputAction.search,
+                                  onSubmitted: (_) {
+                                    _onSearch();
+                                    FocusScope.of(context).unfocus();
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Search settings…',
+                                    filled: true,
+                                    fillColor: searchFill,
+                                    prefixIcon: const Icon(Icons.search),
+                                    suffixIcon: _searchCtrl.text.isEmpty
+                                        ? null
+                                        : IconButton(
+                                            tooltip: 'Clear',
+                                            icon: const Icon(Icons.close),
+                                            onPressed: () {
+                                              _searchCtrl.clear();
+                                              _onSearch();
+                                            },
+                                          ),
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                      borderSide: BorderSide.none,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            const Center(
-                              child: Text(
-                                'Settings',
-                                // smaller title
-                                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.black),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Search
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                        child: Showcase(
-                          key: _settingsSearchKey,
-                          description:
-                              'Search anything in Settings — try “password”, “notifications”, or “dark mode”.',
-                          disposeOnTap: true,
-                          onTargetClick: () => _finishTutorial(show),
-                          onToolTipClick: () => _finishTutorial(show),
-                          onBarrierClick: () => _finishTutorial(show),
-                          child: Material(
-                            elevation: 4,
-                            shadowColor: Colors.black12,
-                            borderRadius: BorderRadius.circular(28),
-                            child: TextField(
-                              controller: _searchCtrl,
-                              textInputAction: TextInputAction.search,
-                              onSubmitted: (_) {
-                                _onSearch();
-                                FocusScope.of(context).unfocus();
-                              },
-                              decoration: InputDecoration(
-                                hintText: 'Search settings…',
-                                filled: true,
-                                fillColor: searchFill,
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon: _searchCtrl.text.isEmpty
-                                    ? null
-                                    : IconButton(
-                                        tooltip: 'Clear',
-                                        icon: const Icon(Icons.close),
-                                        onPressed: () {
-                                          _searchCtrl.clear();
-                                          _onSearch();
-                                        },
-                                      ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
                           ),
-                        ),
-                      ),
 
-                      if (_suggestions.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
-                          child: _DidYouMean(
-                            suggestions: _suggestions,
-                            onTap: (label) {
-                              _searchCtrl.text = label;
-                              _searchCtrl.selection = TextSelection.fromPosition(
-                                TextPosition(offset: _searchCtrl.text.length),
-                              );
-                              _onSearch();
-                            },
-                          ),
-                        ),
-
-                      Expanded(
-                        child: _shown.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'No results',
-                                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54),
-                                ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                                itemCount: _shown.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 14),
-                                itemBuilder: (context, i) {
-                                  final it = _shown[i];
-                                  if (it.type == _RowType.darkMode) return _darkModeRow(context);
-                                  if (it.type == _RowType.logout) return _logoutRow(context);
-                                  if (it.type == _RowType.replay) return _replayRow(context);
-                                  if (it.type == _RowType.dailyQuote) return _dailyQuoteRow(context);
-                                  return _linkRow(context, it);
+                          if (_suggestions.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                              child: _DidYouMean(
+                                suggestions: _suggestions,
+                                onTap: (label) {
+                                  _searchCtrl.text = label;
+                                  _searchCtrl.selection =
+                                      TextSelection.fromPosition(TextPosition(offset: _searchCtrl.text.length));
+                                  _onSearch();
                                 },
                               ),
+                            ),
+
+                          // Options
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                            child: _shown.isEmpty
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 24),
+                                      child: Text(
+                                        'No results',
+                                        style:
+                                            TextStyle(fontWeight: FontWeight.w600, color: Colors.black54),
+                                      ),
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: _shown.length,
+                                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                    itemBuilder: (context, i) {
+                                      final it = _shown[i];
+                                      if (it.type == _RowType.darkMode) return _darkModeRow(context);
+                                      if (it.type == _RowType.logout) return _logoutRow(context);
+                                      if (it.type == _RowType.replay) return _replayRow(context);
+                                      if (it.type == _RowType.dailyQuote) return _dailyQuoteRow(context);
+                                      return _linkRow(context, it);
+                                    },
+                                  ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             );
           },
@@ -511,7 +462,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Row(
           children: [
             Icon(it.icon, color: Colors.white, size: _rowIconSize),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 it.label,
@@ -557,7 +508,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Row(
           children: [
             const Icon(Icons.school_outlined, color: Colors.white, size: _rowIconSize),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Text('Replay Tutorial',
                   style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600)),
@@ -577,7 +528,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Row(
         children: [
           const Icon(Icons.brightness_6_rounded, color: Colors.white, size: _rowIconSize),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text('Dark Mode',
                 style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600)),
@@ -586,13 +537,12 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () => ctrl.toggleTheme(),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 500),
-              transitionBuilder: (child, anim) =>
-                  RotationTransition(
-                    turns: child.key == const ValueKey('sun')
-                        ? Tween<double>(begin: .75, end: 1).animate(anim)
-                        : Tween<double>(begin: .25, end: 1).animate(anim),
-                    child: FadeTransition(opacity: anim, child: child),
-                  ),
+              transitionBuilder: (child, anim) => RotationTransition(
+                turns: child.key == const ValueKey('sun')
+                    ? Tween<double>(begin: .75, end: 1).animate(anim)
+                    : Tween<double>(begin: .25, end: 1).animate(anim),
+                child: FadeTransition(opacity: anim, child: child),
+              ),
               child: Icon(
                 on ? Icons.dark_mode_rounded : Icons.wb_sunny_rounded,
                 key: ValueKey(on ? 'moon' : 'sun'),
@@ -606,13 +556,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Daily Quote toggle row (same size as others; compact white switch)
   Widget _dailyQuoteRow(BuildContext context) {
     return _rowShell(
       child: Row(
         children: [
           const Icon(Icons.format_quote_outlined, color: Colors.white, size: _rowIconSize),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Daily Quote',
@@ -620,7 +569,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           Transform.scale(
-            scale: 0.86, // compact to match row height
+            scale: 0.86,
             child: Switch.adaptive(
               value: _dailyQuoteOn,
               onChanged: (v) async {
@@ -630,11 +579,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() => _dailyQuoteOn = v);
               },
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              // make the switch white (thumb + track)
-              activeColor: Colors.white,        // thumb (Material) / track (Cupertino) when ON
-              activeTrackColor: Colors.white,    // Material track when ON
-              inactiveThumbColor: Colors.white,  // thumb when OFF
-              inactiveTrackColor: Colors.white70,// track when OFF (slightly dimmer)
+              activeColor: Colors.white,
+              activeTrackColor: Colors.white,
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: Colors.white70,
             ),
           ),
         ],
@@ -684,7 +632,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Row(
           children: [
             const Icon(Icons.logout_rounded, color: Colors.white, size: _rowIconSize),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Text('Log out',
                   style: TextStyle(color: Colors.white, fontSize: _rowFontSize, fontWeight: FontWeight.w600)),
@@ -696,6 +644,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // (kept for parity with your app’s nav style; unused here)
   Widget _navIcon(BuildContext context, {required IconData icon, required bool selected, required VoidCallback onTap}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = selected ? (isDark ? const Color(0xFFBDA9DB) : const Color(0xFF0D7C66)) : Colors.white;
@@ -729,8 +678,7 @@ class _Item {
 
   _Item._special(this.label, this.icon, this.keywords, this.type) : _builder = null;
 
-  factory _Item.darkMode() =>
-      _Item._special('Dark Mode', Icons.dark_mode_rounded, const [], _RowType.darkMode);
+  factory _Item.darkMode() => _Item._special('Dark Mode', Icons.dark_mode_rounded, const [], _RowType.darkMode);
 
   factory _Item.logout() => _Item._special(
         'Log out',
@@ -742,16 +690,25 @@ class _Item {
   factory _Item.replayTutorial() => _Item._special(
         'Replay Tutorial',
         Icons.school_outlined,
-        const ['replay tutorial', 'tutorial', 'tour', 'walkthrough', 'guide', 'help', 'how to', 'onboarding', 'showcase', 'intro'],
+        const [
+          'replay tutorial',
+          'tutorial',
+          'tour',
+          'walkthrough',
+          'guide',
+          'help',
+          'how to',
+          'onboarding',
+          'showcase',
+          'intro'
+        ],
         _RowType.replay,
       );
 
   factory _Item.dailyQuote() => _Item._special(
         'Daily Quote',
         Icons.format_quote_outlined,
-        const [
-          'daily quote','quote','inspirational quote','motivation','opening quote','home quote','launch quote'
-        ],
+        const ['daily quote', 'quote', 'inspirational quote', 'motivation', 'opening quote', 'home quote', 'launch quote'],
         _RowType.dailyQuote,
       );
 
@@ -775,7 +732,9 @@ class _DidYouMean extends StatelessWidget {
           child: Wrap(
             spacing: 8,
             runSpacing: -6,
-            children: suggestions.map((s) => ActionChip(label: Text(s), onPressed: () => onTap(s), elevation: 0)).toList(),
+            children: suggestions
+                .map((s) => ActionChip(label: Text(s), onPressed: () => onTap(s), elevation: 0))
+                .toList(),
           ),
         ),
       ],
