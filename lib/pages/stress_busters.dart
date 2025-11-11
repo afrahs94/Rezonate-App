@@ -7,6 +7,9 @@ import 'package:new_rezonate/main.dart' as app;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+// Local fallback
+import 'package:shared_preferences/shared_preferences.dart';
+
 // Game pages
 import 'word_search.dart';
 import 'crossword.dart';
@@ -32,64 +35,104 @@ BoxDecoration _bg(BuildContext context) {
 
 const _ink = Colors.black;
 
-/* ─────────────────── Scoreboard (Firestore) ─────────────────── */
-/*
-  users/{uid}/stats/stress_busters
-  {
-    scores: {
-      word_search: <int>, crossword: <int>, matching: <int>,
-      sudoku: <int>, uplingo: <int>, scramble: <int>
-    },
-    updatedAt: <server timestamp>
-  }
-*/
+/* ─────────────────── Scoreboard helpers ─────────────────── */
 
-const _gameKeys = <String>[
-  'word_search',
-  'crossword',
-  'matching',
-  'sudoku',
-  'uplingo',
-  'scramble',
-];
+class _GameId {
+  static const wordSearch = 'word_search';
+  static const crossword  = 'crossword';
+  static const matching   = 'matching';
+  static const sudoku     = 'sudoku';
+  static const uplingo    = 'uplingo';
+  static const scramble   = 'scramble';
+}
 
-const _gameTitles = <String, String>{
-  'word_search': 'Word Search',
-  'crossword': 'Crossword',
-  'matching': 'Matching',
-  'sudoku': 'Sudoku',
-  'uplingo': 'Uplingo',
-  'scramble': 'Scramble',
+const Map<String, String> _gameLabel = {
+  _GameId.wordSearch: 'Word Search',
+  _GameId.crossword : 'Crossword',
+  _GameId.matching  : 'Matching',
+  _GameId.sudoku    : 'Sudoku',
+  _GameId.uplingo   : 'Uplingo',
+  _GameId.scramble  : 'Scramble',
 };
 
-DocumentReference<Map<String, dynamic>> _scoreDoc(String uid) =>
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('stats')
-        .doc('stress_busters');
+final List<String> _allGames = [
+  _GameId.wordSearch,
+  _GameId.crossword,
+  _GameId.matching,
+  _GameId.sudoku,
+  _GameId.uplingo,
+  _GameId.scramble,
+];
 
-/// Call from games to record a new high score.
-/// Only overwrites when [score] is greater than stored value.
-Future<void> submitHighScore(String gameKey, int score) async {
-  if (!_gameKeys.contains(gameKey)) return;
+List<DocumentReference<Map<String, dynamic>>> _candidateDocs(String uid, String game) {
+  final fs = FirebaseFirestore.instance;
+  return [
+    fs.collection('users').doc(uid).collection('stats').doc('stress_busters'),
+    fs.collection('users').doc(uid).collection('scores').doc(game),
+    fs.collection('users').doc(uid).collection('game_stats').doc(game),
+  ];
+}
+
+List<String> _fieldCandidates(String game) {
+  final short = {
+    _GameId.wordSearch: 'ws',
+    _GameId.crossword : 'cw',
+    _GameId.matching  : 'mt',
+    _GameId.sudoku    : 'sd',
+    _GameId.uplingo   : 'ul',
+    _GameId.scramble  : 'sc',
+  }[game]!;
+  final camel = game.split('_').map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join();
+  return <String>[
+    '${game}_best',
+    'best_$game',
+    '${camel}Best',
+    '${short}Best',
+    game,
+    'best',
+    'high',
+    'highScore',
+    'max',
+    'score',
+  ];
+}
+
+Future<int> _readBestForGame(String game) async {
   final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
+  int best = 0;
 
-  final ref = _scoreDoc(user.uid);
-  await FirebaseFirestore.instance.runTransaction((tx) async {
-    final snap = await tx.get(ref);
-    final data = (snap.data() ?? <String, dynamic>{});
-    final scores = Map<String, dynamic>.from(data['scores'] ?? {});
-    final current = (scores[gameKey] is num) ? (scores[gameKey] as num).toInt() : 0;
-    if (score > current) {
-      scores[gameKey] = score;
-      tx.set(ref, {
-        'scores': scores,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+  if (user != null) {
+    for (final doc in _candidateDocs(user.uid, game)) {
+      try {
+        final snap = await doc.get();
+        if (!snap.exists) continue;
+        final data = snap.data();
+        if (data == null) continue;
+        for (final f in _fieldCandidates(game)) {
+          final v = data[f];
+          if (v is num) best = best < v.toInt() ? v.toInt() : best;
+        }
+      } catch (_) {}
     }
-  });
+  }
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    for (final f in _fieldCandidates(game)) {
+      final v = prefs.getInt(f);
+      if (v != null) best = best < v ? v : best;
+    }
+  } catch (_) {}
+
+  return best;
+}
+
+Future<Map<String, int>> _readAllBest() async {
+  final out = <String, int>{};
+  for (final g in _allGames) {
+    out[g] = await _readBestForGame(g);
+  }
+  return out;
 }
 
 /* ─────────────────── Main page ─────────────────── */
@@ -102,8 +145,25 @@ class StressBustersPage extends StatefulWidget {
 }
 
 class _StressBustersPageState extends State<StressBustersPage> {
-  // kept for compatibility with existing onPlayed wiring
-  void _recordPlay() {}
+  Map<String, int> _best = { for (final g in _allGames) g: 0 };
+  bool _showBoard = false; // default hidden
+
+  @override
+  void initState() {
+    super.initState();
+    _pullScores();
+  }
+
+  Future<void> _pullScores() async {
+    final m = await _readAllBest();
+    if (!mounted) return;
+    setState(() => _best = m);
+  }
+
+  Future<void> _openGame(WidgetBuilder builder) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: builder));
+    await _pullScores();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,8 +177,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
         centerTitle: true,
         title: const Text(
           'Stress Busters',
-          // a bit smaller than before
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
         ),
       ),
       body: Container(
@@ -127,10 +186,15 @@ class _StressBustersPageState extends State<StressBustersPage> {
           top: true,
           child: CustomScrollView(
             slivers: [
-              // Collapsible scoreboard (default hidden each time)
-              const SliverToBoxAdapter(child: _ScoreboardHeader()),
+              SliverToBoxAdapter(
+                child: _ScoreboardCard(
+                  show: _showBoard,
+                  scores: _best,
+                  onToggle: () => setState(() => _showBoard = !_showBoard),
+                ),
+              ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -145,8 +209,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       colors: const [Color(0xFFE8F8FF), Color(0xFFB6E3FF)],
                       icon: Icons.grid_on_rounded,
                       iconColor: const Color(0xFF1C638C),
-                      onPlayed: _recordPlay,
-                      builder: (_) => const WordSearchCategoryPage(),
+                      onTap: () => _openGame((_) => const WordSearchCategoryPage()),
                     ),
                     _GameCard(
                       title: 'Crossword',
@@ -154,8 +217,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       colors: const [Color(0xFFE9FFFE), Color(0xFFBDF5F1)],
                       icon: Icons.view_quilt_rounded,
                       iconColor: const Color(0xFF0C5E4D),
-                      onPlayed: _recordPlay,
-                      builder: (_) => const CrosswordPage(),
+                      onTap: () => _openGame((_) => const CrosswordPage()),
                     ),
                     _GameCard(
                       title: 'Matching',
@@ -163,8 +225,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       colors: const [Color(0xFFFFF6E8), Color(0xFFFFE5BA)],
                       icon: Icons.extension_rounded,
                       iconColor: const Color(0xFF916D00),
-                      onPlayed: _recordPlay,
-                      builder: (_) => const MatchDifficultPage(),
+                      onTap: () => _openGame((_) => const MatchDifficultPage()),
                     ),
                     _GameCard(
                       title: 'Sudoku',
@@ -172,8 +233,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       colors: const [Color(0xFFEFF7FF), Color(0xFFCAE2FF)],
                       icon: Icons.grid_4x4_rounded,
                       iconColor: const Color(0xFF0A4C7A),
-                      onPlayed: _recordPlay,
-                      builder: (_) => const SudokuPage(),
+                      onTap: () => _openGame((_) => const SudokuPage()),
                     ),
                     _GameCard(
                       title: 'Uplingo',
@@ -181,8 +241,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       colors: const [Color(0xFFE9FFF4), Color(0xFFC9F2E7)],
                       icon: Icons.emoji_emotions_rounded,
                       iconColor: const Color(0xFF146548),
-                      onPlayed: _recordPlay,
-                      builder: (_) => const UplingoPage(),
+                      onTap: () => _openGame((_) => const UplingoPage()),
                     ),
                     _GameCard(
                       title: 'Scramble',
@@ -190,8 +249,7 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       colors: const [Color(0xFFF7ECFF), Color(0xFFDAC8FF)],
                       icon: Icons.text_fields_rounded,
                       iconColor: const Color(0xFF5B2785),
-                      onPlayed: _recordPlay,
-                      builder: (_) => const ScramblePage(),
+                      onTap: () => _openGame((_) => const ScramblePage()),
                     ),
                   ]),
                 ),
@@ -204,205 +262,137 @@ class _StressBustersPageState extends State<StressBustersPage> {
   }
 }
 
-/* ─────────────────── Scoreboard header (collapsible) ─────────────────── */
+/* ─────────────────── Scoreboard UI ─────────────────── */
 
-class _ScoreboardHeader extends StatefulWidget {
-  const _ScoreboardHeader();
+class _ScoreboardCard extends StatelessWidget {
+  const _ScoreboardCard({
+    required this.show,
+    required this.scores,
+    required this.onToggle,
+  });
 
-  @override
-  State<_ScoreboardHeader> createState() => _ScoreboardHeaderState();
-}
-
-class _ScoreboardHeaderState extends State<_ScoreboardHeader>
-    with SingleTickerProviderStateMixin {
-  // Default hidden each time page opens.
-  bool _open = false;
+  final bool show;
+  final Map<String, int> scores;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      // slightly tighter outer spacing
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Container(
-        // smaller overall footprint
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        // smaller internal padding
+        padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFDDEFEA), Color(0xFFE9DDF7)],
+            colors: [Color(0xFFBEE8DF), Color(0xFFDCCAF4)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(.75), width: 1),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
+          borderRadius: BorderRadius.circular(16), // down from 18
+          border: Border.all(color: _ink, width: 1),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 7)],
         ),
         child: Column(
           children: [
-            // Header row with chevron toggle
             Row(
               children: [
-                const Icon(Icons.emoji_events_rounded,
-                    size: 24, color: Color(0xFF0D7C66)),
+                const Icon(Icons.emoji_events_rounded, color: Color(0xFF0D7C66), size: 22),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
                     'Scoreboard',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .2,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                   ),
                 ),
-                // round outlined chevron button
                 InkWell(
-                  onTap: () => setState(() => _open = !_open),
-                  customBorder: const CircleBorder(),
+                  onTap: onToggle,
+                  borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    width: 36,
-                    height: 36,
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black87, width: 1),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
+                      border: Border.all(color: _ink),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)],
                     ),
                     child: Icon(
-                      _open ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      size: 22,
+                      show ? Icons.keyboard_arrow_up_rounded
+                           : Icons.keyboard_arrow_down_rounded,
+                      size: 20,
                       color: const Color(0xFF0D7C66),
                     ),
                   ),
                 ),
               ],
             ),
-            // Collapsible content
-            ClipRect(
-              child: AnimatedAlign(
-                alignment: Alignment.topCenter,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOutCubic,
-                heightFactor: _open ? 1.0 : 0.0,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: user == null
-                      ? Row(
-                          children: const [
-                            Icon(Icons.person_outline, color: Color(0xFF0D7C66)),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Sign in to save your high scores across all games.',
-                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            AnimatedCrossFade(
+              firstChild: const SizedBox(height: 0),
+              secondChild: Padding(
+                // tighter list spacing
+                padding: const EdgeInsets.fromLTRB(4, 8, 4, 2),
+                child: Column(
+                  children: _allGames.map((g) {
+                    final v = scores[g] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: _ink),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3.5)],
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.sports_esports_rounded, color: Color(0xFF0D7C66), size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _gameLabel[g]!,
+                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0D7C66),
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
+                                    child: Text(
+                                      '$v',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        )
-                      : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                          stream: _scoreDoc(user.uid).snapshots(),
-                          builder: (context, snap) {
-                            final scores = Map<String, dynamic>.from(
-                                (snap.data?.data()?['scores'] as Map?) ?? const {});
-                            final display = <String, int>{
-                              for (final k in _gameKeys)
-                                k: (scores[k] is num) ? (scores[k] as num).toInt() : 0
-                            };
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _ScoreGrid(scores: display),
-                                const SizedBox(height: 2),
-                                const Text(
-                                  'Highest scores saved per game.',
-                                  style: TextStyle(fontSize: 11.5, color: Colors.black87),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
+              crossFadeState: show ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 220),
             ),
+            if (show)
+              const SizedBox(height: 4),
+            if (show)
+              const Text(
+                'Highest scores saved per game.',
+                style: TextStyle(color: Colors.black87, fontSize: 12.5),
+              ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/* ─────────────────── Grid / Rows ─────────────────── */
-
-class _ScoreGrid extends StatelessWidget {
-  const _ScoreGrid({required this.scores});
-  final Map<String, int> scores;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = _gameKeys
-        .map((k) => _ScoreRow(title: _gameTitles[k]!, score: scores[k] ?? 0))
-        .toList();
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        SizedBox(width: 220, child: Column(children: rows.take(3).toList())),
-        SizedBox(width: 220, child: Column(children: rows.skip(3).toList())),
-      ],
-    );
-  }
-}
-
-class _ScoreRow extends StatelessWidget {
-  const _ScoreRow({required this.title, required this.score});
-  final String title;
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasScore = score > 0;
-
-    return Container(
-      height: 40, // smaller row height
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFF5FBFA)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.black87, width: 1),
-        borderRadius: BorderRadius.circular(11),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)],
-      ),
-      margin: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(Icons.sports_esports_rounded,
-              size: 16, color: hasScore ? const Color(0xFF0D7C66) : Colors.black54),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // score pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D7C66),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$score',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12.5),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -414,17 +404,15 @@ class _GameCard extends StatelessWidget {
   final String title, subtitle;
   final List<Color> colors;
   final IconData icon;
-  final WidgetBuilder builder;
+  final VoidCallback onTap;
   final Color? iconColor;
-  final VoidCallback onPlayed;
 
   const _GameCard({
     required this.title,
     required this.subtitle,
     required this.colors,
     required this.icon,
-    required this.builder,
-    required this.onPlayed,
+    required this.onTap,
     this.iconColor,
   });
 
@@ -434,10 +422,7 @@ class _GameCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          onPlayed(); // retained no-op
-          Navigator.of(context).push(MaterialPageRoute(builder: builder));
-        },
+        onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: colors),
