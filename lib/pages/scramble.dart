@@ -27,7 +27,7 @@ class _GameScaffold extends StatelessWidget {
   final String title, rule;
   final Widget child;
   final Widget? topBar;
-  final List<Widget>? actions; // ← allow a right-side action icon
+  final List<Widget>? actions; // right-side app bar actions
 
   const _GameScaffold({
     required this.title,
@@ -103,7 +103,6 @@ class ScoreStore {
     final p = await SharedPreferences.getInstance();
     final bestKey = 'sbp_best_$key';
 
-    // read any existing (double or int) then compare as numbers
     double prev = p.getDouble(bestKey) ?? double.negativeInfinity;
     final maybeInt = p.getInt(bestKey);
     if (maybeInt != null) prev = prev.isFinite ? max(prev, maybeInt.toDouble()) : maybeInt.toDouble();
@@ -112,7 +111,6 @@ class ScoreStore {
     final beat = next > (prev.isFinite ? prev : double.negativeInfinity);
 
     if (beat) {
-      // write both to maximize compatibility
       await p.setDouble(bestKey, next);
       await p.setInt(bestKey, next.toInt());
       return true;
@@ -283,6 +281,24 @@ class _ScramblePageState extends State<ScramblePage>
     setState(() => _scrambleBest = v);
   }
 
+  // ── Result banner (Correct / Incorrect)
+  String? _resultMsg;
+  bool _resultOk = false;
+  int _resultToken = 0;
+
+  void _showResult(bool ok, String msg) {
+    final token = DateTime.now().microsecondsSinceEpoch;
+    _resultToken = token;
+    setState(() {
+      _resultOk = ok;
+      _resultMsg = msg;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted || _resultToken != token) return;
+      setState(() => _resultMsg = null);
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -383,6 +399,7 @@ class _ScramblePageState extends State<ScramblePage>
       _boxFocus = newFocus;
       _answer = newAnswer;
       _ready = true;
+      _resultMsg = null; // reset banner on new word
     });
 
     // Make sure old nodes are detached safely.
@@ -521,8 +538,8 @@ class _ScramblePageState extends State<ScramblePage>
     final all = await ScoreStore.instance.history('scramble');
     final list = List<int>.from(all.reversed);
     if (!mounted) return;
-    // calc best quick (integers)
     final best = list.isEmpty ? 0 : list.reduce(max);
+
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -570,7 +587,6 @@ class _ScramblePageState extends State<ScramblePage>
                               leading: const Icon(Icons.emoji_events_outlined),
                               title: Text('Score: ${_fmtScore(s)}',
                                   style: const TextStyle(fontWeight: FontWeight.w700)),
-                              subtitle: Text('Game ${list.length - i}'),
                               dense: true,
                             );
                           },
@@ -587,11 +603,11 @@ class _ScramblePageState extends State<ScramblePage>
   Future<void> _check() async {
     final guess = _answer.join();
     if (guess == target) {
+      _showResult(true, 'Correct!');
       final secs =
           DateTime.now().difference(_start).inSeconds.clamp(1, 99999);
 
       // INTEGER scoring (higher is better): simple time-based points
-      // e.g., 20s → 50 points (≈ 1000 / secs)
       final int score = max(1, (1000 / secs).round());
 
       await ScoreStore.instance.add('scramble', score);
@@ -626,6 +642,7 @@ class _ScramblePageState extends State<ScramblePage>
       );
       _new();
     } else {
+      _showResult(false, 'Incorrect');
       final filled = _answer.where((e) => e.isNotEmpty).length;
       if (filled > 0) _recordWrongGuess(guess);
       if (!_shakeCtrl.isAnimating) _shakeCtrl.forward(from: 0);
@@ -665,7 +682,7 @@ class _ScramblePageState extends State<ScramblePage>
         IconButton(
           tooltip: 'Scores',
           icon: const Icon(Icons.bar_chart_rounded),
-          onPressed: _openScores, // ← top-right score icon
+          onPressed: _openScores, // top-right score icon
         ),
       ],
       topBar: Wrap(
@@ -912,7 +929,44 @@ class _ScramblePageState extends State<ScramblePage>
                   ),
                 ),
 
-                vGap,
+                const SizedBox(height: 10),
+
+                // Result banner (Correct / Incorrect)
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _resultMsg == null
+                      ? const SizedBox.shrink()
+                      : Container(
+                          key: ValueKey(_resultMsg),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _ink),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _resultOk ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                                color: _resultOk ? const Color(0xFF0D7C66) : Colors.redAccent,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _resultMsg!,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: _resultOk ? const Color(0xFF0D7C66) : Colors.redAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+
+                const SizedBox(height: 10),
 
                 SizedBox(
                   width: 200,
