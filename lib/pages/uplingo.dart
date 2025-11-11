@@ -1,439 +1,391 @@
 // lib/pages/uplingo.dart
-// Uplingo – authentic Wordle-style game with auto-submit after fifth letter.
-// Adds per-key coloring (green/yellow/gray) and light animations.
+//
+// Uplingo (Wordle-like).
+// - Submits ONLY real words (validated against _validWords).
+// - Uses an explicit "Submit" button (no auto-submit on 5th letter).
+// - Smaller on-screen keyboard.
+// - Fixed ThemeControllerScope access (uses .of, not .maybeOf).
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:characters/characters.dart';
 import 'package:new_rezonate/main.dart' as app;
+
+/* ───────── Theme helpers (kept lightweight & consistent) ───────── */
+
+BoxDecoration _bg(BuildContext context) {
+  // Use .of(context).isDark (project provides ThemeControllerScope.of)
+  final dark = app.ThemeControllerScope.of(context).isDark;
+  return BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: dark
+          ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
+          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF6FD6C1)],
+    ),
+  );
+}
+
+const _ink = Colors.black;
+
+/* ───────── Small word list for validation ─────────
+   NOTE: This is a compact, common English word list used to block random
+   letter submissions. Add more words here anytime. All lowercase.         */
+const Set<String> _validWords = {
+  // Common 5-letter words (curated, compact)
+  'about','above','actor','acute','adopt','adult','after','again','agent',
+  'agree','ahead','alarm','album','alert','alike','allow','alone','along',
+  'alter','among','angle','angry','apple','apply','april','argue','arise',
+  'array','aside','asset','audio','audit','avoid','awake','aware','badge',
+  'basic','beach','begin','being','below','bench','bible','birth','black',
+  'blade','blame','blank','blast','blind','block','blood','board','boost',
+  'booth','bound','brain','brand','bread','break','breed','brick','brief',
+  'bring','broad','broke','brown','brush','build','buyer','cabin','cable',
+  'carry','catch','cause','chain','chair','chart','chase','cheap','check',
+  'cheek','chess','chief','child','china','choir','chose','civil','claim',
+  'class','clean','clear','clerk','click','clock','close','coach','coast',
+  'could','count','court','cover','craft','cream','crime','cross','crowd',
+  'crown','cycle','daily','dance','dated','dealt','death','debut','delay',
+  'depth','dirty','doubt','dozen','draft','drama','drawn','dream','dress',
+  'drill','drink','drive','drove','dying','eager','early','earth','eight',
+  'elite','empty','enemy','enjoy','enter','entry','equal','error','event',
+  'every','exact','exist','extra','faith','false','fault','favor','fewer',
+  'fiber','field','fifth','fifty','fight','final','finds','first','fixed',
+  'flash','fleet','floor','fluid','focus','force','forth','forty','forum',
+  'found','frame','fresh','front','fruit','fully','funny','giant','given',
+  'glass','globe','going','grace','grade','grain','grand','grant','grass',
+  'great','green','greet','group','growl','grown','guard','guess','guest',
+  'guide','habit','happy','harsh','heart','heavy','hence','hobby','honor',
+  'horse','hotel','house','human','humor','ideal','image','imply','index',
+  'inner','input','issue','jeans','joint','judge','juice','kneel','knife',
+  'known','label','labor','large','laser','later','laugh','layer','learn',
+  'least','leave','legal','lemon','level','light','limit','local','logic',
+  'loose','lucky','lunch','magic','major','maker','march','match','maybe',
+  'mayor','meant','media','metal','minor','mixed','model','money','month',
+  'moral','motor','mount','mouse','mouth','movie','music','naive','nasty',
+  'nerve','never','newer','night','ninth','noble','noise','north','novel',
+  'nurse','occur','ocean','offer','often','older','olive','onion','order',
+  'other','ought','paint','panel','paper','party','pause','peace','pearl',
+  'phase','phone','photo','piece','pilot','pitch','place','plain','plane',
+  'plant','plate','plead','point','polar','porch','pound','power','press',
+  'price','pride','prime','print','prior','prize','proof','proud','prove',
+  'queen','quick','quiet','quite','quota','quote','radio','raise','range',
+  'rapid','ratio','reach','react','ready','realm','refer','right','rigid',
+  'rival','river','robot','rough','round','route','royal','rural','sadly',
+  'safer','salad','scale','scene','scope','score','scout','screw','seize',
+  'sense','serve','seven','sever','shade','shake','shall','shame','shape',
+  'share','sharp','sheep','sheer','sheet','shelf','shell','shift','shine',
+  'shirt','shock','shoot','shore','short','shown','sight','since','skill',
+  'skirt','sleep','slide','slope','small','smart','smile','smoke','solid',
+  'solve','sorry','sound','south','space','spare','speak','speed','spend',
+  'spent','spice','spite','split','spoke','sport','staff','stage','stain',
+  'stair','stake','stand','stare','start','state','steam','steel','steep',
+  'stick','still','stock','stone','stood','store','storm','story','stove',
+  'strap','straw','strip','stuck','study','stuff','style','sugar','suite',
+  'sunny','super','sweet','table','taken','taste','taxes','teach','teeth',
+  'terry','thank','their','theme','there','these','thick','thing','think',
+  'third','those','three','threw','throw','tight','tired','title','today',
+  'tooth','topic','total','touch','tough','tower','trace','track','trade',
+  'trail','train','treat','trend','trial','tribe','trick','truck','truly',
+  'trust','truth','twice','uncle','under','union','unity','until','upper',
+  'upset','urban','usage','usual','vague','valid','value','video','virus',
+  'visit','vital','vivid','voice','voter','waste','watch','water','weary',
+  'weigh','weird','whale','wheat','wheel','where','which','while','white',
+  'whole','whose','widow','width','woman','women','worst','worth','wound',
+  'write','wrong','young','youth',
+};
+
+/* Answers list (pick one randomly). Keep small; every entry is in _validWords */
+const List<String> _answers = [
+  'apple','share','train','night','prize','teeth','water','music','green',
+  'movie','about','quiet','laugh','radio','solid','sweet','value','vital',
+];
 
 class UplingoPage extends StatefulWidget {
   const UplingoPage({super.key});
-
   @override
   State<UplingoPage> createState() => _UplingoPageState();
 }
 
-enum _LetterState { unknown, absent, present, correct }
+class _UplingoPageState extends State<UplingoPage> {
+  static const int kWordLen = 5;
+  static const int kMaxRows = 6;
 
-class _UplingoPageState extends State<UplingoPage>
-    with SingleTickerProviderStateMixin {
-  static const int wordLength = 5;
-  static const int maxAttempts = 6;
-
-  // Colors (match app vibe)
-  static const Color _cGreen = Color(0xFF6FD6C1);
-  static const Color _cYellow = Color(0xFFFDDC77);
-  static final Color _cGray = Colors.grey.shade300;
-
-  final List<String> _wordBank = [
-    'PEACE', 'LIGHT', 'FOCUS', 'UNITY', 'TRUST', 'GRACE', 'DREAM', 'HOPE',
-    'HEART', 'KIND', 'CLEAR', 'LUCKY', 'FAITH', 'WORTH', 'ALIGN', 'SOLAR',
-    'OASIS', 'BRAVE', 'MUSIC', 'HAPPY', 'QUIET', 'BLOOM', 'GREEN', 'SMILE',
-    'NOBLE', 'HONOR', 'PLANT', 'STYLE', 'HONEY', 'BRAIN'
-  ];
-
-  late String _target;
-  List<String> _guesses = [];
-  List<List<Color>> _colorResults = [];
-  String _current = '';
-  bool _won = false;
-  bool _lost = false;
-
-  // Keyboard state: best-known status for each A–Z key
-  final Map<String, _LetterState> _kbState = {
-    for (var c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')) c: _LetterState.unknown
-  };
-
-  // Tiny press-bounce on keys
-  String? _pressedKey;
-  late final AnimationController _bounceCtrl =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 140));
+  late String _answer;
+  int _row = 0;
+  final List<String> _guesses =
+      List<String>.filled(kMaxRows, '', growable: false);
+  final Random _rnd = Random();
 
   @override
   void initState() {
     super.initState();
-    _newGame();
+    _answer = _answers[_rnd.nextInt(_answers.length)];
   }
 
-  void _newGame() {
-    final rand = Random();
+  void _restart() {
     setState(() {
-      _target = _wordBank[rand.nextInt(_wordBank.length)];
-      _guesses.clear();
-      _colorResults.clear();
-      _current = '';
-      _won = false;
-      _lost = false;
-      _pressedKey = null;
-      for (final k in _kbState.keys) {
-        _kbState[k] = _LetterState.unknown;
+      _answer = _answers[_rnd.nextInt(_answers.length)];
+      _row = 0;
+      for (var i = 0; i < kMaxRows; i++) {
+        _guesses[i] = '';
       }
     });
   }
 
-  void _onKey(String ch) {
-    if (_won || _lost) return;
+  void _typeLetter(String ch) {
+    if (_row >= kMaxRows) return;
+    final cur = _guesses[_row];
+    if (cur.length >= kWordLen) return;
+    setState(() => _guesses[_row] = cur + ch.toLowerCase());
+  }
 
-    setState(() => _pressedKey = ch);
-    _bounceCtrl.forward(from: 0);
+  void _backspace() {
+    if (_row >= kMaxRows) return;
+    final cur = _guesses[_row];
+    if (cur.isEmpty) return;
+    setState(() => _guesses[_row] = cur.substring(0, cur.length - 1));
+  }
 
+  void _submit() {
+    if (_row >= kMaxRows) return;
+    final guess = _guesses[_row];
+    if (guess.length != kWordLen) {
+      _snack('Need $kWordLen letters.');
+      return;
+    }
+    if (!_validWords.contains(guess)) {
+      _snack('Not in word list.');
+      return;
+    }
+
+    if (guess == _answer) {
+      _snack('Correct! 🎉');
+      setState(() => _row = kMaxRows); // lock board
+      return;
+    }
     setState(() {
-      if (ch == '⌫') {
-        if (_current.isNotEmpty) {
-          _current = _current.substring(0, _current.length - 1);
-        }
-      } else if (RegExp(r'^[A-Za-z]$').hasMatch(ch)) {
-        if (_current.length < wordLength) {
-          _current += ch.toUpperCase();
-          if (_current.length == wordLength) {
-            _submitGuess(); // auto-submit after 5th letter
-          }
-        }
+      _row += 1;
+      if (_row == kMaxRows) {
+        _snack('The word was "${_answer.toUpperCase()}".');
       }
     });
   }
 
-  void _promoteKey(String letter, _LetterState newState) {
-    final cur = _kbState[letter] ?? _LetterState.unknown;
-    // Priority: correct > present > absent > unknown
-    bool shouldSet = false;
-    switch (newState) {
-      case _LetterState.correct:
-        shouldSet = cur != _LetterState.correct;
-        break;
-      case _LetterState.present:
-        shouldSet = cur == _LetterState.unknown || cur == _LetterState.absent;
-        break;
-      case _LetterState.absent:
-        shouldSet = cur == _LetterState.unknown;
-        break;
-      case _LetterState.unknown:
-        break;
-    }
-    if (shouldSet) _kbState[letter] = newState;
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
-  void _submitGuess() {
-    if (_current.length != wordLength) return;
-
-    final guess = _current;
-    final targetChars = _target.split('');
-    final guessChars = guess.split('');
-    final resultColors = List<Color>.filled(wordLength, _cGray);
-    final used = List<bool>.filled(wordLength, false);
-
-    // First pass: mark greens
-    for (int i = 0; i < wordLength; i++) {
-      if (guessChars[i] == targetChars[i]) {
-        resultColors[i] = _cGreen;
-        used[i] = true;
-      }
-    }
-
-    // Second pass: mark yellows where applicable
-    for (int i = 0; i < wordLength; i++) {
-      if (resultColors[i] == _cGray) {
-        for (int j = 0; j < wordLength; j++) {
-          if (!used[j] && guessChars[i] == targetChars[j]) {
-            resultColors[i] = _cYellow;
-            used[j] = true;
-            break;
-          }
-        }
-      }
-    }
-
-    // Update per-key states
-    for (int i = 0; i < wordLength; i++) {
-      final ch = guessChars[i];
-      if (resultColors[i] == _cGreen) {
-        _promoteKey(ch, _LetterState.correct);
-      } else if (resultColors[i] == _cYellow) {
-        _promoteKey(ch, _LetterState.present);
-      } else {
-        _promoteKey(ch, _LetterState.absent);
-      }
-    }
-
-    _guesses.add(guess);
-    _colorResults.add(resultColors);
-
-    if (guess == _target) {
-      _won = true;
-    } else if (_guesses.length >= maxAttempts) {
-      _lost = true;
-    }
-
-    _current = '';
+  Color _tileColor(int r, int c) {
+    final guess = _guesses[r];
+    if (r >= _row) return Colors.white; // current / future rows
+    final ch = guess[c];
+    if (_answer[c] == ch) return const Color(0xFF0D7C66); // correct spot
+    if (_answer.contains(ch)) return const Color(0xFFE9C46A); // present
+    return const Color(0xFFCBD5E1); // absent
   }
 
-  Color _keyColor(String letter) {
-    final st = _kbState[letter] ?? _LetterState.unknown;
-    switch (st) {
-      case _LetterState.correct:
-        return _cGreen;
-      case _LetterState.present:
-        return _cYellow;
-      case _LetterState.absent:
-        return Colors.grey.shade400;
-      case _LetterState.unknown:
-      default:
-        return const Color(0xFFBEE8DF);
-    }
-  }
+  Color _tileBorder(int r) => r < _row ? Colors.transparent : _ink;
 
   Widget _buildBoard() {
-    final rows = <Widget>[];
-
-    for (int i = 0; i < maxAttempts; i++) {
-      List<Color> colors = i < _colorResults.length
-          ? _colorResults[i]
-          : List<Color>.filled(wordLength, Colors.white.withOpacity(0.9));
-
-      String word = '';
-      if (i < _guesses.length) {
-        word = _guesses[i];
-      } else if (i == _guesses.length) {
-        word = _current;
-      }
-
-      final letters = word.padRight(wordLength).split('');
-
-      rows.add(
-        TweenAnimationBuilder<double>(
-          // subtle slide-in for each row based on index
-          key: ValueKey('row-$i-${_guesses.length}'),
-          tween: Tween(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-          builder: (context, t, child) => Opacity(
-            opacity: t,
-            child: Transform.translate(offset: Offset(0, (1 - t) * 8), child: child),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (int j = 0; j < wordLength; j++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    width: 54,
-                    height: 54,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colors[j],
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.black26, width: 1.2),
-                      boxShadow: [
-                        if (colors[j] != Colors.white.withOpacity(0.9))
-                          const BoxShadow(color: Colors.black12, blurRadius: 6)
-                      ],
-                    ),
-                    child: AnimatedScale(
-                      duration: const Duration(milliseconds: 160),
-                      scale: letters[j].trim().isEmpty ? 0.9 : 1.0,
-                      child: Text(
-                        letters[j],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(kMaxRows, (r) {
+        final word = _guesses[r];
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(kWordLen, (c) {
+              final ch = (c < word.length) ? word[c].toUpperCase() : '';
+              return Container(
+                width: 46,
+                height: 52,
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _tileColor(r, c),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _tileBorder(r)),
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                ),
+                child: Text(
+                  ch,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                    color: Colors.black,
                   ),
-              ],
-            ),
+                ),
+              );
+            }),
           ),
-        ),
-      );
-    }
-    return Column(children: rows);
+        );
+      }),
+    );
   }
 
   Widget _buildKeyboard() {
+    // Smaller keyboard: tighter key sizes & spacing.
     const rows = [
-      ['Q','W','E','R','T','Y','U','I','O','P'],
-      ['A','S','D','F','G','H','J','K','L'],
-      ['Z','X','C','V','B','N','M'],
-      ['⌫']
+      'QWERTYUIOP',
+      'ASDFGHJKL',
+      'ZXCVBNM',
     ];
+    const double keyW = 34; // smaller width
+    const double keyH = 42; // smaller height
+    const double gap = 6;
 
-    return Flexible(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 8, bottom: 18),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (int i = 0; i < rows.length; i++)
-              Padding(
-                padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 8),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: rows[i].map((letter) => _key(letter)).toList(),
-                ),
-              ),
-          ],
+    Widget buildRow(String keys, {bool middle = false, bool bottom = false}) {
+      final children = <Widget>[];
+
+      if (bottom) {
+        // Backspace first
+        children.add(_kbdSpecial(
+          icon: Icons.backspace_rounded,
+          onTap: _backspace,
+          w: keyW * 1.6,
+          h: keyH,
+        ));
+        children.add(SizedBox(width: gap));
+      }
+
+      for (final k in keys.characters) {
+        children.add(_kbdKey(k, keyW, keyH));
+        children.add(const SizedBox(width: gap));
+      }
+      if (children.isNotEmpty) children.removeLast();
+
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: children,
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        buildRow(rows[0]),
+        const SizedBox(height: 8),
+        buildRow(rows[1], middle: true),
+        const SizedBox(height: 8),
+        buildRow(rows[2], bottom: true),
+        const SizedBox(height: 12),
+        // Explicit submit button
+        SizedBox(
+          width: 220,
+          child: FilledButton.icon(
+            onPressed: _submit,
+            icon: const Icon(Icons.check_rounded, size: 18),
+            label: const Text('Submit'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _kbdKey(String label, double w, double h) {
+    return SizedBox(
+      width: w,
+      height: h,
+      child: ElevatedButton(
+        onPressed: () => _typeLetter(label),
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          side: const BorderSide(color: _ink),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: _ink,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
         ),
       ),
     );
   }
 
-  Widget _key(String label) {
-    final bool wide = label == '⌫';
-    final isPressed = _pressedKey == label;
-
-    final bg = label == '⌫' ? const Color(0xFFB6E3FF) : _keyColor(label);
-    final fg = Colors.black;
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 1, end: isPressed ? 0.92 : 1),
-      duration: const Duration(milliseconds: 140),
-      builder: (context, s, child) => Transform.scale(scale: s, child: child),
-      child: SizedBox(
-        width: wide ? 60 : 36,
-        height: 46,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: bg,
-            elevation: 1.5,
-            shadowColor: Colors.black26,
-            padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          onPressed: () => _onKey(label),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: fg,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+  Widget _kbdSpecial({
+    required IconData icon,
+    required VoidCallback onTap,
+    required double w,
+    required double h,
+  }) {
+    return SizedBox(
+      width: w,
+      height: h,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          side: const BorderSide(color: _ink),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-      ),
-    );
-  }
-
-  Widget _buildControlButtons() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 10,
-        runSpacing: 8,
-        children: [
-          ElevatedButton.icon(
-            onPressed: _newGame,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFB6E3FF),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            icon: const Icon(Icons.refresh_rounded, color: Colors.black, size: 18),
-            label: const Text('New Game',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => setState(() => _current = ''),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE9FFFE),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            icon: const Icon(Icons.restart_alt_rounded, color: Colors.black, size: 18),
-            label: const Text('Reset Row',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14)),
-          ),
-        ],
+        child: Icon(icon, color: _ink, size: 18),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final gradient = LinearGradient(
-      colors: dark
-          ? const [Color(0xFF2A2336), Color(0xFF1B4F4A)]
-          : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF6FD6C1)],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    );
-
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Uplingo',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 22,
+        title: const Text('Uplingo', style: TextStyle(fontWeight: FontWeight.w900)),
+        actions: [
+          IconButton(
+            tooltip: 'New game',
+            onPressed: _restart,
+            icon: const Icon(Icons.refresh_rounded),
           ),
-        ),
+        ],
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Container(
-          decoration: BoxDecoration(gradient: gradient),
-          child: SafeArea(
-            top: true,
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                _buildControlButtons(),
-                const SizedBox(height: 8),
-                _buildBoard(),
-                const SizedBox(height: 10),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: (!_won && !_lost)
-                      ? const SizedBox.shrink()
-                      : Column(
-                          key: ValueKey(_won ? 'won' : 'lost'),
-                          children: [
-                            Text(
-                              _won
-                                  ? '✨ You guessed it! The word was $_target.'
-                                  : '💭 The word was $_target — try again!',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            const SizedBox(height: 6),
-                            ElevatedButton(
-                              onPressed: _newGame,
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFB6E3FF),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8)),
-                              child: const Text('Play Again',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold)),
-                            )
-                          ],
-                        ),
+      body: Container(
+        decoration: _bg(context),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.95),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _ink),
+                      ),
+                      child: const Text(
+                        'Guess the 5-letter word. Real words only. '
+                        'Press Submit to check.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildBoard(),
+                    const SizedBox(height: 18),
+                    _buildKeyboard(),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _buildKeyboard(),
-              ],
+              ),
             ),
           ),
         ),

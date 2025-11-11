@@ -8,7 +8,6 @@ import 'package:new_rezonate/main.dart' as app;
 /* ───────────────── Shared look & scaffold ───────────────── */
 
 BoxDecoration _bg(BuildContext context) {
-  // Use a constant gradient so it fills the area behind the system status bar.
   return const BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topCenter,
@@ -38,7 +37,7 @@ class _GameScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true, // removes the black band behind status bar
+      extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -115,7 +114,6 @@ class ScramblePage extends StatefulWidget {
 
 class _ScramblePageState extends State<ScramblePage>
     with SingleTickerProviderStateMixin {
-  // ── Category word lists (10 categories × 30 words = 300 words) ──
   static const Map<String, List<String>> _categoryWords = {
     'Animals': [
       'CAT','DOG','LION','TIGER','BEAR','WOLF','FOX','DEER','HORSE','SHEEP',
@@ -186,7 +184,7 @@ class _ScramblePageState extends State<ScramblePage>
 
   // Leveling
   int _level = 1;
-  int _wins = 0; // increases on each solve; level up every 5 wins
+  int _wins = 0;
 
   String target = '';
   List<String> scrambled = const [];
@@ -201,7 +199,7 @@ class _ScramblePageState extends State<ScramblePage>
 
   // Animations
   late final AnimationController _shakeCtrl;
-  int _animSeed = 0; // to retrigger tile entrance animations
+  int _animSeed = 0;
 
   // Hint
   bool _hintUsed = false;
@@ -214,6 +212,7 @@ class _ScramblePageState extends State<ScramblePage>
   final List<String> _wrongGuesses = [];
 
   bool _ready = true;
+  bool _normalizing = false; // guard to avoid re-entrancy
 
   String get _categoryLabel => _wordToCategory[target] ?? 'General';
 
@@ -253,7 +252,6 @@ class _ScramblePageState extends State<ScramblePage>
     super.dispose();
   }
 
-  // Returns [minLen, maxLen] based on level (harder => longer words).
   List<int> _lengthRangeForLevel(int level) {
     if (level <= 1) return [3, 5];
     if (level <= 3) return [4, 6];
@@ -267,15 +265,11 @@ class _ScramblePageState extends State<ScramblePage>
   String _pickWord() {
     final range = _lengthRangeForLevel(_level);
     final minLen = range[0], maxLen = range[1];
-
     final pool = _allWords.where((w) => w.length >= minLen && w.length <= maxLen).toList();
-    if (pool.isEmpty) {
-      return _allWords[rnd.nextInt(_allWords.length)];
-    }
+    if (pool.isEmpty) return _allWords[rnd.nextInt(_allWords.length)];
     return pool[rnd.nextInt(pool.length)];
   }
 
-  // ── Scramble the visible tiles without changing the target.
   void _reshuffle() {
     if (scrambled.length <= 1) return;
     final before = scrambled.join();
@@ -287,7 +281,6 @@ class _ScramblePageState extends State<ScramblePage>
     setState(() => _animSeed++); // retrigger entrance animation
   }
 
-  // New round: build new state then swap in one setState.
   void _new() {
     final nextTarget = _pickWord();
     final nextScrambled = nextTarget.split('')..shuffle(rnd);
@@ -322,6 +315,10 @@ class _ScramblePageState extends State<ScramblePage>
       _ready = true;
     });
 
+    // Make sure old nodes are detached safely.
+    for (final f in oldFocus) {
+      try { f.unfocus(); } catch (_) {}
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final c in oldBoxes) {
         try { c.dispose(); } catch (_) {}
@@ -329,6 +326,54 @@ class _ScramblePageState extends State<ScramblePage>
       for (final f in oldFocus) {
         try { f.dispose(); } catch (_) {}
       }
+    });
+  }
+
+  // If any list length drifts from target.length, fix it (next frame).
+  void _normalizeControllerLengths() {
+    if (_normalizing) return;
+    final int len = target.length;
+    if (_boxes.length == len && _boxFocus.length == len && _answer.length == len) return;
+
+    _normalizing = true;
+
+    final oldBoxes = _boxes;
+    final oldFocus = _boxFocus;
+
+    final newBoxes = List<TextEditingController>.generate(len, (i) {
+      if (i < oldBoxes.length) return oldBoxes[i];
+      return TextEditingController();
+    });
+    final newFocus = List<FocusNode>.generate(len, (i) {
+      if (i < oldFocus.length) return oldFocus[i];
+      return FocusNode();
+    });
+    final newAnswer = List<String>.generate(
+      len,
+      (i) => (i < _answer.length) ? _answer[i] : '',
+    );
+
+    // Unfocus anything we're about to drop.
+    for (int i = len; i < oldFocus.length; i++) {
+      try { oldFocus[i].unfocus(); } catch (_) {}
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _boxes = newBoxes;
+        _boxFocus = newFocus;
+        _answer = newAnswer;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((__) {
+        for (int i = len; i < oldBoxes.length; i++) {
+          try { oldBoxes[i].dispose(); } catch (_) {}
+        }
+        for (int i = len; i < oldFocus.length; i++) {
+          try { oldFocus[i].dispose(); } catch (_) {}
+        }
+        _normalizing = false;
+      });
     });
   }
 
@@ -340,6 +385,21 @@ class _ScramblePageState extends State<ScramblePage>
       }
     }
     FocusScope.of(context).unfocus();
+  }
+
+  void _moveFocusToPrev(int from) {
+    for (int i = from - 1; i >= 0; i--) {
+      if (!_locked.contains(i)) {
+        _boxFocus[i].requestFocus();
+        if (_boxes[i].text.isNotEmpty) {
+          _boxes[i].text = '';
+          _answer[i] = '';
+        }
+        _boxes[i].selection = const TextSelection.collapsed(offset: 0);
+        setState(() {});
+        return;
+      }
+    }
   }
 
   void _useHint() {
@@ -395,7 +455,6 @@ class _ScramblePageState extends State<ScramblePage>
       await ScoreStore.instance.add('scramble', score);
       await ScoreStore.instance.reportBest('scramble', score);
 
-      // Level progress: level up AFTER every 5 solved games
       _wins += 1;
       bool leveled = false;
       if (_wins % 5 == 0) {
@@ -424,14 +483,10 @@ class _ScramblePageState extends State<ScramblePage>
       _new();
     } else {
       final filled = _answer.where((e) => e.isNotEmpty).length;
-      if (filled > 0) {
-        _recordWrongGuess(guess);
-      }
-      if (!_shakeCtrl.isAnimating) {
-        _shakeCtrl.forward(from: 0);
-      }
+      if (filled > 0) _recordWrongGuess(guess);
+      if (!_shakeCtrl.isAnimating) _shakeCtrl.forward(from: 0);
       if (!mounted) return;
-      setState(() {}); // refresh wrong guesses list
+      setState(() {});
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Try again')));
     }
@@ -439,6 +494,9 @@ class _ScramblePageState extends State<ScramblePage>
 
   @override
   Widget build(BuildContext context) {
+    // Ensure controllers/focus lists always match the current word length.
+    _normalizeControllerLengths();
+
     if (!_ready) {
       return _GameScaffold(
         title: 'Scramble',
@@ -447,13 +505,13 @@ class _ScramblePageState extends State<ScramblePage>
       );
     }
 
-    // Consistent gaps; push gameplay a bit further down for spacing
     const vGap = SizedBox(height: 14);
 
     return _GameScaffold(
       title: 'Scramble',
       rule: 'Unscramble the letters to make a word. One hint per round.',
       topBar: Wrap(
+        alignment: WrapAlignment.center,
         spacing: 10,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -502,226 +560,236 @@ class _ScramblePageState extends State<ScramblePage>
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 8), // push content a bit further down
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 8),
 
-            // Scrambled tiles – entrance animation
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: List.generate(scrambled.length, (i) {
-                final String ch = scrambled[i];
-                return TweenAnimationBuilder<double>(
-                  key: ValueKey('tile-$_animSeed-$i'),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 300),
-                  // NOTE: Curves like easeOutBack overshoot <0 or >1. Clamp before Opacity.
-                  curve: Curves.easeOutBack,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                // Scrambled tiles
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: List.generate(scrambled.length, (i) {
+                    final String ch = scrambled[i];
+                    return TweenAnimationBuilder<double>(
+                      key: ValueKey('tile-$_animSeed-$i'),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutBack,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: _ink),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                        ),
+                        child: Text(
+                          ch,
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                        ),
+                      ),
+                      builder: (context, k, child) {
+                        final double o = k.clamp(0.0, 1.0);
+                        return Opacity(
+                          opacity: o,
+                          child: Transform.scale(
+                            scale: 0.85 + 0.15 * o,
+                            child: child,
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+
+                vGap,
+
+                // Hint chip
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: _hintPreview == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          key: const ValueKey('hint'),
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Chip(
+                            avatar: const Icon(Icons.lightbulb_outline, size: 18),
+                            label: Text(
+                              _hintPreview!,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(color: _ink),
+                          ),
+                        ),
+                ),
+
+                // Category chip
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: !_showCategory
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          key: const ValueKey('category'),
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Chip(
+                            avatar: const Icon(Icons.label_important_outline, size: 18),
+                            label: Text(
+                              'Category: $_categoryLabel',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(color: _ink),
+                          ),
+                        ),
+                ),
+
+                vGap,
+
+                // ANSWER BOXES
+                AnimatedBuilder(
+                  animation: _shakeCtrl,
+                  builder: (context, child) {
+                    final double t = _shakeCtrl.value;
+                    final double dx = sin(t * pi * 4) * (10.0 * (1.0 - t));
+                    return Transform.translate(offset: Offset(dx, 0.0), child: child);
+                  },
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: List.generate(target.length, (i) {
+                      final bool locked = _locked.contains(i);
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 42,
+                        height: 50,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: locked ? const Color(0xFFEFFAF0) : Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _ink),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                        ),
+                        child: Focus(
+                          onKeyEvent: (node, KeyEvent event) {
+                            if (event is KeyDownEvent &&
+                                event.logicalKey == LogicalKeyboardKey.backspace &&
+                                _boxes[i].text.isEmpty) {
+                              _moveFocusToPrev(i);
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextField(
+                            controller: _boxes[i],
+                            focusNode: _boxFocus[i],
+                            readOnly: locked,
+                            maxLength: 1,
+                            buildCounter: (_, {required int currentLength, required bool isFocused, int? maxLength}) =>
+                                const SizedBox.shrink(),
+                            textAlign: TextAlign.center,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp('[A-Za-z]')),
+                              LengthLimitingTextInputFormatter(1),
+                            ],
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              isCollapsed: true,
+                              contentPadding: EdgeInsets.only(bottom: 4),
+                            ),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                              color: locked ? const Color(0xFF0D7C66) : Colors.black,
+                            ),
+                            onChanged: (v) {
+                              final up = v.toUpperCase();
+                              if (v != up) {
+                                _boxes[i].value = TextEditingValue(
+                                  text: up,
+                                  selection: TextSelection.collapsed(offset: up.length),
+                                );
+                              }
+                              _answer[i] = up;
+                              if (up.isNotEmpty) _moveFocusToNext(i);
+                              setState(() {});
+                            },
+                            onTap: () {
+                              final text = _boxes[i].text;
+                              _boxes[i].selection =
+                                  TextSelection.collapsed(offset: text.length);
+                            },
+                            onSubmitted: (_) {
+                              if (i == target.length - 1) {
+                                _check();
+                              } else {
+                                _moveFocusToNext(i);
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+
+                vGap,
+
+                SizedBox(
+                  width: 200,
+                  child: FilledButton.icon(
+                    onPressed: _check,
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Check'),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                if (_wrongGuesses.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(.95),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: _ink),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
                     ),
-                    child: Text(
-                      ch,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Wrong guesses',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _wrongGuesses
+                              .map((g) => Chip(
+                                    label: Text(g),
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(color: _ink),
+                                  ))
+                              .toList(),
+                        ),
+                      ],
                     ),
                   ),
-                  builder: (context, k, child) {
-                    final double o = k.clamp(0.0, 1.0); // <-- FIX: keep opacity in [0,1]
-                    return Opacity(
-                      opacity: o,
-                      child: Transform.scale(
-                        scale: 0.85 + 0.15 * o,
-                        child: child,
-                      ),
-                    );
-                  },
-                );
-              }),
+              ],
             ),
-
-            vGap,
-
-            // Hint chip
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: _hintPreview == null
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      key: const ValueKey('hint'),
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Chip(
-                        avatar: const Icon(Icons.lightbulb_outline, size: 18),
-                        label: Text(
-                          _hintPreview!,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: _ink),
-                      ),
-                    ),
-            ),
-
-            // Category chip (optional)
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: !_showCategory
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      key: const ValueKey('category'),
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Chip(
-                        avatar: const Icon(Icons.label_important_outline, size: 18),
-                        label: Text(
-                          'Category: $_categoryLabel',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: _ink),
-                      ),
-                    ),
-            ),
-
-            vGap,
-
-            // ANSWER BOXES (single-letter TextFields)
-            AnimatedBuilder(
-              animation: _shakeCtrl,
-              builder: (context, child) {
-                final double t = _shakeCtrl.value; // 0..1
-                final double dx = sin(t * pi * 4) * (10.0 * (1.0 - t));
-                return Transform.translate(offset: Offset(dx, 0.0), child: child);
-              },
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
-                children: List.generate(target.length, (i) {
-                  final bool locked = _locked.contains(i);
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    width: 42,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: locked ? const Color(0xFFEFFAF0) : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _ink),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                    ),
-                    child: TextField(
-                      controller: _boxes[i],
-                      focusNode: _boxFocus[i],
-                      readOnly: locked,
-                      maxLength: 1,
-                      buildCounter: (_,
-                              {required int currentLength,
-                              required bool isFocused,
-                              int? maxLength}) =>
-                          const SizedBox.shrink(),
-                      textAlign: TextAlign.center,
-                      textCapitalization: TextCapitalization.characters,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp('[A-Za-z]')),
-                        LengthLimitingTextInputFormatter(1),
-                      ],
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        isCollapsed: true,
-                        contentPadding: EdgeInsets.only(bottom: 4),
-                      ),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                        color: locked ? const Color(0xFF0D7C66) : Colors.black,
-                      ),
-                      onChanged: (v) {
-                        final up = v.toUpperCase();
-                        if (v != up) {
-                          _boxes[i].value = TextEditingValue(
-                            text: up,
-                            selection: TextSelection.collapsed(offset: up.length),
-                          );
-                        }
-                        _answer[i] = up;
-                        if (up.isNotEmpty) {
-                          _moveFocusToNext(i);
-                        }
-                        setState(() {});
-                      },
-                      onTap: () {
-                        final text = _boxes[i].text;
-                        _boxes[i].selection =
-                            TextSelection.collapsed(offset: text.length);
-                      },
-                      onSubmitted: (_) {
-                        if (i == target.length - 1) {
-                          _check();
-                        } else {
-                          _moveFocusToNext(i);
-                        }
-                      },
-                    ),
-                  );
-                }),
-              ),
-            ),
-
-            vGap,
-
-            SizedBox(
-              width: 200,
-              child: FilledButton.icon(
-                onPressed: _check,
-                icon: const Icon(Icons.check_rounded, size: 18),
-                label: const Text('Check'),
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // Wrong guesses "word bank"
-            if (_wrongGuesses.isNotEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.95),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _ink),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Wrong guesses',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _wrongGuesses
-                          .map((g) => Chip(
-                                label: Text(g),
-                                backgroundColor: Colors.white,
-                                side: const BorderSide(color: _ink),
-                              ))
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
