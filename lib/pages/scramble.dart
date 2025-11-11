@@ -27,11 +27,14 @@ class _GameScaffold extends StatelessWidget {
   final String title, rule;
   final Widget child;
   final Widget? topBar;
+  final List<Widget>? actions; // ← allow a right-side action icon
+
   const _GameScaffold({
     required this.title,
     required this.rule,
     required this.child,
     this.topBar,
+    this.actions,
   });
 
   @override
@@ -44,6 +47,7 @@ class _GameScaffold extends StatelessWidget {
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+        actions: actions,
       ),
       body: Container(
         decoration: _bg(context),
@@ -84,23 +88,48 @@ class ScoreStore {
   ScoreStore._();
   static final instance = ScoreStore._();
 
-  Future<void> add(String key, double v) async {
+  // store history as strings (robust to past versions), but coerce to INT
+  Future<void> add(String key, num v) async {
     final p = await SharedPreferences.getInstance();
     final k = 'sbp_$key';
     final cur = p.getStringList(k) ?? [];
-    cur.add(v.toString());
+    final asInt = v.round().clamp(-2147483648, 2147483647);
+    cur.add(asInt.toString());
     await p.setStringList(k, cur);
   }
 
-  Future<bool> reportBest(String key, double score) async {
+  // keep best under a dedicated key; compare numerically; store as INT
+  Future<bool> reportBest(String key, num score) async {
     final p = await SharedPreferences.getInstance();
     final bestKey = 'sbp_best_$key';
-    final prev = p.getDouble(bestKey) ?? double.negativeInfinity;
-    if (score > prev) {
-      await p.setDouble(bestKey, score);
+
+    // read any existing (double or int) then compare as numbers
+    double prev = p.getDouble(bestKey) ?? double.negativeInfinity;
+    final maybeInt = p.getInt(bestKey);
+    if (maybeInt != null) prev = prev.isFinite ? max(prev, maybeInt.toDouble()) : maybeInt.toDouble();
+
+    final next = score.round().toDouble();
+    final beat = next > (prev.isFinite ? prev : double.negativeInfinity);
+
+    if (beat) {
+      // write both to maximize compatibility
+      await p.setDouble(bestKey, next);
+      await p.setInt(bestKey, next.toInt());
       return true;
     }
     return false;
+  }
+
+  Future<List<int>> history(String key) async {
+    final p = await SharedPreferences.getInstance();
+    final k = 'sbp_$key';
+    final raw = p.getStringList(k) ?? const [];
+    final out = <int>[];
+    for (final s in raw) {
+      final n = int.tryParse(s) ?? double.tryParse(s)?.round();
+      if (n != null) out.add(n);
+    }
+    return out;
   }
 }
 
@@ -216,6 +245,44 @@ class _ScramblePageState extends State<ScramblePage>
 
   String get _categoryLabel => _wordToCategory[target] ?? 'General';
 
+  // ── Scramble-only Best Score (for display chip like Uplingo)
+  static const List<String> _scrambleBestKeys = [
+    'sbp_best_scramble',
+    'sb_best_scramble',
+    'scramble_best',
+    'best_scramble',
+    'scBest',
+  ];
+  double _scrambleBest = 0.0;
+
+  String _fmtScore(num v) {
+    if (v.isNaN || v.isInfinite) return '0';
+    return v.round().toString();
+  }
+
+  Future<double> _loadBestFromKeys(List<String> keys) async {
+    final p = await SharedPreferences.getInstance();
+    double best = 0.0;
+    for (final k in keys) {
+      final d = p.getDouble(k);
+      if (d != null && d > best) {
+        best = d;
+        continue;
+      }
+      final i = p.getInt(k);
+      if (i != null && i.toDouble() > best) {
+        best = i.toDouble();
+      }
+    }
+    return best;
+  }
+
+  Future<void> _loadScrambleBest() async {
+    final v = await _loadBestFromKeys(_scrambleBestKeys);
+    if (!mounted) return;
+    setState(() => _scrambleBest = v);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -223,7 +290,10 @@ class _ScramblePageState extends State<ScramblePage>
       vsync: this,
       duration: const Duration(milliseconds: 450),
     );
-    _loadState().then((_) => _new());
+    _loadState().then((_) {
+      _new();
+      _loadScrambleBest(); // read Scramble’s own best for the top chip
+    });
   }
 
   Future<void> _loadState() async {
@@ -446,14 +516,87 @@ class _ScramblePageState extends State<ScramblePage>
     _wrongGuesses.add(g);
   }
 
+  // open modal list of ALL past scores (latest first)
+  Future<void> _openScores() async {
+    final all = await ScoreStore.instance.history('scramble');
+    final list = List<int>.from(all.reversed);
+    if (!mounted) return;
+    // calc best quick (integers)
+    final best = list.isEmpty ? 0 : list.reduce(max);
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.bar_chart_rounded, size: 22),
+                    const SizedBox(width: 8),
+                    const Text('Scramble Scores',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFFAF0),
+                        border: Border.all(color: _ink),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text('Best: ${_fmtScore(best)}',
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: list.isEmpty
+                      ? const Center(child: Text('No scores yet. Play a round!'))
+                      : ListView.separated(
+                          itemCount: list.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final s = list[i];
+                            return ListTile(
+                              leading: const Icon(Icons.emoji_events_outlined),
+                              title: Text('Score: ${_fmtScore(s)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: Text('Game ${list.length - i}'),
+                              dense: true,
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _check() async {
     final guess = _answer.join();
     if (guess == target) {
       final secs =
           DateTime.now().difference(_start).inSeconds.clamp(1, 99999);
-      final score = 1.0 / secs;
+
+      // INTEGER scoring (higher is better): simple time-based points
+      // e.g., 20s → 50 points (≈ 1000 / secs)
+      final int score = max(1, (1000 / secs).round());
+
       await ScoreStore.instance.add('scramble', score);
-      await ScoreStore.instance.reportBest('scramble', score);
+      final newRecord = await ScoreStore.instance.reportBest('scramble', score);
+      if (newRecord) setState(() => _scrambleBest = score.toDouble());
 
       _wins += 1;
       bool leveled = false;
@@ -470,6 +613,7 @@ class _ScramblePageState extends State<ScramblePage>
           title: leveled ? const Text('Level Up!') : const Text('Nice!'),
           content: Text(
             'You solved "${target.toUpperCase()}" in ${_formatTime(secs)}.\n\n'
+            'Score: ${_fmtScore(score)}\n'
             'Level: $_level • Progress: ${_wins % 5}/5 to next level.',
           ),
           actions: [
@@ -501,6 +645,13 @@ class _ScramblePageState extends State<ScramblePage>
       return _GameScaffold(
         title: 'Scramble',
         rule: 'Unscramble the letters to make a word. One hint per round.',
+        actions: [
+          IconButton(
+            tooltip: 'Scores',
+            icon: const Icon(Icons.bar_chart_rounded),
+            onPressed: _openScores,
+          ),
+        ],
         child: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -510,6 +661,13 @@ class _ScramblePageState extends State<ScramblePage>
     return _GameScaffold(
       title: 'Scramble',
       rule: 'Unscramble the letters to make a word. One hint per round.',
+      actions: [
+        IconButton(
+          tooltip: 'Scores',
+          icon: const Icon(Icons.bar_chart_rounded),
+          onPressed: _openScores, // ← top-right score icon
+        ),
+      ],
       topBar: Wrap(
         alignment: WrapAlignment.center,
         spacing: 10,
@@ -555,6 +713,17 @@ class _ScramblePageState extends State<ScramblePage>
             selectedColor: const Color(0xFFEFFAF0),
             side: const BorderSide(color: _ink),
             backgroundColor: Colors.white,
+          ),
+
+          // Scramble-only score chip (same trophy vibe)
+          Chip(
+            avatar: const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFF0D7C66)),
+            label: Text(
+              'Best Score: ${_fmtScore(_scrambleBest)}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: _ink),
           ),
         ],
       ),

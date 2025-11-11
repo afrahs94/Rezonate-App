@@ -110,11 +110,22 @@ List<String> _fieldCandidates(String game) {
     ]);
   }
 
-  // ⬇️ Explicitly include Uplingo’s keys used by its page storage.
+  // Explicitly include Uplingo high-score keys that its page might write.
   if (game == _GameId.uplingo) {
     keys.addAll([
       'uplingo_best',
       'sb_best_uplingo',
+      // high score variants
+      'uplingo_high',
+      'uplingoHigh',
+      'uplingo_high_score',
+      'uplingoHighScore',
+      'sb_high_uplingo',
+      'sbp_high_uplingo',
+      // sometimes saved as a namespaced generic
+      'best_uplingo',
+      'high_uplingo',
+      'highScore_uplingo',
     ]);
   }
 
