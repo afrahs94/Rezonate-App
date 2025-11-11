@@ -17,7 +17,7 @@ import 'package:new_rezonate/main.dart' as app;
 import 'journal.dart';
 import 'settings.dart';
 import 'edit_profile.dart';
-import 'tools.dart';            // <-- added to match Tools nav targets
+import 'tools.dart';
 import 'summaries.dart';
 
 class Tracker {
@@ -93,7 +93,6 @@ class _HomePageState extends State<HomePage> {
   DateTime? _firstLogTodayAt;
   DateTime? _lastLogBeforeTodayAt;
 
-  // Five ticks (0, 2.5, 5, 7.5, 10). Only Low/High show on the graph axis.
   final List<double> _emojiTicks = const [0.0, 2.5, 5.0, 7.5, 10.0];
 
   final Map<double, String> _defaultEmojis = {
@@ -140,6 +139,49 @@ class _HomePageState extends State<HomePage> {
       'You made it this far. Keep going.',
       'Name it to tame it.',
       'Progress beats perfection.',
+      'Breathe. Then begin.',
+      'One kind thought can change a day.',
+      'You are allowed to start over.',
+      'Healing is not linear.',
+      'Do the next right thing.',
+      'Be where your feet are.',
+      'Tiny habits grow into big change.',
+      'Your pace is your pace.',
+      'You deserve the same kindness you give.',
+      'You are more than your to-do list.',
+      'You can do hard things.',
+      'It’s okay to ask for help.',
+      'Let today be a soft day.',
+      'Choose progress, not speed.',
+      'Rest, hydrate, move, repeat.',
+      'A setback is a setup for a comeback.',
+      'Pause is power.',
+      'Make room for joy.',
+      'One breath, one step, one thing.',
+      'Your feelings are valid.',
+      'Mistakes are proof you’re trying.',
+      'Boundaries are self-respect.',
+      'You are not your thoughts.',
+      'Gratitude shifts the view.',
+      'Say no when you need to.',
+      'Celebrate small wins.',
+      'Curiosity over judgment.',
+      'Start where you are.',
+      'Light is allowed to be gentle.',
+      'Future you is thanking you.',
+      'Keep the promise you made to yourself.',
+      'Let go to grow.',
+      'Slow is smooth, smooth is fast.',
+      'Even clouds make shade for rest.',
+      'Your worth isn’t measured by productivity.',
+      'Notice one good thing right now.',
+      'Speak to yourself like a friend.',
+      'You’re learning, not failing.',
+      'Take the scenic route.',
+      'Be proud of getting through.',
+      'Recovery loves routine.',
+      'Peace is a practice.',
+      'You’re doing better than you think.',
     ];
     final q = quotes[_rnd.nextInt(quotes.length)];
 
@@ -499,7 +541,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// STREAK: counts consecutive calendar days of logging.
   int get _streak {
     if (_daysWithAnyLog.isEmpty) return 0;
 
@@ -711,7 +752,6 @@ class _HomePageState extends State<HomePage> {
     const pad = 0.5;
     final double minX = -pad;
     final double maxX = (pointCount - 1) + pad;
-    bool _isWhole(num v) => v == v.roundToDouble();
 
     return LineChartData(
       minX: minX,
@@ -811,7 +851,6 @@ class _HomePageState extends State<HomePage> {
             child: SafeArea(
               child: Column(
                 children: [
-                  // -------- Main scroll content --------
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
@@ -819,7 +858,6 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Header icons (Settings • Profile)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -841,8 +879,6 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-
-                          // Logo
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: SizedBox(
@@ -880,16 +916,13 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 6),
                           Text('Hello, ${widget.userName}',
                               textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: .2)),
                           const SizedBox(height: 2),
                           Text(dateLine, style: TextStyle(color: Colors.black.withOpacity(.65), fontSize: 12)),
-
                           const SizedBox(height: 18),
-
                           if (streakNow > 0)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -922,10 +955,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-
                           const SizedBox(height: 14),
-
-                          // Trackers list
                           ReorderableListView.builder(
                             physics: const NeverScrollableScrollPhysics(),
                             shrinkWrap: true,
@@ -1054,10 +1084,7 @@ class _HomePageState extends State<HomePage> {
                               );
                             },
                           ),
-
                           const SizedBox(height: 14),
-
-                          // Add tracker
                           Showcase(
                             key: OBKeys.addHabit,
                             description: 'Tap here to add your first habit tracker.',
@@ -1072,10 +1099,7 @@ class _HomePageState extends State<HomePage> {
                               color: const Color(0xFF0D7C66),
                             ),
                           ),
-
                           const SizedBox(height: 24),
-
-                          // View selector
                           Showcase(
                             key: OBKeys.chartSelector,
                             description: 'Switch between Weekly, Monthly, or Overall views.',
@@ -1120,10 +1144,7 @@ class _HomePageState extends State<HomePage> {
                               }).toList(),
                             ),
                           ),
-
                           const SizedBox(height: 8),
-
-                          // Date range + controls
                           Row(
                             children: [
                               Expanded(
@@ -1153,10 +1174,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 6),
-
-                          // Chart card (with extra bottom space above nav)
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -1197,14 +1215,11 @@ class _HomePageState extends State<HomePage> {
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 12),
                         ],
                       ),
                     ),
                   ),
-
-                  // -------- Bottom navigation (EXACT match with Tools page) --------
                   _BottomNav(index: 0, userName: widget.userName),
                 ],
               ),
@@ -1520,7 +1535,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Painters (color picker)
 class _HueRingPainter extends CustomPainter {
   _HueRingPainter({required this.ringWidth});
   final double ringWidth;
@@ -1640,8 +1654,6 @@ class _SVSquare extends StatelessWidget {
   }
 }
 
-// ---------------- Shared helpers ----------------
-
 class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
   NoTransitionPageRoute({required WidgetBuilder builder}) : super(builder: builder);
 
@@ -1664,21 +1676,19 @@ class _HeaderShadowIcon extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: SizedBox(
-          width: 36,
-          height: 36,
+          width: 44,
+          height: 44,
           child: Center(
-            child: Icon(icon, size: 22, color: green),
+            child: Icon(icon, size: 26, color: green),
           ),
         ),
       ),
     );
   }
 }
-
-// ---------------- Bottom Nav (identical to Tools page) ----------------
 
 class _BottomNav extends StatelessWidget {
   final int index;
@@ -1703,7 +1713,7 @@ class _BottomNav extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.home, color: c(0)),
-            onPressed: () {}, // already on Home
+            onPressed: () {},
           ),
           IconButton(
             icon: Icon(Icons.menu_book, color: c(1)),
