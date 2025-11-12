@@ -67,3 +67,6 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+/.dart_tool/
+/build/
+/ios/Flutter/flutter_export_environment.sh
