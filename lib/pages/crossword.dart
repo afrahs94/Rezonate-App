@@ -1,15 +1,23 @@
 // lib/pages/crossword.dart
 //
 // Crossword with category chooser (shows first), default Easy difficulty,
-// descriptive clues (no length parentheses), bigger grid / smaller keyboard,
-// spaced keys, small themed hint bar, and a Back button that returns to
-// the Stress Busters page via Navigator.pop(context).
+// descriptive clues, bigger grid / smaller keyboard, spaced keys,
+// small themed hint bar, and Back button that returns to Stress Busters.
+//
+// Adds:
+// - Animated/interactive category cards
+// - Removed chooser description line
+// - Back button styled to match app theme
+// - Clear, specific clue definitions
+// - Up to 3 hints per game (reveal one correct letter each time)
+// - Simple scoring (letters*10 - 15 per hint), with best score persisted
 //
 // No external assets required.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:new_rezonate/main.dart' as app;
+import 'package:shared_preferences/shared_preferences.dart';
 
 /* ───────────────── Theme helpers ───────────────── */
 
@@ -75,128 +83,128 @@ IconData _categoryIcon(_Category c) => switch (c) {
       _Category.food => Icons.restaurant_rounded,
     };
 
-/* ───────────────── Word + Clue banks (descriptive, no “(n)”) ───────────────── */
+/* ───────────────── Word + Clue banks (concise & specific) ───────────────── */
 
 final Map<_Category, Map<String, String>> _clueBank = {
   _Category.animals: {
-    'LION': 'Maned big cat known for living in prides',
+    'LION': 'Maned big cat that lives in prides',
     'TIGER': 'Largest striped cat native to Asia',
-    'EAGLE': 'Raptor celebrated for exceptional eyesight',
-    'DOLPHIN': 'Intelligent marine mammal that echolocates',
-    'PANDA': 'Bear that feeds mainly on bamboo',
-    'KOALA': 'Australian tree-dweller that eats eucalyptus',
-    'GIRAFFE': 'Hoofed mammal famous for an extremely long neck',
-    'ZEBRA': 'Equid with distinctive black-and-white stripes',
+    'EAGLE': 'Raptor known for exceptional eyesight',
+    'DOLPHIN': 'Social marine mammal that echolocates',
+    'PANDA': 'Bear that eats mostly bamboo',
+    'KOALA': 'Australian tree-dweller that eats eucalyptus leaves',
+    'GIRAFFE': 'Tall hoofed mammal with a very long neck',
+    'ZEBRA': 'Equid with black-and-white stripes',
     'OTTER': 'Playful swimmer that cracks shells on rocks',
-    'CHEETAH': 'Fastest land animal; a spotted sprinter',
+    'CHEETAH': 'Fastest land animal; spotted sprinter',
   },
   _Category.history: {
-    'CAESAR': 'Roman general and statesman who crossed the Rubicon',
-    'PYRAMID': 'Ancient Egyptian royal tomb with triangular sides',
-    'EMPIRE': 'State ruled by an emperor over many peoples',
-    'PHARAOH': 'Title for rulers of ancient Egypt regarded as divine',
-    'VIKING': 'Norse seafarer known for raids and longships',
-    'TREATY': 'Formal written agreement between sovereigns',
-    'REPUBLIC': 'Government where power rests with elected reps',
-    'REVOLT': 'Organized uprising against established authority',
-    'BYZANTINE': 'Eastern Roman culture centered on Constantinople',
-    'ARMADA': 'Famous Spanish fleet defeated in 1588',
+    'CAESAR': 'Roman general who crossed the Rubicon',
+    'PYRAMID': 'Ancient Egyptian royal tomb with sloped sides',
+    'EMPIRE': 'State ruled by an emperor over several peoples',
+    'PHARAOH': 'Ruler of ancient Egypt viewed as divine',
+    'VIKING': 'Norse seafarer famed for raids and longships',
+    'TREATY': 'Formal written agreement between states',
+    'REPUBLIC': 'Government with power vested in elected reps',
+    'REVOLT': 'Organized uprising against authority',
+    'BYZANTINE': 'Eastern Roman Empire centered on Constantinople',
+    'ARMADA': 'Spanish fleet defeated by England in 1588',
   },
   _Category.literature: {
-    'ODYSSEY': 'Epic about a hero’s long voyage home to Ithaca',
-    'HAMLET': 'Shakespeare tragedy about a hesitant prince',
-    'GATSBY': 'Fitzgerald’s Jazz-Age tale of reinvention and longing',
-    'DUNE': 'Sci-fi saga set on the desert planet Arrakis',
+    'ODYSSEY': 'Epic of Odysseus’s long voyage home',
+    'HAMLET': 'Tragedy of the hesitant Danish prince',
+    'GATSBY': 'Jazz Age novel about reinvention and longing',
+    'DUNE': 'Sci-fi saga set on Arrakis',
     'NARNIA': 'Fantasy realm entered through a wardrobe',
-    'HOBBIT': 'Bilbo’s adventure that precedes the Ring saga',
+    'HOBBIT': 'Bilbo’s adventure preceding the Ring quest',
     'ORWELL': 'Author of “1984” and “Animal Farm”',
-    'AUSTEN': 'Novelist of wit and manners; wrote “Pride and Prejudice”',
-    'POE': 'American master of the macabre and detective fiction',
-    'ILIAD': 'Epic focused on Achilles and the Trojan War',
+    'AUSTEN': 'Novelist of wit who wrote “Pride and Prejudice”',
+    'POE': 'American master of the macabre and detection',
+    'ILIAD': 'Epic focused on Achilles and Troy',
   },
   _Category.popculture: {
-    'MARIO': 'Mustached Nintendo hero who jumps on Goombas',
-    'POKEMON': 'Franchise where trainers catch and evolve creatures',
-    'BATMAN': 'Gotham vigilante known as the Dark Knight',
-    'MARVEL': 'Studio behind the Avengers and the MCU',
-    'NETFLIX': 'Streaming platform binge-watched worldwide',
-    'TIKTOK': 'Short-video app with endless For You feed',
-    'EMOJI': 'Small pictograph used to add tone to messages',
+    'MARIO': 'Nintendo hero who rescues Princess Peach',
+    'POKEMON': 'Series where trainers catch and evolve creatures',
+    'BATMAN': 'Gotham vigilante, the Dark Knight',
+    'MARVEL': 'Studio behind the Avengers movies',
+    'NETFLIX': 'Subscription streaming service for films and shows',
+    'TIKTOK': 'Short-video app with a “For You” feed',
+    'EMOJI': 'Small pictograph that adds tone to messages',
     'ZELDA': 'Series where Link seeks the Triforce',
-    'PODCAST': 'On-demand audio series released as episodes',
-    'HASHTAG': 'Clickable phrase beginning with a # symbol',
+    'PODCAST': 'On-demand audio series released in episodes',
+    'HASHTAG': 'Clickable topic starting with the # symbol',
   },
   _Category.science: {
-    'GRAVITY': 'Attractive force that shapes orbits and tides',
-    'ATOM': 'Smallest unit of an element with a nucleus and electrons',
-    'NEURON': 'Nerve cell specialized for electrical signaling',
-    'QUANTUM': 'Physics of the very small with discrete energy levels',
-    'VACCINE': 'Biological preparation that trains the immune system',
-    'LASER': 'Device producing coherent, monochromatic light',
-    'PHOTON': 'Quantum of electromagnetic radiation',
-    'ENZYME': 'Protein catalyst that lowers activation energy',
-    'ORBIT': 'Curved path of a body around a larger mass',
-    'SPECIES': 'Group capable of interbreeding and producing fertile offspring',
+    'GRAVITY': 'Attractive force that shapes orbits',
+    'ATOM': 'Smallest unit of an element with a nucleus',
+    'NEURON': 'Nerve cell that conducts impulses',
+    'QUANTUM': 'Physics of discrete energy levels',
+    'VACCINE': 'Preparation that trains the immune system',
+    'LASER': 'Device producing coherent light',
+    'PHOTON': 'Quantum packet of light',
+    'ENZYME': 'Protein catalyst for biochemical reactions',
+    'ORBIT': 'Curved path around a larger body',
+    'SPECIES': 'Group able to interbreed and produce fertile young',
   },
   _Category.geography: {
-    'EVEREST': 'World’s highest peak on the Nepal–Tibet border',
-    'SAHARA': 'Vast hot desert spanning North Africa',
-    'AMAZON': 'Immense rainforest and river basin in South America',
-    'ANDES': 'Long mountain chain along South America’s west',
-    'NILE': 'Major African river flowing north to the Mediterranean',
-    'ALPS': 'European range including the Matterhorn and Mont Blanc',
-    'PACIFIC': 'Largest and deepest of Earth’s oceans',
-    'DELTA': 'Fan-shaped river mouth built by deposited silt',
-    'ISLAND': 'Landmass surrounded entirely by water',
-    'VOLCANO': 'Mountain that erupts lava and ash from Earth’s crust',
+    'EVEREST': 'Highest peak on the Nepal–Tibet border',
+    'SAHARA': 'Vast desert spanning North Africa',
+    'AMAZON': 'Immense South American river and rainforest',
+    'ANDES': 'Long range along South America’s west',
+    'NILE': 'Major African river flowing north',
+    'ALPS': 'European range with Mont Blanc and Matterhorn',
+    'PACIFIC': 'Largest and deepest ocean',
+    'DELTA': 'Fan-shaped river mouth built by silt',
+    'ISLAND': 'Land completely surrounded by water',
+    'VOLCANO': 'Mountain that erupts lava and ash',
   },
   _Category.movies: {
     'INCEPTION': 'Dream-heist thriller by Christopher Nolan',
-    'TITANIC': 'Tragic ocean liner romance from 1997',
-    'MATRIX': 'Cyberpunk story of simulated reality and choice',
-    'ROCKY': 'Underdog boxer who runs the Philadelphia steps',
+    'TITANIC': '1997 romance set on an ocean liner',
+    'MATRIX': 'Cyberpunk story of simulated reality',
+    'ROCKY': 'Philadelphia underdog boxer',
     'ALIEN': 'Spaceship horror featuring a xenomorph',
-    'JAWS': 'Amity Island terrorized by a great white shark',
-    'JOKER': 'Gritty origin tale of a Gotham villain',
-    'PARASITE': 'Korean class satire that won Best Picture',
-    'AMELIE': 'Whimsical Paris romance with a garden gnome',
-    'AVENGERS': 'Earth’s mightiest heroes unite to fight Thanos',
+    'JAWS': 'Great white shark terrorizes Amity Island',
+    'JOKER': 'Origin story of a Gotham villain',
+    'PARASITE': 'Korean class satire, Best Picture winner',
+    'AMELIE': 'Whimsical Paris romance',
+    'AVENGERS': 'Earth’s heroes unite to fight Thanos',
   },
   _Category.music: {
     'BEATLES': 'Liverpool band nicknamed the Fab Four',
     'MOZART': 'Prolific composer of symphonies and operas',
-    'JAZZ': 'Improvisation-rich genre with swing and blue notes',
-    'BLUES': 'Twelve-bar form that influenced rock and soul',
-    'OPERA': 'Dramatic works set entirely to music',
-    'GUITAR': 'Six-string instrument played with frets',
-    'PIANO': 'Keyboard instrument with hammers and pedals',
-    'CONCERT': 'Public musical performance by soloists or ensembles',
-    'CHOPIN': 'Composer famous for nocturnes and piano poetry',
+    'JAZZ': 'Improvisation-rich style with swing and blue notes',
+    'BLUES': 'Form that shaped rock and soul',
+    'OPERA': 'Drama conveyed entirely in music',
+    'GUITAR': 'Six-string fretted instrument',
+    'PIANO': 'Keyboard with hammers and pedals',
+    'CONCERT': 'Public musical performance',
+    'CHOPIN': 'Composer famed for piano nocturnes',
     'REGGAE': 'Jamaican style with off-beat rhythm',
   },
   _Category.sports: {
-    'SOCCER': 'Global game played on a pitch with a round ball',
-    'TENNIS': 'Racquet sport scored in games and sets',
-    'CRICKET': 'Bat-and-ball game with wickets and overs',
-    'BASEBALL': 'Diamond sport featuring home runs and innings',
-    'HOCKEY': 'Ice sport with sticks, skates, and a puck',
-    'RUGBY': 'Scrum-heavy oval-ball game with tries',
-    'OLYMPICS': 'International multi-sport event with five rings',
-    'MARATHON': 'Road race of 26.2 miles inspired by legend',
-    'ESPORTS': 'Organized competitive video-gaming scene',
-    'GOLF': 'Club-and-ball game aiming for par and birdies',
+    'SOCCER': 'Global game played on a pitch',
+    'TENNIS': 'Racquet sport scored in sets',
+    'CRICKET': 'Bat-and-ball game with wickets',
+    'BASEBALL': 'Diamond sport with home runs',
+    'HOCKEY': 'Ice sport with sticks and a puck',
+    'RUGBY': 'Scrum-heavy oval-ball game',
+    'OLYMPICS': 'International multi-sport event',
+    'MARATHON': '26.2-mile road race',
+    'ESPORTS': 'Organized competitive gaming',
+    'GOLF': 'Club-and-ball game aiming for par',
   },
   _Category.food: {
-    'PIZZA': 'Neapolitan classic baked with sauce and cheese',
-    'SUSHI': 'Japanese rice dish often topped with raw fish',
-    'TACO': 'Folded tortilla filled with meat and salsa',
-    'PASTA': 'Italian noodles cooked al dente and sauced',
-    'CURRY': 'Spiced stew with regional variations',
-    'BAGEL': 'Boiled-then-baked ring often served with schmear',
-    'CHEESE': 'Dairy product formed by curds and whey',
-    'WAFFLE': 'Batter cooked in a grid and topped with syrup',
-    'NOODLES': 'Long strands served in broths or stir-fries',
-    'BROWNIE': 'Fudgy chocolate square baked in a pan',
+    'PIZZA': 'Neapolitan classic with sauce and cheese',
+    'SUSHI': 'Japanese vinegared rice with seafood',
+    'TACO': 'Folded tortilla filled with meats or veggies',
+    'PASTA': 'Italian noodles served with sauce',
+    'CURRY': 'Spiced stew with regional varieties',
+    'BAGEL': 'Boiled-then-baked bread ring',
+    'CHEESE': 'Curds pressed into countless styles',
+    'WAFFLE': 'Grid-pattern batter cake',
+    'NOODLES': 'Long strands served in soups or stir-fries',
+    'BROWNIE': 'Fudgy chocolate bar from a pan',
   },
 };
 
@@ -208,6 +216,28 @@ Map<String, String> get _mixedClues {
     out.addAll(v);
   });
   return out;
+}
+
+/* ───────────────── Score store (local) ───────────────── */
+
+class _CWScoreStore {
+  static const _listKey = 'sbp_crossword';
+  static const _bestKey = 'sbp_best_crossword';
+
+  static Future<void> add(int score) async {
+    final p = await SharedPreferences.getInstance();
+    final cur = p.getStringList(_listKey) ?? <String>[];
+    cur.add(score.toString());
+    await p.setStringList(_listKey, cur);
+  }
+
+  static Future<void> reportBest(int score) async {
+    final p = await SharedPreferences.getInstance();
+    final prev = p.getInt(_bestKey) ?? 0;
+    if (score > prev) {
+      await p.setInt(_bestKey, score);
+    }
+  }
 }
 
 /* ───────────────── Game model ───────────────── */
@@ -245,6 +275,9 @@ class _CrosswordPageState extends State<CrosswordPage> {
   int _activeRunIndex = 0;
   int _cursorR = 0, _cursorC = 0;
 
+  // hints & scoring
+  int _hintsLeft = 3;
+
   Map<String, String> get _clues => switch (_category) {
         _Category.mixed || null => _mixedClues,
         _ => _clueBank[_category]!,
@@ -266,6 +299,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
 
     final grid = List.generate(n, (_) => List<String?>.filled(n, null));
 
+    // Place horizontal runs staggered to create crossings.
     final offset = (n == 11) ? 3 : 2;
     int r = 0;
     int placed = 0;
@@ -281,6 +315,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
       r++;
     }
 
+    // Add vertical overlaps for crossings.
     for (int t = 0; t < n; t++) {
       final c = rnd.nextInt(n);
       for (int rr = 0; rr < n - 2; rr++) {
@@ -305,6 +340,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
       _cursorC = 0;
     }
 
+    _hintsLeft = 3;
     setState(() {});
   }
 
@@ -425,6 +461,79 @@ class _CrosswordPageState extends State<CrosswordPage> {
       _cells[_cursorR][_cursorC] = ch;
     }
     _moveCursor(1);
+    _maybeFinish();
+  }
+
+  /* ─────────── Hints & scoring ─────────── */
+
+  void _useHint() {
+    if (_hintsLeft <= 0) return;
+
+    // choose a random empty, valid cell anywhere
+    final candidates = <(int, int)>[];
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (_solution[r][c] != null && _cells[r][c].isEmpty) {
+          candidates.add((r, c));
+        }
+      }
+    }
+    if (candidates.isEmpty) return;
+
+    final pick = candidates[rnd.nextInt(candidates.length)];
+    final r = pick.$1, c = pick.$2;
+    _cells[r][c] = _solution[r][c]!;
+    _hintsLeft -= 1;
+    _cursorR = r;
+    _cursorC = c;
+    setState(() {});
+    _maybeFinish();
+  }
+
+  bool _isSolved() {
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        final sol = _solution[r][c];
+        if (sol == null) continue;
+        if (_cells[r][c] != sol) return false;
+      }
+    }
+    return true;
+  }
+
+  int _computeScore() {
+    int letters = 0;
+    for (final row in _solution) {
+      for (final ch in row) {
+        if (ch != null) letters++;
+      }
+    }
+    final raw = letters * 10 - (15 * (3 - _hintsLeft)); // 15-point penalty per used hint
+    return max(0, raw);
+  }
+
+  Future<void> _maybeFinish() async {
+    if (!_isSolved()) return;
+    final score = _computeScore();
+    await _CWScoreStore.add(score);
+    await _CWScoreStore.reportBest(score);
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Puzzle Complete!'),
+        content: Text('Score: $score\nHints used: ${3 - _hintsLeft}'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    _buildPuzzle();
   }
 
   /* ─────────── Clue text (no length parentheses) ─────────── */
@@ -455,10 +564,25 @@ class _CrosswordPageState extends State<CrosswordPage> {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.of(context).pop(), // back to Stress Busters
+        leadingWidth: 64,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8, top: 6, bottom: 6),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            elevation: 1,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _ink),
+                ),
+                child: const Icon(Icons.arrow_back_rounded, color: _themeGreen),
+              ),
+            ),
+          ),
         ),
       ),
       body: Container(
@@ -475,12 +599,8 @@ class _CrosswordPageState extends State<CrosswordPage> {
                         .textTheme
                         .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                const Text(
-                  'Starts on Easy (7×7). You can change difficulty in-game.',
-                  style: TextStyle(fontSize: 12.5),
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
+                // Description line removed per request
                 Expanded(
                   child: GridView.count(
                     physics: const BouncingScrollPhysics(),
@@ -488,7 +608,7 @@ class _CrosswordPageState extends State<CrosswordPage> {
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 14,
                     children: _Category.values.map((c) {
-                      return _CategoryCard(
+                      return _AnimatedCategoryCard(
                         icon: _categoryIcon(c),
                         label: _categoryLabel(c),
                         onTap: () {
@@ -724,6 +844,12 @@ class _CrosswordPageState extends State<CrosswordPage> {
             icon: const Icon(Icons.fiber_new_rounded, size: 16),
             label: const Text('New'),
           ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: (_hintsLeft > 0) ? _useHint : null,
+            icon: const Icon(Icons.tips_and_updates_rounded, size: 16),
+            label: Text('Hint (${_hintsLeft})'),
+          ),
           const Spacer(),
           Chip(
             visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
@@ -790,31 +916,66 @@ class _CrosswordPageState extends State<CrosswordPage> {
 
 /* ───────────────── Small widgets ───────────────── */
 
-class _CategoryCard extends StatelessWidget {
+class _AnimatedCategoryCard extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _CategoryCard({required this.icon, required this.label, required this.onTap});
+  const _AnimatedCategoryCard({required this.icon, required this.label, required this.onTap});
+
+  @override
+  State<_AnimatedCategoryCard> createState() => _AnimatedCategoryCardState();
+}
+
+class _AnimatedCategoryCardState extends State<_AnimatedCategoryCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 180));
+  bool _hover = false;
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Ink(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.95),
+    final scale = Tween(begin: 1.0, end: 1.04).animate(_c);
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() => _hover = true);
+        _c.forward();
+      },
+      onExit: (_) {
+        setState(() => _hover = false);
+        _c.reverse();
+      },
+      child: AnimatedScale(
+        scale: scale.value,
+        duration: const Duration(milliseconds: 120),
+        child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _ink),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: _themeGreen),
-            const SizedBox(height: 10),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-          ],
+          onTap: widget.onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _hover
+                    ? const [Color(0xFFE9FFF4), Color(0xFFC9F2E7)]
+                    : const [Colors.white, Colors.white],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _ink),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.icon, size: 40, color: _themeGreen),
+                const SizedBox(height: 10),
+                Text(widget.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ),
         ),
       ),
     );

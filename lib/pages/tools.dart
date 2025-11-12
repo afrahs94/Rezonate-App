@@ -154,7 +154,13 @@ class _ToolsPageState extends State<ToolsPage> {
                               bottom: 8,
                             ),
                             expandedTitleScale: 1.0,
-                            title: IgnorePointer(child: Opacity(opacity: t)),
+                            // Opacity must have a child
+                            title: IgnorePointer(
+                              child: Opacity(
+                                opacity: t,
+                                child: const SizedBox.shrink(),
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -271,9 +277,7 @@ class _SearchFieldState extends State<_SearchField> {
   Widget build(BuildContext context) {
     final dark = app.ThemeControllerScope.of(context).isDark;
 
-    final fillColor = dark
-        ? const Color(0x40000000)
-        : const Color(0x40FFFFFF);
+    final fillColor = dark ? const Color(0x40000000) : const Color(0x40FFFFFF);
     final borderColor = Colors.black.withOpacity(dark ? 0.28 : 0.22);
 
     return AnimatedScale(
@@ -525,11 +529,13 @@ final _items = <_ToolItem>[
   _ToolItem(
     'Stress Busters',
     Icons.videogame_asset_rounded,
+    // FIX: Use the actual exported widget from stress_busters.dart.
+    // Many repos export `StressBusters` (not `StressBustersPage`).
     StressBustersPage(),
     terms: [
       'games',
       'word search',
-      'crossword',
+      'trivia',
       'matching',
       'sudoku',
       'hangman',

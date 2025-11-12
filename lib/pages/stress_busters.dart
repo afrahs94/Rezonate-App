@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Game pages
 import 'word_search.dart';
-import 'crossword.dart';
+import 'trivia.dart';
 import 'matching.dart';
 import 'sudoku.dart';
 import 'uplingo.dart';
@@ -249,12 +249,12 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       onTap: () => _openGame((_) => const WordSearchCategoryPage()),
                     ),
                     _GameCard(
-                      title: 'Crossword',
-                      subtitle: 'Fill the mini grid',
+                      title: 'Trivia',
+                      subtitle: 'Test your knowledge',
                       colors: const [Color(0xFFE9FFFE), Color(0xFFBDF5F1)],
                       icon: Icons.view_quilt_rounded,
                       iconColor: const Color(0xFF0C5E4D),
-                      onTap: () => _openGame((_) => const CrosswordPage()),
+                      onTap: () => _openGame((_) => const TriviaPage()),
                     ),
                     _GameCard(
                       title: 'Matching',
