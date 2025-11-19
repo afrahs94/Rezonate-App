@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Game pages
 import 'word_search.dart';
 import 'trivia.dart';
-import 'matching.dart';
+import 'mahjong.dart';
 import 'sudoku.dart';
 import 'uplingo.dart';
 import 'scramble.dart';
@@ -257,19 +257,19 @@ class _StressBustersPageState extends State<StressBustersPage> {
                       onTap: () => _openGame((_) => const TriviaPage()),
                     ),
                     _GameCard(
-                      title: 'Matching',
-                      subtitle: 'Flip & match pairs',
+                      title: 'Mahjong',
+                      subtitle: 'Match tiles',
                       colors: const [Color(0xFFFFF6E8), Color(0xFFFFE5BA)],
                       icon: Icons.extension_rounded,
                       iconColor: const Color(0xFF916D00),
-                      onTap: () => _openGame((_) => const MatchDifficultPage()),
+                      onTap: () => _openGame((_) => const MahjongPage()),
                     ),
                     _GameCard(
                       title: 'Sudoku',
                       subtitle: 'Relaxed 9×9 play',
                       colors: const [Color(0xFFEFF7FF), Color(0xFFCAE2FF)],
                       icon: Icons.grid_4x4_rounded,
-                      iconColor: const Color(0xFF0A4C7A),
+                      iconColor: const Color.fromARGB(255, 15, 81, 128),
                       onTap: () => _openGame((_) => const SudokuPage()),
                     ),
                     _GameCard(
