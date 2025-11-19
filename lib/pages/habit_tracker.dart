@@ -395,43 +395,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
       extendBody: true,
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        title: const Text(
-          'Habit Tracker',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Colors.black,
-            fontSize: 24, // ↓ a bit smaller
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-        // Filters button in the top-right
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: OutlinedButton.icon(
-              onPressed: _openFilters,
-              icon: const Icon(Icons.filter_list_rounded, size: 16),
-              label: const Text('Filters', style: TextStyle(fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                side: BorderSide(color: Colors.black.withOpacity(0.12)),
-                shape: const StadiumBorder(),
-                backgroundColor: Colors.white.withOpacity(0.6),
-                foregroundColor: Colors.black,
-              ),
-            ),
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           Positioned.fill(
@@ -442,6 +405,48 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
           SafeArea(
             child: CustomScrollView(
               slivers: [
+                // Scrollable header (replaces static AppBar)
+                SliverAppBar(
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  centerTitle: true,
+                  pinned: false,
+                  floating: false,
+                  automaticallyImplyLeading: false,
+                  title: const Text(
+                    'Habit Tracker',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                      fontSize: 24, // ↓ a bit smaller
+                    ),
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.black),
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: OutlinedButton.icon(
+                        onPressed: _openFilters,
+                        icon: const Icon(Icons.filter_list_rounded, size: 16),
+                        label: const Text('Filters', style: TextStyle(fontSize: 13)),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          side: BorderSide(color: Colors.black.withOpacity(0.12)),
+                          shape: const StadiumBorder(),
+                          backgroundColor: Colors.white.withOpacity(0.6),
+                          foregroundColor: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
                 // Centered month header (green text) with chevrons
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
