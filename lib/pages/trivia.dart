@@ -749,7 +749,7 @@ class _TriviaPageState extends State<TriviaPage>
                           final isSel = _selected == i;
                           final isCorrect = i == q.correct;
                           Color bg = _panelLite;
-                          Color border = _frame;
+                          Color border = _neonPink; // different from question bubble
                           if (_locked) {
                             if (isCorrect) {
                               bg = const Color(0xFF0E1A15);
