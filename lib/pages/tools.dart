@@ -503,7 +503,7 @@ final _items = <_ToolItem>[
     ],
   ),
   _ToolItem(
-    'AI Chatbot',
+    'RenAI',
     Icons.forum_rounded,
     AIChatbotPage(),
     terms: ['chat', 'ask', 'assistant'],

@@ -337,7 +337,7 @@ void initState() {
         elevation: 0,
         centerTitle: true,
         title: const Text(
-          'AI Chatbot',
+          'RenAI',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
