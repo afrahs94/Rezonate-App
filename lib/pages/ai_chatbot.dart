@@ -1,16 +1,16 @@
 // lib/pages/ai_chatbot.dart
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
+import 'package:http/http.dart' as http; // Still needed for persistence logic
 import 'package:new_rezonate/main.dart' as app;
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 /// AI Chatbot (conversational)
 /// - Reflective listening first; one concise follow-up question each turn
-/// - Uses OpenAI-compatible API when OPENAI_API_KEY (or your proxy) is configured
-/// - Persists chat (Firestore if signed in, otherwise SharedPreferences)
 /// - Safe, crisis-aware wording (not a medical device)
 class AIChatbotPage extends StatefulWidget {
   const AIChatbotPage({super.key});
@@ -22,25 +22,33 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
   final List<_ChatMessage> _messages = [];
+  
+  // Initialize these late, they will be set in initState if _llmEnabled is true
+  late final GenerativeModel _gemini;
+  late final ChatSession _chat;
+  
   bool _loading = false;
 
   // ---------- Config ----------
-  // If you’re calling your own secure proxy, set OPENAI_BASE_URL to that endpoint
-  // (e.g., https://us-central1-<project>.cloudfunctions.net/chat) and leave API key empty.
-  static const String _kApiKey =
-      String.fromEnvironment('OPENAI_API_KEY', defaultValue: '');
-  static const String _kModel =
-      String.fromEnvironment('OPENAI_MODEL', defaultValue: 'gpt-4o-mini');
-  static const String _kBaseUrl =
-      String.fromEnvironment('OPENAI_BASE_URL', defaultValue: 'https://api.openai.com/v1');
+  // Use the Gemini API. The API key can be set via --dart-define=GEMINI_API_KEY="your-key"
+  static const String _kApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
+  // Use a Gemini model that supports multi-turn chat
+  static const String _kModel = String.fromEnvironment(
+    'GEMINI_MODEL',
+    defaultValue: 'gemini-2.5-flash',
+  );
+  // Removed _kBaseUrl as the package handles it.
 
   // When using a Firebase Functions proxy, you can set this to true to send an ID token.
-  static const bool _kUseFirebaseAuthOnRequests =
-      bool.fromEnvironment('USE_FIREBASE_AUTH_BEARER', defaultValue: false);
+  static const bool _kUseFirebaseAuthOnRequests = bool.fromEnvironment(
+    'USE_FIREBASE_AUTH_BEARER',
+    defaultValue: false,
+  );
 
-  bool get _llmEnabled => _kBaseUrl.trim().isNotEmpty &&
-      // If you point _kBaseUrl to your proxy, you may not need an API key here.
-      (_kApiKey.trim().isNotEmpty || _kBaseUrl.contains('cloudfunctions.net') || _kBaseUrl.contains('vercel.app') || _kBaseUrl.contains('workers.dev'));
+  bool get _llmEnabled => _kApiKey.trim().isNotEmpty;
 
   // ---------- Theming ----------
   BoxDecoration _bg(BuildContext context) {
@@ -49,9 +57,14 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
       gradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: dark
-            ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
-            : const [Color(0xFFFFFFFF), Color(0xFFD7C3F1), Color(0xFF41B3A2)],
+        colors:
+            dark
+                ? const [Color(0xFFBDA9DB), Color(0xFF3E8F84)]
+                : const [
+                  Color(0xFFFFFFFF),
+                  Color(0xFFD7C3F1),
+                  Color(0xFF41B3A2),
+                ],
       ),
     );
   }
@@ -67,13 +80,14 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
   Future<void> _loadHistory() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final qs = await FirebaseFirestore.instance
-          .collection('ai_chat_v1')
-          .doc(user.uid)
-          .collection('messages')
-          .orderBy('ts')
-          .limit(500)
-          .get();
+      final qs =
+          await FirebaseFirestore.instance
+              .collection('ai_chat_v1')
+              .doc(user.uid)
+              .collection('messages')
+              .orderBy('ts')
+              .limit(500)
+              .get();
       _messages
         ..clear()
         ..addAll(qs.docs.map((d) => _ChatMessage.fromMap(d.data())));
@@ -84,11 +98,20 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
         final List list = jsonDecode(raw) as List;
         _messages
           ..clear()
-          ..addAll(list.map((m) => _ChatMessage.fromMap(Map<String, dynamic>.from(m))));
+          ..addAll(
+            list.map((m) => _ChatMessage.fromMap(Map<String, dynamic>.from(m))),
+          );
       }
     }
+    
     if (mounted) setState(() {});
     _jumpToEnd();
+    
+    // NEW: If LLM is enabled, restart the chat session with the loaded history
+    if (_llmEnabled && _messages.isNotEmpty) {
+      final history = _messages.map((m) => m.toContent()).toList();
+      _chat = _gemini.startChat(history: history); 
+    }
   }
 
   Future<void> _persistMessage(_ChatMessage m) async {
@@ -132,106 +155,14 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
   }
 
   // ---------- LLM client ----------
-  List<Map<String, dynamic>> _buildLlmMessages() {
-    const systemPrompt = '''
-You are a warm, empathetic, *conversational* mental-health companion.
-Primary goals:
-1) Reflect back what you understood in plain, human language (1–2 sentences).
-2) Ask ONE short, relevant follow-up question to learn more.
-3) Only sometimes suggest a coping idea (breathing/grounding/CBT/ACT/DBT), and ONLY if it naturally fits.
-4) Avoid diagnosis or medical claims. Encourage professional help when appropriate.
-5) If the user seems in immediate danger or indicates self-harm intent, advise contacting emergency services/crisis lines right away.
-
-Style:
-- Short paragraphs, natural tone, no bullet lists unless the user asks.
-- Never push exercises every turn. Listening comes first.
+  // System instruction for the Gemini API
+  final String _kSystemInstruction = '''
+You are a warm, empathetic, *conversational* mental-health companion. Primary goals: 1) Reflect back what you understood in plain, human language (1–2 sentences). 2) Ask ONE short, relevant follow-up question to learn more. 3) Only sometimes suggest a coping idea (breathing/grounding/CBT/ACT/DBT), and ONLY if it naturally fits. 4) Avoid diagnosis or medical claims. Encourage professional help when appropriate. 5) If the user seems in immediate danger or indicates self-harm intent, advise contacting emergency services/crisis lines right away. Style: - Short paragraphs, natural tone, no bullet lists unless the user asks. - Never push exercises every turn. Listening comes first.
 ''';
 
-    // Use the last ~20 turns for brevity
-    final tail = _messages.length > 40 ? _messages.sublist(_messages.length - 40) : _messages;
-
-    final msgs = <Map<String, dynamic>>[
-      {'role': 'system', 'content': systemPrompt},
-      ...tail.map((m) => {'role': m.role, 'content': m.text}),
-    ];
-    return msgs;
-  }
-
-  Future<String> _callLlm(List<Map<String, dynamic>> msgs) async {
-    // If pointing at your secure proxy (Cloud Functions, Vercel, etc.), expose a chat-compatible route:
-    // - Cloud Functions example in my previous message.
-    // - If calling vendor directly, keep _kBaseUrl = https://api.openai.com/v1 and provide _kApiKey.
-    final isProxy = !_kBaseUrl.contains('api.openai.com');
-
-    final uri = isProxy
-        ? Uri.parse(_kBaseUrl) // e.g., your https://...cloudfunctions.net/chat
-        : Uri.parse('$_kBaseUrl/chat/completions');
-
-    final headers = <String, String>{'Content-Type': 'application/json'};
-    if (!isProxy) {
-      headers['Authorization'] = 'Bearer $_kApiKey';
-    } else if (_kUseFirebaseAuthOnRequests) {
-      final user = FirebaseAuth.instance.currentUser;
-      final idToken = await user?.getIdToken();
-      if (idToken != null) headers['Authorization'] = 'Bearer $idToken';
-    }
-
-    final body = isProxy
-        ? jsonEncode({'messages': msgs, 'model': _kModel, 'temperature': 0.8})
-        : jsonEncode({'model': _kModel, 'temperature': 0.8, 'messages': msgs});
-
-    final resp = await http.post(uri, headers: headers, body: body);
-
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      if (isProxy) {
-        // Expecting { content: "...", usage: ... }
-        final content = data['content']?.toString();
-        if (content != null && content.trim().isNotEmpty) return content.trim();
-      } else {
-        final choices = data['choices'] as List?;
-        final content = choices?.first?['message']?['content']?.toString();
-        if (content != null && content.trim().isNotEmpty) return content.trim();
-      }
-      throw Exception('Empty model response');
-    } else {
-      String details = '';
-      try {
-        final m = jsonDecode(resp.body);
-        details = m['error']?.toString() ?? resp.body;
-      } catch (_) {
-        details = resp.body;
-      }
-      throw Exception('LLM request failed (${resp.statusCode}): $details');
-    }
-  }
-
-  // ---------- Conversational fallback (when no key/proxy) ----------
-  String _reflectiveFallback(String input) {
-    final t = input.trim();
-    final lower = t.toLowerCase();
-
-    String reflection;
-    if (lower.contains('anx') || lower.contains('worry') || lower.contains('panic')) {
-      reflection = "It sounds like anxiety’s been loud for you just now.";
-    } else if (lower.contains('depress') || lower.contains('down') || lower.contains('sad')) {
-      reflection = "I’m hearing a lot of heaviness and low mood in what you wrote.";
-    } else if (lower.contains('sleep') || lower.contains('insomnia')) {
-      reflection = "Sleep has been tough and that’s wearing you down.";
-    } else if (lower.contains('anger') || lower.contains('mad') || lower.contains('irrit')) {
-      reflection = "There’s a lot of frustration in this, and it makes sense you feel it.";
-    } else if (lower.contains('grief') || lower.contains('loss')) {
-      reflection = "I’m really sorry you’re going through this loss—those waves can be intense.";
-    } else {
-      reflection = "I’m hearing that this is a lot to carry.";
-    }
-
-    // ONE short follow-up, no exercise push by default
-    String follow = "What part of this feels most important for me to understand right now?";
-
-    return "$reflection $follow";
-  }
-
+  // REMOVED: _buildLlmMessages() as ChatSession handles this.
+  // REMOVED: _callLlm() as GenerativeModel handles this.
+  
   // ---------- UI helpers ----------
   void _jumpToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -247,7 +178,8 @@ Style:
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _loading) return;
+    if (text.isEmpty || _loading || !_llmEnabled)
+      return; // Only allow sending if AI is enabled
 
     final userMsg = _ChatMessage(
       role: 'user',
@@ -265,15 +197,22 @@ Style:
 
     String reply;
     try {
-      if (_llmEnabled) {
-        final msgs = _buildLlmMessages();
-        reply = await _callLlm(msgs);
+      // Using the ChatSession's sendMessage method
+      final response = await _chat.sendMessage(Content.text(text)); 
+      
+      reply = response.text ?? 'Sorry, I received an empty response from the AI.';
+
+    } on FirebaseException catch (e) {
+      // Handle Firebase proxy auth errors if _kUseFirebaseAuthOnRequests is true
+      reply = "Authentication error: $e";
+    } on Exception catch (e) {
+      // Handle API connection errors, including failed key or network issues
+      if (e is SocketException) {
+        reply = "Connection failed. Please check your network.";
       } else {
-        reply = _reflectiveFallback(text);
+        reply =
+            "I hit a connection issue and couldn't process your request right now. Could you please try again in a moment? ($e)";
       }
-    } catch (e) {
-      // If proxy or vendor fails, gracefully fall back to reflective style
-      reply = "${_reflectiveFallback(text)}\n\n(We hit a connection issue, but I’m here with you.)";
     }
 
     final botMsg = _ChatMessage(
@@ -294,26 +233,53 @@ Style:
   Future<void> _clearConversation() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Clear conversation?'),
-        content: const Text('This removes the current chat history on this device/account.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Clear')),
-        ],
-      ),
+      builder:
+          (c) => AlertDialog(
+            title: const Text('Clear conversation?'),
+            content: const Text(
+              'This removes the current chat history on this device/account.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('Clear'),
+              ),
+            ],
+          ),
     );
     if (ok != true) return;
 
     setState(() => _messages.clear());
     await _persistAll();
+      _chat = _gemini.startChat(history: []);
   }
 
   @override
-  void initState() {
-    super.initState();
-    _loadHistory();
+void initState() {
+  super.initState();
+  _loadHistory();
+
+  if (_llmEnabled) {
+    // 1. Initialize GenerativeModel
+    _gemini = GenerativeModel(
+      model: _kModel,
+      apiKey: _kApiKey,
+      generationConfig: GenerationConfig(
+        //temperature: 0.8,
+        //systemInstruction: _kSystemInstruction,
+      ),
+    );
+    
+    // 2. Initialize ChatSession
+    // Map existing history to Content objects for the session
+    final history = _messages.map((m) => m.toContent()).toList();
+    _chat = _gemini.startChat(history: history);
   }
+}
 
   @override
   void dispose() {
@@ -324,25 +290,40 @@ Style:
 
   @override
   Widget build(BuildContext context) {
+    // ... (rest of your build method remains the same) ...
     const green = Color(0xFF0D7C66);
     final liveChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: _llmEnabled ? const Color(0xFFE8F5E9) : const Color(0xFFFFF8E1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _llmEnabled ? const Color(0xFF2E7D32) : const Color(0xFFF9A825)),
+        border: Border.all(
+          color:
+              _llmEnabled ? const Color(0xFF2E7D32) : const Color(0xFFF9A825),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_llmEnabled ? Icons.bolt_rounded : Icons.wifi_off_rounded,
-              size: 16, color: _llmEnabled ? const Color(0xFF2E7D32) : const Color(0xFFF9A825)),
+          Icon(
+            _llmEnabled
+                ? Icons.bolt_rounded
+                : Icons.lock_outline_rounded, // Changed icon for 'key missing'
+            size: 16,
+            color:
+                _llmEnabled ? const Color(0xFF2E7D32) : const Color(0xFFF9A825),
+          ),
           const SizedBox(width: 6),
-          Text(_llmEnabled ? 'Live AI' : 'Offline mode',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _llmEnabled ? const Color(0xFF2E7D32) : const Color(0xFFF57F17),
-              )),
+          Text(
+            _llmEnabled ? 'Live AI' : 'API Key Missing', // Updated text
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color:
+                  _llmEnabled
+                      ? const Color(0xFF2E7D32)
+                      : const Color(0xFFF57F17),
+            ),
+          ),
         ],
       ),
     );
@@ -357,15 +338,24 @@ Style:
         centerTitle: true,
         title: const Text(
           'AI Chatbot',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .2,
+          ),
         ),
         actions: [
-          Center(child: Padding(padding: const EdgeInsets.only(right: 8), child: liveChip)),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: liveChip,
+            ),
+          ),
           IconButton(
             tooltip: 'Clear conversation',
             onPressed: _messages.isEmpty ? null : _clearConversation,
             icon: const Icon(Icons.delete_outline_rounded),
-          )
+          ),
         ],
       ),
       body: Container(
@@ -404,7 +394,10 @@ Style:
                         alignment: Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(.88),
                             borderRadius: const BorderRadius.only(
@@ -414,7 +407,9 @@ Style:
                               bottomRight: Radius.circular(16),
                             ),
                             border: Border.all(color: Colors.black12),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black12, blurRadius: 6),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -422,24 +417,32 @@ Style:
                               SizedBox(
                                 height: 16,
                                 width: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                               SizedBox(width: 8),
-                              Text('Thinking…'),
+                              //Text('Thinking…'),
                             ],
                           ),
-                        ),
+                          ),
                       );
                     }
 
                     final m = _messages[i - 1];
                     final mine = m.role == 'user';
                     return Align(
-                      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment:
+                          mine ? Alignment.centerRight : Alignment.centerLeft,
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .78),
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * .78,
+                        ),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
                             color: mine ? green : Colors.white.withOpacity(.88),
@@ -450,7 +453,9 @@ Style:
                               bottomRight: Radius.circular(mine ? 4 : 16),
                             ),
                             border: Border.all(color: Colors.black12),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black12, blurRadius: 6),
+                            ],
                           ),
                           child: SelectableText(
                             m.text,
@@ -476,7 +481,7 @@ Style:
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.9),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(color: Colors.black26),
                         ),
@@ -487,7 +492,6 @@ Style:
                           textInputAction: TextInputAction.newline,
                           decoration: const InputDecoration(
                             hintText: 'Tell me what’s going on…',
-                            border: InputBorder.none,
                           ),
                           onSubmitted: (_) => _send(),
                         ),
@@ -496,16 +500,26 @@ Style:
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: _loading ? null : _send,
-                      icon: _loading
-                          ? const SizedBox(
-                              height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.send_rounded),
+                      icon:
+                          _loading
+                              ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : const Icon(Icons.send_rounded),
                       label: const Text('Send'),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF0D7C66),
                         foregroundColor: Colors.white,
                         shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -524,10 +538,28 @@ class _ChatMessage {
   final String text;
   final int ts; // epoch ms
 
-  const _ChatMessage({required this.role, required this.text, required this.ts});
+  const _ChatMessage({
+    required this.role,
+    required this.text,
+    required this.ts,
+  });
 
   Map<String, dynamic> toMap() => {'role': role, 'text': text, 'ts': ts};
 
-  factory _ChatMessage.fromMap(Map<String, dynamic> m) =>
-      _ChatMessage(role: m['role'] as String, text: m['text'] as String, ts: (m['ts'] as num).toInt());
+  factory _ChatMessage.fromMap(Map<String, dynamic> m) => _ChatMessage(
+    role: m['role'] as String,
+    text: m['text'] as String,
+    ts: (m['ts'] as num).toInt(),
+  );
+  
+  // NEW: Helper to convert to package Content
+  Content toContent() {
+    return Content(
+      // 'model' is the required role for the AI in the API
+      role == 'assistant' ? 'model' : 'user', 
+      [
+        //Part.text(text),
+      ],
+    );
+  }
 }
