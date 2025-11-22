@@ -1108,8 +1108,9 @@ class _HomePageState extends State<HomePage> {
                                     children: [
                                       Icon(
                                         Icons.local_fire_department,
-                                        color:
-                                            _isDark ? Colors.deepOrange.withOpacity(.85) : Colors.deepOrange,
+                                        color: _isDark
+                                            ? Colors.deepOrange.withOpacity(.85)
+                                            : Colors.deepOrange,
                                         size: 18,
                                       ),
                                       const SizedBox(width: 8),
@@ -1467,324 +1468,22 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              // Scrim when Rez panel is open
-              if (_rezPanelOpen)
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => setState(() => _rezPanelOpen = false),
-                    child: Container(
-                      color: Colors.black.withOpacity(0.25),
-                    ),
-                  ),
-                ),
-
-              // Rez sidebar panel
-              _buildRezPanel(context),
-
-              // iOS-style semi-transparent handle tab
-              if (!_rezPanelOpen)
-                Positioned(
-                  left: 0,
-                  top: MediaQuery.of(context).size.height * 0.35,
-                  child: GestureDetector(
-                    onHorizontalDragUpdate: (details) {
-                      if (details.delta.dx > 6) {
-                        setState(() => _rezPanelOpen = true);
-                      }
-                    },
-                    onTap: () => setState(() => _rezPanelOpen = true),
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(18),
-                        bottomRight: Radius.circular(18),
-                      ),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          width: 30,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.22),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.diamond, size: 18, color: Color(0xFF0D7C66)),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Rez',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              // Rez sidebar overlay widget (scrim + panel + handle)
+              RezSidebar(
+                isOpen: _rezPanelOpen,
+                panelWidth: _rezPanelWidth,
+                rezBalance: _rezBalance,
+                rezHistory: _rezHistory,
+                userName: widget.userName,
+                profilePhotoUrl: _profilePhotoUrl,
+                isDark: _isDark,
+                onOpen: () => setState(() => _rezPanelOpen = true),
+                onClose: () => setState(() => _rezPanelOpen = false),
+              ),
             ],
           ),
         );
       },
-    );
-  }
-
-  Widget _buildRezPanel(BuildContext context) {
-    final dark = app.ThemeControllerScope.of(context).isDark;
-    final width = _rezPanelWidth;
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      left: _rezPanelOpen ? 0 : -width,
-      top: 0,
-      bottom: 0,
-      child: SafeArea(
-        child: Container(
-          width: width,
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: dark
-                  ? [
-                      const Color(0xFF0B2522).withOpacity(0.96),
-                      const Color(0xFF0D7C66).withOpacity(0.90),
-                    ]
-                  : [
-                      const Color(0xFFFFFFFF).withOpacity(0.92),
-                      const Color(0xFFD7C3F1).withOpacity(0.90),
-                    ],
-            ),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(24),
-              bottomRight: Radius.circular(24),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.35),
-                blurRadius: 18,
-                offset: const Offset(4, 0),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with close + avatar + label
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 10, 4),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => setState(() => _rezPanelOpen = false),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color:
-                              dark ? Colors.white.withOpacity(.06) : Colors.black.withOpacity(.03),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.close,
-                            size: 18, color: dark ? Colors.white70 : Colors.black87),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor:
-                          dark ? Colors.white.withOpacity(.12) : const Color(0xFFE4F3F0),
-                      backgroundImage: _profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty
-                          ? NetworkImage(_profilePhotoUrl!)
-                          : null,
-                      child: (_profilePhotoUrl == null || _profilePhotoUrl!.isEmpty)
-                          ? const Icon(Icons.person, size: 30, color: Color(0xFF0D7C66))
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.userName,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w700,
-                              color: dark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Rez overview',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: dark ? Colors.white70 : Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Rez balance row (no background card)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: dark ? Colors.white70 : const Color(0xFF0D7C66),
-                          width: 1.6,
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.diamond, size: 20, color: Color(0xFF0D7C66)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '$_rezBalance Rez',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: dark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Current balance',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: dark ? Colors.white70 : Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Recent activity',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: dark ? Colors.white70 : Colors.black87,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              Expanded(
-                child: _rezHistory.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No Rez activity yet',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: dark ? Colors.white60 : Colors.black54,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                        itemCount: _rezHistory.length,
-                        itemBuilder: (context, index) {
-                          final tx = _rezHistory[index];
-                          final isGain = tx.amount >= 0;
-                          final sign = isGain ? '+' : '';
-                          final color =
-                              isGain ? const Color(0xFF0D7C66) : Colors.redAccent;
-                          final timeStr =
-                              DateFormat('MMM d • h:mm a').format(tx.timestamp);
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: dark
-                                  ? Colors.white.withOpacity(.04)
-                                  : Colors.white.withOpacity(.94),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isGain ? Icons.trending_up : Icons.trending_down,
-                                  size: 18,
-                                  color: color,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        tx.description,
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: dark ? Colors.white : Colors.black,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        timeStr,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: dark ? Colors.white60 : Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.diamond, size: 16),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      '$sign${tx.amount}',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -1938,9 +1637,9 @@ class _HomePageState extends State<HomePage> {
                               ),
                               padding: const EdgeInsets.symmetric(horizontal: 18),
                             ),
-                            label: Text(
-                              'Done (${chosen.length})',
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            label: const Text(
+                              'Done (selected)',
+                              style: TextStyle(fontWeight: FontWeight.w800),
                             ),
                           ),
                         ),
@@ -2173,6 +1872,340 @@ class _RezTransaction {
       amount: (map['amount'] as num?)?.toInt() ?? 0,
       description: (map['description'] ?? '') as String,
       timestamp: ts,
+    );
+  }
+}
+
+/// Reusable Rez sidebar overlay: scrim + panel + handle
+class RezSidebar extends StatelessWidget {
+  final bool isOpen;
+  final double panelWidth;
+  final int rezBalance;
+  final List<_RezTransaction> rezHistory;
+  final String userName;
+  final String? profilePhotoUrl;
+  final bool isDark;
+  final VoidCallback onOpen;
+  final VoidCallback onClose;
+
+  const RezSidebar({
+    super.key,
+    required this.isOpen,
+    required this.panelWidth,
+    required this.rezBalance,
+    required this.rezHistory,
+    required this.userName,
+    required this.profilePhotoUrl,
+    required this.isDark,
+    required this.onOpen,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Stack(
+      children: [
+        // Scrim
+        if (isOpen)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onClose,
+              child: Container(
+                color: Colors.black.withOpacity(0.25),
+              ),
+            ),
+          ),
+
+        // Panel
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          left: isOpen ? 0 : -panelWidth,
+          top: 0,
+          bottom: 0,
+          child: SafeArea(
+            child: Container(
+              width: panelWidth,
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0B2522).withOpacity(0.90),
+                          const Color(0xFF0D7C66).withOpacity(0.82),
+                        ]
+                      : [
+                          const Color(0xFFFFFFFF).withOpacity(0.90),
+                          const Color(0xFFF5F5F5).withOpacity(0.82),
+                        ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 18,
+                    offset: const Offset(4, 0),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Close button at top-right, no circle
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 6, 6, 4),
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          size: 20,
+                          color: dark ? Colors.white70 : Colors.black87,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: onClose,
+                      ),
+                    ),
+                  ),
+
+                  // Header with avatar + label
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor:
+                              dark ? Colors.white.withOpacity(.12) : const Color(0xFFE4F3F0),
+                          backgroundImage: profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
+                              ? NetworkImage(profilePhotoUrl!)
+                              : null,
+                          child: (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
+                              ? const Icon(Icons.person, size: 30, color: Color(0xFF0D7C66))
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: dark ? Colors.white : Colors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Premium or regular plan - ADD LATER',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: dark ? Colors.white70 : Colors.black54,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Rez balance row (no background card)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: dark ? Colors.white70 : const Color(0xFF0D7C66),
+                              width: 1.6,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.diamond, size: 20, color: Color(0xFF0D7C66)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$rezBalance Rez',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: dark ? Colors.white : Colors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Current balance',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: dark ? Colors.white70 : Colors.black54,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Recent activity',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: dark ? Colors.white70 : Colors.black87,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  Expanded(
+                    child: rezHistory.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No Rez activity yet',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: dark ? Colors.white60 : Colors.black54,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                            itemCount: rezHistory.length,
+                            itemBuilder: (context, index) {
+                              final tx = rezHistory[index];
+                              final isGain = tx.amount >= 0;
+                              final sign = isGain ? '+' : '';
+                              final color =
+                                  isGain ? const Color(0xFF0D7C66) : Colors.redAccent;
+                              final timeStr =
+                                  DateFormat('MMM d • h:mm a').format(tx.timestamp);
+                              return Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isGain ? Icons.trending_up : Icons.trending_down,
+                                      size: 18,
+                                      color: color,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            tx.description,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: dark ? Colors.white : Colors.black,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            timeStr,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: dark ? Colors.white60 : Colors.black54,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.diamond, size: 16),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          '$sign${tx.amount}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: color,
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // iOS-style slim line handle tab
+        if (!isOpen)
+          Positioned(
+            left: 0,
+            top: (screenHeight / 2) - 40, // vertically centered (height 80)
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                if (details.delta.dx > 6) {
+                  onOpen();
+                }
+              },
+              onTap: onOpen,
+              child: SizedBox(
+                width: 20,
+                height: 80,
+                child: Center(
+                  child: Container(
+                    width: 3.5,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: dark
+                          ? const Color(0xFF707070)
+                          : Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

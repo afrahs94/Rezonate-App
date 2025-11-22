@@ -17,6 +17,8 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
 
+  User? get _user => _auth.currentUser;
+
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime(
     DateTime.now().year,
@@ -37,7 +39,22 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
   DocumentReference<Map<String, dynamic>> _logDocFor(DateTime d) =>
       _logsCol.doc(DateFormat('yyyy-MM-dd').format(d));
 
+  // ---------- Rez currency state (shared user doc) ----------
+  int _rezBalance = 0;
+  List<_HabitRezTransaction> _rezHistory = [];
+  DateTime? _lastHabitTrackDay;
+  bool _rezPanelOpen = false;
+  final double _rezPanelWidth = 280;
+  String? _profilePhotoUrl;
+
   // ---------- Helpers ----------
+  @override
+  void initState() {
+    super.initState();
+    _initRez();
+    _loadProfilePhoto();
+  }
+
   String _docId(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
   Future<void> _toggleHabit(String habitId, DateTime day, bool value) async {
@@ -54,10 +71,31 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
       return;
     }
 
-    await _logDocFor(day).set({
+    final docRef = _logDocFor(day);
+    final snap = await docRef.get();
+    final data = snap.data();
+
+    // Check if this day already has any habit logged as true
+    bool alreadyLogged = false;
+    if (data != null) {
+      for (final entry in data.entries) {
+        if (entry.key == '_ts') continue;
+        if (entry.value == true) {
+          alreadyLogged = true;
+          break;
+        }
+      }
+    }
+
+    await docRef.set({
       habitId: value,
       '_ts': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    // Only award / penalize Rez the first time a day gets any habit logged
+    if (value && !alreadyLogged) {
+      await _updateRezForHabitTracking(day);
+    }
   }
 
   String _dowShort(int i) {
@@ -389,8 +427,148 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     );
   }
 
+  // ---------- Rez helpers for habits ----------
+
+  Future<void> _initRez() async {
+    final u = _user;
+    if (u == null) return;
+    try {
+      final snap = await _db.collection('users').doc(u.uid).get();
+      final data = snap.data() ?? {};
+      final bal = (data['rez_balance'] as num?)?.toInt() ?? 0;
+
+      final lastHabitStr = data['rez_last_habit_day'] as String?;
+      DateTime? lastHabit;
+      if (lastHabitStr != null && lastHabitStr.isNotEmpty) {
+        try {
+          lastHabit = DateTime.parse(lastHabitStr);
+        } catch (_) {}
+      }
+
+      List<_HabitRezTransaction> history = [];
+      final rawHist = data['rez_history'];
+      if (rawHist is List) {
+        history = rawHist
+            .whereType<Map>()
+            .map((e) => _HabitRezTransaction.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _rezBalance = bal;
+        _lastHabitTrackDay = lastHabit;
+        _rezHistory = history;
+      });
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _saveRezState() async {
+    final u = _user;
+    if (u == null) return;
+    final docRef = _db.collection('users').doc(u.uid);
+    await docRef.set(
+      {
+        'rez_balance': _rezBalance,
+        'rez_last_habit_day': _lastHabitTrackDay != null
+            ? DateFormat('yyyy-MM-dd').format(_lastHabitTrackDay!)
+            : null,
+        'rez_history': _rezHistory.map((t) => t.toMap()).toList(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    final u = _user;
+    if (u == null) return;
+    try {
+      final snap = await _db.collection('users').doc(u.uid).get();
+      final data = snap.data();
+      final photo = (data?['photoUrl'] ?? u.photoURL)?.toString();
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = (photo != null && photo.isNotEmpty) ? photo : null;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _updateRezForHabitTracking(DateTime day) async {
+    final u = _user;
+    if (u == null) return;
+
+    final trackDay = DateTime(day.year, day.month, day.day);
+    final now = DateTime.now();
+
+    int delta = 0;
+    String desc;
+
+    if (_lastHabitTrackDay == null) {
+      // First habit day ever: +1 Rez
+      delta = 1;
+      desc = 'Habit tracked';
+      _lastHabitTrackDay = trackDay;
+    } else {
+      final last = DateTime(
+        _lastHabitTrackDay!.year,
+        _lastHabitTrackDay!.month,
+        _lastHabitTrackDay!.day,
+      );
+
+      if (trackDay.isAtSameMomentAs(last)) {
+        // Already counted this day
+        return;
+      }
+
+      if (trackDay.isBefore(last)) {
+        // Logging a past day before the last habit day: just +1, no penalty, don't move last day
+        delta = 1;
+        desc = 'Habit tracked (past day)';
+      } else {
+        final diff = trackDay.difference(last).inDays;
+        if (diff <= 0) return;
+
+        final missed = diff - 1; // days in between
+        if (missed <= 0) {
+          // Next day
+          delta = 1;
+          desc = 'Habit tracked';
+        } else {
+          // 1 Rez for today, -1 for each missed day
+          delta = 1 - missed;
+          desc = 'Habit tracked (missed $missed day${missed == 1 ? '' : 's'})';
+        }
+        _lastHabitTrackDay = trackDay;
+      }
+    }
+
+    if (delta == 0) return;
+
+    final tx = _HabitRezTransaction(
+      amount: delta,
+      description: desc,
+      timestamp: now,
+    );
+
+    setState(() {
+      _rezBalance += delta;
+      _rezHistory.insert(0, tx);
+      if (_rezHistory.length > 30) {
+        _rezHistory = _rezHistory.sublist(0, 30);
+      }
+    });
+
+    await _saveRezState();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = app.ThemeControllerScope.of(context).isDark;
+    final displayName = _auth.currentUser?.displayName ?? 'You';
+
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
@@ -725,6 +903,19 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
               ],
             ),
           ),
+
+          // Rez sidebar overlay (same style as home page, adapted)
+          HabitRezSidebar(
+            isOpen: _rezPanelOpen,
+            panelWidth: _rezPanelWidth,
+            rezBalance: _rezBalance,
+            rezHistory: _rezHistory,
+            userName: displayName,
+            profilePhotoUrl: _profilePhotoUrl,
+            isDark: isDark,
+            onOpen: () => setState(() => _rezPanelOpen = true),
+            onClose: () => setState(() => _rezPanelOpen = false),
+          ),
         ],
       ),
     );
@@ -782,10 +973,10 @@ Widget _buildMarkersSized(
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
-    this.isSelected = false,
-    this.isToday = false,
-    this.dotColors = const [],
-    this.overrideBackground,
+  this.isSelected = false,
+  this.isToday = false,
+  this.dotColors = const [],
+  this.overrideBackground,
   });
 
   final DateTime day;
@@ -1076,6 +1267,378 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
           onPressed: () => Navigator.pop(context, _selected),
           child: const Text('Select'),
         ),
+      ],
+    );
+  }
+}
+
+// ===================== Habit Rez sidebar & model =====================
+
+class _HabitRezTransaction {
+  final int amount;
+  final String description;
+  final DateTime timestamp;
+
+  _HabitRezTransaction({
+    required this.amount,
+    required this.description,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'amount': amount,
+        'description': description,
+        'timestamp': timestamp,
+      };
+
+  factory _HabitRezTransaction.fromMap(Map<String, dynamic> map) {
+    final rawTs = map['timestamp'];
+    DateTime ts;
+    if (rawTs is Timestamp) {
+      ts = rawTs.toDate();
+    } else if (rawTs is DateTime) {
+      ts = rawTs;
+    } else if (rawTs is String) {
+      ts = DateTime.tryParse(rawTs) ?? DateTime.now();
+    } else {
+      ts = DateTime.now();
+    }
+    return _HabitRezTransaction(
+      amount: (map['amount'] as num?)?.toInt() ?? 0,
+      description: (map['description'] ?? '') as String,
+      timestamp: ts,
+    );
+  }
+}
+
+class HabitRezSidebar extends StatelessWidget {
+  final bool isOpen;
+  final double panelWidth;
+  final int rezBalance;
+  final List<_HabitRezTransaction> rezHistory;
+  final String userName;
+  final String? profilePhotoUrl;
+  final bool isDark;
+  final VoidCallback onOpen;
+  final VoidCallback onClose;
+
+  const HabitRezSidebar({
+    super.key,
+    required this.isOpen,
+    required this.panelWidth,
+    required this.rezBalance,
+    required this.rezHistory,
+    required this.userName,
+    required this.profilePhotoUrl,
+    required this.isDark,
+    required this.onOpen,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Stack(
+      children: [
+        // Scrim
+        if (isOpen)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onClose,
+              child: Container(
+                color: Colors.black.withOpacity(0.25),
+              ),
+            ),
+          ),
+
+        // Panel
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          left: isOpen ? 0 : -panelWidth,
+          top: 0,
+          bottom: 0,
+          child: SafeArea(
+            child: Container(
+              width: panelWidth,
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0B2522).withOpacity(0.90),
+                          const Color(0xFF0D7C66).withOpacity(0.82),
+                        ]
+                      : [
+                          const Color(0xFFFFFFFF).withOpacity(0.90),
+                          const Color(0xFFF5F5F5).withOpacity(0.82),
+                        ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 18,
+                    offset: const Offset(4, 0),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Close button at top-right
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 6, 6, 4),
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          size: 20,
+                          color: dark ? Colors.white70 : Colors.black87,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: onClose,
+                      ),
+                    ),
+                  ),
+
+                  // Header with avatar + label
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor:
+                              dark ? Colors.white.withOpacity(.12) : const Color(0xFFE4F3F0),
+                          backgroundImage: profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
+                              ? NetworkImage(profilePhotoUrl!)
+                              : null,
+                          child: (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
+                              ? const Icon(Icons.person, size: 30, color: Color(0xFF0D7C66))
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: dark ? Colors.white : Colors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Premium or regular plan - ADD LATER',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: dark ? Colors.white70 : Colors.black54,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Rez balance row (no background card)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: dark ? Colors.white70 : const Color(0xFF0D7C66),
+                              width: 1.6,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.diamond, size: 20, color: Color(0xFF0D7C66)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$rezBalance Rez',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: dark ? Colors.white : Colors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Current balance',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: dark ? Colors.white70 : Colors.black54,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Recent activity',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: dark ? Colors.white70 : Colors.black87,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  Expanded(
+                    child: rezHistory.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No Rez activity yet',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: dark ? Colors.white60 : Colors.black54,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                            itemCount: rezHistory.length,
+                            itemBuilder: (context, index) {
+                              final tx = rezHistory[index];
+                              final isGain = tx.amount >= 0;
+                              final sign = isGain ? '+' : '';
+                              final color =
+                                  isGain ? const Color(0xFF0D7C66) : Colors.redAccent;
+                              final timeStr =
+                                  DateFormat('MMM d • h:mm a').format(tx.timestamp);
+                              return Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isGain ? Icons.trending_up : Icons.trending_down,
+                                      size: 18,
+                                      color: color,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            tx.description,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: dark ? Colors.white : Colors.black,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            timeStr,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: dark ? Colors.white60 : Colors.black54,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.diamond, size: 16),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          '$sign${tx.amount}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: color,
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // iOS-style slim line handle tab
+        if (!isOpen)
+          Positioned(
+            left: 0,
+            top: (screenHeight / 2) - 40, // vertically centered (height 80)
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                if (details.delta.dx > 6) {
+                  onOpen();
+                }
+              },
+              onTap: onOpen,
+              child: SizedBox(
+                width: 20,
+                height: 80,
+                child: Center(
+                  child: Container(
+                    width: 3.5,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: dark
+                          ? const Color(0xFF707070)
+                          : Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
