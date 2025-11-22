@@ -107,9 +107,20 @@ class _HomePageState extends State<HomePage> {
 
   Timer? _midnightTimer;
 
+  // ───── Rez currency state (stored in Firestore) ─────
+  int _rezBalance = 0;
+  List<_RezTransaction> _rezHistory = [];
+  DateTime? _lastTrackDay;
+
+  bool _rezPanelOpen = false;
+  final double _rezPanelWidth = 280;
+  String? _profilePhotoUrl;
+
   @override
   void initState() {
     super.initState();
+    _initRez();
+    _loadProfilePhoto();
     _bootstrap().then((_) => _maybeStartHomeShowcase());
     _loadEmojis();
     _scheduleMidnightReset();
@@ -123,6 +134,127 @@ class _HomePageState extends State<HomePage> {
     _logsSub?.cancel();
     _midnightTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _initRez() async {
+    final u = _user;
+    if (u == null) return;
+    try {
+      final snap = await _db.collection('users').doc(u.uid).get();
+      final data = snap.data() ?? {};
+      final bal = (data['rez_balance'] as num?)?.toInt() ?? 0;
+
+      final lastStr = data['rez_last_day'] as String?;
+      DateTime? last;
+      if (lastStr != null && lastStr.isNotEmpty) {
+        try {
+          last = DateTime.parse(lastStr);
+        } catch (_) {}
+      }
+
+      List<_RezTransaction> history = [];
+      final rawHist = data['rez_history'];
+      if (rawHist is List) {
+        history = rawHist
+            .whereType<Map>()
+            .map((e) => _RezTransaction.fromMap(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _rezBalance = bal;
+        _lastTrackDay = last;
+        _rezHistory = history;
+      });
+    } catch (_) {
+      // fail silently for now
+    }
+  }
+
+  Future<void> _saveRezState() async {
+    final u = _user;
+    if (u == null) return;
+    final docRef = _db.collection('users').doc(u.uid);
+    await docRef.set(
+      {
+        'rez_balance': _rezBalance,
+        'rez_last_day': _lastTrackDay != null ? _dayKey(_lastTrackDay!) : null,
+        'rez_history': _rezHistory.map((t) => t.toMap()).toList(),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    final u = _user;
+    if (u == null) return;
+    try {
+      final snap = await _db.collection('users').doc(u.uid).get();
+      final data = snap.data();
+      final photo = (data?['photoUrl'] ?? u.photoURL)?.toString();
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = (photo != null && photo.isNotEmpty) ? photo : null;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _updateRezForTracking() async {
+    final u = _user;
+    if (u == null) return;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    DateTime? lastDate = _lastTrackDay;
+
+    int delta = 0;
+    if (lastDate == null) {
+      // First time ever tracking
+      delta = 3;
+    } else {
+      final last = DateTime(lastDate.year, lastDate.month, lastDate.day);
+      final diff = today.difference(last).inDays;
+
+      if (diff == 0) {
+        // Already gave today's Rez
+        return;
+      } else {
+        // +3 for tracking today
+        delta += 3;
+        // -3 for each full day missed in between
+        if (diff > 1) {
+          delta -= 3 * (diff - 1);
+        }
+      }
+    }
+
+    if (delta != 0) {
+      final desc = delta > 0
+          ? (delta == 3 ? 'Daily track bonus' : 'Daily bonus & missed-day penalty')
+          : 'Missed day penalty';
+
+      final tx = _RezTransaction(
+        amount: delta,
+        description: desc,
+        timestamp: now,
+      );
+
+      setState(() {
+        _rezBalance += delta;
+        _rezHistory.insert(0, tx);
+        if (_rezHistory.length > 30) {
+          _rezHistory = _rezHistory.sublist(0, 30);
+        }
+        _lastTrackDay = today;
+      });
+    } else {
+      setState(() => _lastTrackDay = today);
+    }
+
+    await _saveRezState();
   }
 
   Future<void> _maybeShowQuoteOfDay() async {
@@ -466,7 +598,8 @@ class _HomePageState extends State<HomePage> {
 
       for (final d in snap.docs) {
         final m = d.data();
-        final vals = (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ?? <String, double>{};
+        final vals = (m['values'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toDouble())) ??
+            <String, double>{};
         map[d.id] = vals.cast<String, double>();
         if (vals.isNotEmpty) daysWithLogs.add(d.id);
 
@@ -630,6 +763,10 @@ class _HomePageState extends State<HomePage> {
     if (u == null) return;
 
     final now = DateTime.now();
+
+    // Rez currency update (3 Rez per tracked day, -3 per missed day)
+    await _updateRezForTracking();
+
     final key = _dayKey(now);
     _daily.putIfAbsent(key, () => {});
     _daily[key]![t.id] = v;
@@ -846,387 +983,808 @@ class _HomePageState extends State<HomePage> {
         _showcaseCtx = ctx;
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: Container(
-            decoration: BoxDecoration(gradient: _bg(context)),
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          body: Stack(
+            children: [
+              // Main content
+              Container(
+                decoration: BoxDecoration(gradient: _bg(context)),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              _HeaderShadowIcon(
-                                icon: Icons.settings_outlined,
-                                tooltip: 'Settings',
-                                onTap: () => Navigator.push(
-                                  context,
-                                  NoTransitionPageRoute(builder: (_) => SettingsPage(userName: widget.userName)),
-                                ),
-                              ),
-                              _HeaderShadowIcon(
-                                icon: Icons.person_outline_rounded,
-                                tooltip: 'Edit profile',
-                                onTap: () => Navigator.push(
-                                  context,
-                                  NoTransitionPageRoute(builder: (_) => EditProfilePage(userName: widget.userName)),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: SizedBox(
-                              height: 72,
-                              child: Stack(
-                                alignment: Alignment.center,
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  if (_isDark)
-                                    Transform.scale(
-                                      scale: 1.08,
-                                      child: ImageFiltered(
-                                        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                        child: ColorFiltered(
-                                          colorFilter:
-                                              ColorFilter.mode(const Color(0xFF0D7C66).withOpacity(0.85), BlendMode.srcATop),
-                                          child: Image.asset('assets/images/Logo.png', height: 72, fit: BoxFit.contain),
-                                        ),
+                                  _HeaderShadowIcon(
+                                    icon: Icons.settings_outlined,
+                                    tooltip: 'Settings',
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      NoTransitionPageRoute(
+                                        builder: (_) => SettingsPage(userName: widget.userName),
                                       ),
                                     ),
-                                  _isDark
-                                      ? ColorFiltered(
-                                          colorFilter: const ColorFilter.mode(Color(0xFF0D7C66), BlendMode.srcATop),
-                                          child: Image.asset('assets/images/Logo.png',
+                                  ),
+                                  _HeaderShadowIcon(
+                                    icon: Icons.person_outline_rounded,
+                                    tooltip: 'Edit profile',
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      NoTransitionPageRoute(
+                                        builder: (_) => EditProfilePage(userName: widget.userName),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: SizedBox(
+                                  height: 72,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      if (_isDark)
+                                        Transform.scale(
+                                          scale: 1.08,
+                                          child: ImageFiltered(
+                                            imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                            child: ColorFiltered(
+                                              colorFilter: ColorFilter.mode(
+                                                const Color(0xFF0D7C66).withOpacity(0.85),
+                                                BlendMode.srcATop,
+                                              ),
+                                              child: Image.asset(
+                                                'assets/images/Logo.png',
+                                                height: 72,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      _isDark
+                                          ? ColorFiltered(
+                                              colorFilter:
+                                                  const ColorFilter.mode(Color(0xFF0D7C66), BlendMode.srcATop),
+                                              child: Image.asset(
+                                                'assets/images/Logo.png',
+                                                height: 72,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (_, __, ___) =>
+                                                    Icon(Icons.flash_on, size: 72, color: green.withOpacity(.85)),
+                                              ),
+                                            )
+                                          : Image.asset(
+                                              'assets/images/Logo.png',
                                               height: 72,
                                               fit: BoxFit.contain,
                                               errorBuilder: (_, __, ___) =>
-                                                  Icon(Icons.flash_on, size: 72, color: green.withOpacity(.85))),
-                                        )
-                                      : Image.asset('assets/images/Logo.png',
-                                          height: 72,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (_, __, ___) =>
-                                              Icon(Icons.flash_on, size: 72, color: green.withOpacity(.85))),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text('Hello, ${widget.userName}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: .2)),
-                          const SizedBox(height: 2),
-                          Text(dateLine, style: TextStyle(color: Colors.black.withOpacity(.65), fontSize: 12)),
-                          const SizedBox(height: 18),
-                          if (streakNow > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _isDark ? const Color(0xFF0D7C66).withOpacity(.14) : Colors.white.withOpacity(.9),
-                                borderRadius: BorderRadius.circular(24),
-                                border: _isDark ? Border.all(color: Colors.white.withOpacity(.10)) : null,
-                                boxShadow: [if (!_isDark) const BoxShadow(color: Colors.black12, blurRadius: 4)],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.local_fire_department,
-                                      color: _isDark ? Colors.deepOrange.withOpacity(.85) : Colors.deepOrange, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('$streakNow-day streak',
-                                      style: TextStyle(fontWeight: FontWeight.w800, color: _isDark ? Colors.white : Colors.black)),
-                                ],
-                              ),
-                            )
-                          else
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                'Track daily to start a streak',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isDark ? Colors.white.withOpacity(.85) : Colors.black.withOpacity(.7),
+                                                  Icon(Icons.flash_on, size: 72, color: green.withOpacity(.85)),
+                                            ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          const SizedBox(height: 14),
-                          ReorderableListView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            shrinkWrap: true,
-                            padding: EdgeInsets.zero,
-                            itemCount: _trackers.length,
-                            onReorder: (oldIndex, newIndex) async {
-                              setState(() {
-                                if (newIndex > oldIndex) newIndex -= 1;
-                                final t = _trackers.removeAt(oldIndex);
-                                _trackers.insert(newIndex, t);
-                              });
-                              await _persistOrder();
-                            },
-                            itemBuilder: (context, i) {
-                              final t = _trackers[i];
-                              return Column(
-                                key: ValueKey(t.id),
-                                children: [
-                                  Row(
+                              const SizedBox(height: 6),
+                              Text(
+                                'Hello, ${widget.userName}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: .2,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                dateLine,
+                                style: TextStyle(
+                                  color: Colors.black.withOpacity(.65),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              if (streakNow > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _isDark
+                                        ? const Color(0xFF0D7C66).withOpacity(.14)
+                                        : Colors.white.withOpacity(.9),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: _isDark ? Border.all(color: Colors.white.withOpacity(.10)) : null,
+                                    boxShadow: [
+                                      if (!_isDark) const BoxShadow(color: Colors.black12, blurRadius: 4),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      SizedBox(
-                                        width: 105,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                                          child: Text(t.label,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                        ),
+                                      Icon(
+                                        Icons.local_fire_department,
+                                        color:
+                                            _isDark ? Colors.deepOrange.withOpacity(.85) : Colors.deepOrange,
+                                        size: 18,
                                       ),
-                                      Expanded(
-                                        child: Row(
-                                          children: [
-                                            Text(_emojiForTick[0.0] ?? "🙂", style: const TextStyle(fontSize: 20)),
-                                            Expanded(
-                                              child: SliderTheme(
-                                                data: SliderTheme.of(context).copyWith(
-                                                  trackHeight: 8,
-                                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                                                ),
-                                                child: Slider(
-                                                  value: t.value,
-                                                  min: 0,
-                                                  max: 10,
-                                                  divisions: 20,
-                                                  activeColor: t.color,
-                                                  onChanged: (v) => _recordTrackerValue(t, v),
-                                                ),
-                                              ),
-                                            ),
-                                            Text(_emojiForTick[10.0] ?? "😭", style: const TextStyle(fontSize: 20)),
-                                          ],
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$streakNow-day streak',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: _isDark ? Colors.white : Colors.black,
                                         ),
-                                      ),
-                                      PopupMenuButton<String>(
-                                        color: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                        elevation: 6,
-                                        offset: const Offset(0, 8),
-                                        onSelected: (v) async {
-                                          if (v == 'rename') {
-                                            final ctl = TextEditingController(text: t.label);
-                                            await showDialog(
-                                              context: context,
-                                              builder: (_) => AlertDialog(
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                                title: const Text('Rename tracker'),
-                                                content: TextField(
-                                                  controller: ctl,
-                                                  decoration: const InputDecoration(hintText: 'Name'),
-                                                  autofocus: true,
-                                                ),
-                                                actions: [
-                                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      final v2 = ctl.text.trim();
-                                                      if (v2.isNotEmpty) {
-                                                        setState(() => t.label = v2);
-                                                        await _updateTracker(t, label: v2);
-                                                      }
-                                                      if (context.mounted) Navigator.pop(context);
-                                                    },
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: const Color(0xFF0D7C66),
-                                                      foregroundColor: Colors.white,
-                                                    ),
-                                                    child: const Text('Save'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          } else if (v == 'color') {
-                                            await _openColorPicker(t);
-                                            await _updateTracker(t, color: t.color);
-                                          } else if (v == 'delete') {
-                                            final ok = await showDialog<bool>(
-                                              context: context,
-                                              builder: (_) => AlertDialog(
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                                title: const Text('Delete tracker?'),
-                                                content: Text('This will remove "${t.label}" from your trackers.'),
-                                                actions: [
-                                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context, true),
-                                                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                                    child: const Text('Delete'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                            if (ok == true) {
-                                              await _deleteTracker(t);
-                                            }
-                                          }
-                                        },
-                                        itemBuilder: (c) => const [
-                                          PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                          PopupMenuItem(value: 'color', child: Text('Color')),
-                                          PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
-                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                          Showcase(
-                            key: OBKeys.addHabit,
-                            description: 'Tap here to add your first habit tracker.',
-                            disposeOnTap: true,
-                            onTargetClick: () {},
-                            onToolTipClick: () {},
-                            onBarrierClick: () {},
-                            child: IconButton(
-                              tooltip: 'Add tracker',
-                              onPressed: () => _createTracker(label: 'add tracker'),
-                              icon: const Icon(Icons.add_circle_outline, size: 28),
-                              color: const Color(0xFF0D7C66),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Showcase(
-                            key: OBKeys.chartSelector,
-                            description: 'Switch between Weekly, Monthly, or Overall views.',
-                            disposeOnTap: true,
-                            onTargetClick: () {},
-                            onToolTipClick: () {},
-                            onBarrierClick: () {},
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: ChartView.values.map((v) {
-                                final sel = v == _view;
-                                String lbl = switch (v) {
-                                  ChartView.weekly => 'Weekly',
-                                  ChartView.monthly => 'Monthly',
-                                  ChartView.overall => 'Overall',
-                                };
-                                final dark = app.ThemeControllerScope.of(context).isDark;
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                                  child: ChoiceChip(
-                                    label: Text(
-                                      lbl,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: dark ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                    selected: sel,
-                                    showCheckmark: false,
-                                    selectedColor:
-                                        dark ? const Color(0xFF0D7C66).withOpacity(.55) : const Color(0xFF0D7C66).withOpacity(.15),
-                                    backgroundColor: dark ? Colors.white.withOpacity(.08) : Colors.black.withOpacity(.04),
-                                    side: dark
-                                        ? BorderSide(
-                                            color: sel ? Colors.transparent : Colors.white.withOpacity(.28),
-                                          )
-                                        : BorderSide.none,
-                                    onSelected: (_) => setState(() => _view = v),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: Text(
-                                    _dateRangeHeading(),
+                                    'Track daily to start a streak',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black.withOpacity(.75),
+                                      fontWeight: FontWeight.w600,
+                                      color: _isDark ? Colors.white.withOpacity(.85) : Colors.black.withOpacity(.7),
                                     ),
                                   ),
                                 ),
+                              const SizedBox(height: 14),
+                              ReorderableListView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: _trackers.length,
+                                onReorder: (oldIndex, newIndex) async {
+                                  setState(() {
+                                    if (newIndex > oldIndex) newIndex -= 1;
+                                    final t = _trackers.removeAt(oldIndex);
+                                    _trackers.insert(newIndex, t);
+                                  });
+                                  await _persistOrder();
+                                },
+                                itemBuilder: (context, i) {
+                                  final t = _trackers[i];
+                                  return Column(
+                                    key: ValueKey(t.id),
+                                    children: [
+                                      Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 105,
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                              child: Text(
+                                                t.label,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                Text(
+                                                  _emojiForTick[0.0] ?? "🙂",
+                                                  style: const TextStyle(fontSize: 20),
+                                                ),
+                                                Expanded(
+                                                  child: SliderTheme(
+                                                    data: SliderTheme.of(context).copyWith(
+                                                      trackHeight: 8,
+                                                      thumbShape: const RoundSliderThumbShape(
+                                                        enabledThumbRadius: 8,
+                                                      ),
+                                                    ),
+                                                    child: Slider(
+                                                      value: t.value,
+                                                      min: 0,
+                                                      max: 10,
+                                                      divisions: 20,
+                                                      activeColor: t.color,
+                                                      onChanged: (v) => _recordTrackerValue(t, v),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _emojiForTick[10.0] ?? "😭",
+                                                  style: const TextStyle(fontSize: 20),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            color: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                            elevation: 6,
+                                            offset: const Offset(0, 8),
+                                            onSelected: (v) async {
+                                              if (v == 'rename') {
+                                                final ctl = TextEditingController(text: t.label);
+                                                await showDialog(
+                                                  context: context,
+                                                  builder: (_) => AlertDialog(
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(16),
+                                                    ),
+                                                    title: const Text('Rename tracker'),
+                                                    content: TextField(
+                                                      controller: ctl,
+                                                      decoration:
+                                                          const InputDecoration(hintText: 'Name'),
+                                                      autofocus: true,
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.pop(context),
+                                                        child: const Text('Cancel'),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () async {
+                                                          final v2 = ctl.text.trim();
+                                                          if (v2.isNotEmpty) {
+                                                            setState(() => t.label = v2);
+                                                            await _updateTracker(t, label: v2);
+                                                          }
+                                                          if (context.mounted) Navigator.pop(context);
+                                                        },
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: const Color(0xFF0D7C66),
+                                                          foregroundColor: Colors.white,
+                                                        ),
+                                                        child: const Text('Save'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              } else if (v == 'color') {
+                                                await _openColorPicker(t);
+                                                await _updateTracker(t, color: t.color);
+                                              } else if (v == 'delete') {
+                                                final ok = await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (_) => AlertDialog(
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(16),
+                                                    ),
+                                                    title: const Text('Delete tracker?'),
+                                                    content: Text(
+                                                      'This will remove "${t.label}" from your trackers.',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(context, false),
+                                                        child: const Text('Cancel'),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(context, true),
+                                                        style: TextButton.styleFrom(
+                                                          foregroundColor: Colors.red,
+                                                        ),
+                                                        child: const Text('Delete'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (ok == true) {
+                                                  await _deleteTracker(t);
+                                                }
+                                              }
+                                            },
+                                            itemBuilder: (c) => const [
+                                              PopupMenuItem(
+                                                value: 'rename',
+                                                child: Text('Rename'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'color',
+                                                child: Text('Color'),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: Text(
+                                                  'Delete',
+                                                  style: TextStyle(color: Colors.red),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.emoji_emotions_outlined),
-                                color: const Color(0xFF0D7C66),
-                                tooltip: 'Customize emojis',
-                                onPressed: _openEmojiPicker,
+                              const SizedBox(height: 14),
+                              Showcase(
+                                key: OBKeys.addHabit,
+                                description: 'Tap here to add your first habit tracker.',
+                                disposeOnTap: true,
+                                onTargetClick: () {},
+                                onToolTipClick: () {},
+                                onBarrierClick: () {},
+                                child: IconButton(
+                                  tooltip: 'Add tracker',
+                                  onPressed: () => _createTracker(label: 'add tracker'),
+                                  icon: const Icon(Icons.add_circle_outline, size: 28),
+                                  color: const Color(0xFF0D7C66),
+                                ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.arrow_drop_down_circle_outlined),
-                                color: const Color(0xFF0D7C66),
-                                onPressed: _openSelectDialog,
-                                tooltip: 'Select trackers to view',
+                              const SizedBox(height: 24),
+                              Showcase(
+                                key: OBKeys.chartSelector,
+                                description: 'Switch between Weekly, Monthly, or Overall views.',
+                                disposeOnTap: true,
+                                onTargetClick: () {},
+                                onToolTipClick: () {},
+                                onBarrierClick: () {},
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: ChartView.values.map((v) {
+                                    final sel = v == _view;
+                                    String lbl = switch (v) {
+                                      ChartView.weekly => 'Weekly',
+                                      ChartView.monthly => 'Monthly',
+                                      ChartView.overall => 'Overall',
+                                    };
+                                    final dark = app.ThemeControllerScope.of(context).isDark;
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                                      child: ChoiceChip(
+                                        label: Text(
+                                          lbl,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: dark ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                        selected: sel,
+                                        showCheckmark: false,
+                                        selectedColor: dark
+                                            ? const Color(0xFF0D7C66).withOpacity(.55)
+                                            : const Color(0xFF0D7C66).withOpacity(.15),
+                                        backgroundColor: dark
+                                            ? Colors.white.withOpacity(.08)
+                                            : Colors.black.withOpacity(.04),
+                                        side: dark
+                                            ? BorderSide(
+                                                color: sel
+                                                    ? Colors.transparent
+                                                    : Colors.white.withOpacity(.28),
+                                              )
+                                            : BorderSide.none,
+                                        onSelected: (_) => setState(() => _view = v),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                               ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      child: Text(
+                                        _dateRangeHeading(),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black.withOpacity(.75),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.emoji_emotions_outlined),
+                                    color: const Color(0xFF0D7C66),
+                                    tooltip: 'Customize emojis',
+                                    onPressed: _openEmojiPicker,
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_drop_down_circle_outlined),
+                                    color: const Color(0xFF0D7C66),
+                                    onPressed: _openSelectDialog,
+                                    tooltip: 'Select trackers to view',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                height: 340,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(.55),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: const [
+                                    BoxShadow(color: Colors.black12, blurRadius: 6),
+                                  ],
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(bottom: 44),
+                                        child: _selectedForChart.isEmpty
+                                            ? const Center(
+                                                child: Text(
+                                                  'Select trackers to view',
+                                                  style: TextStyle(fontSize: 13),
+                                                ),
+                                              )
+                                            : LineChart(_chartData()),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: 8,
+                                      bottom: 8,
+                                      child: TextButton.icon(
+                                        icon: const Icon(Icons.insights_outlined),
+                                        label: const Text(
+                                          'More insights',
+                                          style: TextStyle(fontWeight: FontWeight.w700),
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: const Color(0xFF0D7C66),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            NoTransitionPageRoute(
+                                              builder: (_) => SummariesPage(userName: widget.userName),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            height: 340,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.55),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 44),
-                                    child: _selectedForChart.isEmpty
-                                        ? const Center(child: Text('Select trackers to view', style: TextStyle(fontSize: 13)))
-                                        : LineChart(_chartData()),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 8,
-                                  bottom: 8,
-                                  child: TextButton.icon(
-                                    icon: const Icon(Icons.insights_outlined),
-                                    label: const Text('More insights', style: TextStyle(fontWeight: FontWeight.w700)),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: const Color(0xFF0D7C66),
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    ),
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        NoTransitionPageRoute(builder: (_) => SummariesPage(userName: widget.userName)),
-                                      );
-                                    },
+                        ),
+                      ),
+                      _BottomNav(index: 0, userName: widget.userName),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Scrim when Rez panel is open
+              if (_rezPanelOpen)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _rezPanelOpen = false),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.25),
+                    ),
+                  ),
+                ),
+
+              // Rez sidebar panel
+              _buildRezPanel(context),
+
+              // iOS-style semi-transparent handle tab
+              if (!_rezPanelOpen)
+                Positioned(
+                  left: 0,
+                  top: MediaQuery.of(context).size.height * 0.35,
+                  child: GestureDetector(
+                    onHorizontalDragUpdate: (details) {
+                      if (details.delta.dx > 6) {
+                        setState(() => _rezPanelOpen = true);
+                      }
+                    },
+                    onTap: () => setState(() => _rezPanelOpen = true),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(18),
+                        bottomRight: Radius.circular(18),
+                      ),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          width: 30,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.22),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.diamond, size: 18, color: Color(0xFF0D7C66)),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Rez',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                  _BottomNav(index: 0, userName: widget.userName),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildRezPanel(BuildContext context) {
+    final dark = app.ThemeControllerScope.of(context).isDark;
+    final width = _rezPanelWidth;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      left: _rezPanelOpen ? 0 : -width,
+      top: 0,
+      bottom: 0,
+      child: SafeArea(
+        child: Container(
+          width: width,
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: dark
+                  ? [
+                      const Color(0xFF0B2522).withOpacity(0.96),
+                      const Color(0xFF0D7C66).withOpacity(0.90),
+                    ]
+                  : [
+                      const Color(0xFFFFFFFF).withOpacity(0.92),
+                      const Color(0xFFD7C3F1).withOpacity(0.90),
+                    ],
+            ),
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(24),
+              bottomRight: Radius.circular(24),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.35),
+                blurRadius: 18,
+                offset: const Offset(4, 0),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with close + avatar + label
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 4),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _rezPanelOpen = false),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color:
+                              dark ? Colors.white.withOpacity(.06) : Colors.black.withOpacity(.03),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close,
+                            size: 18, color: dark ? Colors.white70 : Colors.black87),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor:
+                          dark ? Colors.white.withOpacity(.12) : const Color(0xFFE4F3F0),
+                      backgroundImage: _profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty
+                          ? NetworkImage(_profilePhotoUrl!)
+                          : null,
+                      child: (_profilePhotoUrl == null || _profilePhotoUrl!.isEmpty)
+                          ? const Icon(Icons.person, size: 30, color: Color(0xFF0D7C66))
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.userName,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w700,
+                              color: dark ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Rez overview',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: dark ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Rez balance row (no background card)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: dark ? Colors.white70 : const Color(0xFF0D7C66),
+                          width: 1.6,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.diamond, size: 20, color: Color(0xFF0D7C66)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$_rezBalance Rez',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: dark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Current balance',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: dark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Recent activity',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: dark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+
+              Expanded(
+                child: _rezHistory.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No Rez activity yet',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: dark ? Colors.white60 : Colors.black54,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        itemCount: _rezHistory.length,
+                        itemBuilder: (context, index) {
+                          final tx = _rezHistory[index];
+                          final isGain = tx.amount >= 0;
+                          final sign = isGain ? '+' : '';
+                          final color =
+                              isGain ? const Color(0xFF0D7C66) : Colors.redAccent;
+                          final timeStr =
+                              DateFormat('MMM d • h:mm a').format(tx.timestamp);
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: dark
+                                  ? Colors.white.withOpacity(.04)
+                                  : Colors.white.withOpacity(.94),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isGain ? Icons.trending_up : Icons.trending_down,
+                                  size: 18,
+                                  color: color,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        tx.description,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: dark ? Colors.white : Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        timeStr,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: dark ? Colors.white60 : Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.diamond, size: 16),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      '$sign${tx.amount}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: color,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1251,7 +1809,8 @@ class _HomePageState extends State<HomePage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: StatefulBuilder(
             builder: (context, setSheet) {
-              final filtered = _trackers.where((t) => t.label.toLowerCase().contains(query.toLowerCase())).toList();
+              final filtered =
+                  _trackers.where((t) => t.label.toLowerCase().contains(query.toLowerCase())).toList();
 
               void toggle(String id, bool v) {
                 if (v) {
@@ -1271,7 +1830,10 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Row(
                       children: [
-                        const Text('Select trackers to view', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        const Text(
+                          'Select trackers to view',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
                         const Spacer(),
                         TextButton(
                           onPressed: () {
@@ -1284,13 +1846,18 @@ class _HomePageState extends State<HomePage> {
                             }
                             setSheet(() {});
                           },
-                          child: Text(allSelected ? 'Clear' : 'Select all',
-                              style: TextStyle(color: accent, fontWeight: FontWeight.w700)),
+                          child: Text(
+                            allSelected ? 'Clear' : 'Select all',
+                            style: TextStyle(color: accent, fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ],
                     ),
                     Container(
-                      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: TextField(
                         controller: searchCtl,
                         onChanged: (v) => setSheet(() => query = v),
@@ -1307,7 +1874,10 @@ class _HomePageState extends State<HomePage> {
                       child: filtered.isEmpty
                           ? Padding(
                               padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Text('No trackers found', style: TextStyle(color: textColor.withOpacity(.7))),
+                              child: Text(
+                                'No trackers found',
+                                style: TextStyle(color: textColor.withOpacity(.7)),
+                              ),
                             )
                           : ListView.builder(
                               shrinkWrap: true,
@@ -1340,7 +1910,13 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: textColor.withOpacity(.8)))),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(color: textColor.withOpacity(.8)),
+                          ),
+                        ),
                         const Spacer(),
                         SizedBox(
                           height: 44,
@@ -1357,10 +1933,15 @@ class _HomePageState extends State<HomePage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0D7C66),
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               padding: const EdgeInsets.symmetric(horizontal: 18),
                             ),
-                            label: Text('Done (${chosen.length})', style: const TextStyle(fontWeight: FontWeight.w800)),
+                            label: Text(
+                              'Done (${chosen.length})',
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
                           ),
                         ),
                       ],
@@ -1378,8 +1959,6 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openColorPicker(Tracker t) async {
     HSVColor hsv = HSVColor.fromColor(t.color);
 
-    String _hex6(Color c) => c.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
-    bool _validHex(String s) => RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(s) || RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(s);
     Color _fromHex(String s) {
       var h = s.trim().replaceAll('#', '');
       if (h.length == 6) h = 'FF$h';
@@ -1402,15 +1981,6 @@ class _HomePageState extends State<HomePage> {
       await prefs.setStringList('recent_colors', recentColors.map((c) => c.value.toString()).toList());
     }
 
-    final themeSwatches = <Color>[
-      const Color(0xFF0D7C66),
-      const Color(0xFF41B3A2),
-      const Color(0xFF3E8F84),
-      const Color(0xFFD7C3F1),
-      const Color(0xFFBDA9DB),
-      const Color(0xFF99BBFF),
-    ];
-
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1429,12 +1999,28 @@ class _HomePageState extends State<HomePage> {
             }
 
             return Container(
-              padding: EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 16 + MediaQuery.of(context).viewInsets.bottom),
-              decoration: BoxDecoration(color: dark ? const Color(0xFF123A36) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF123A36) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(height: 4, width: 44, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(20))),
+                  Container(
+                    height: 4,
+                    width: 44,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
                   const Text('Pick color', style: TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -1446,7 +2032,8 @@ class _HomePageState extends State<HomePage> {
                         const ringWidth = 18.0;
                         final radius = size.width / 2 - ringWidth / 2;
                         final rad = hsv.hue * pi / 180;
-                        final knob = Offset(size.width / 2 + cos(rad) * radius, size.height / 2 + sin(rad) * radius);
+                        final knob =
+                            Offset(size.width / 2 + cos(rad) * radius, size.height / 2 + sin(rad) * radius);
                         final innerDiameter = size.width - ringWidth * 2;
                         final squareSize = innerDiameter * 0.60;
 
@@ -1456,7 +2043,10 @@ class _HomePageState extends State<HomePage> {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              CustomPaint(size: size, painter: _HueRingPainter(ringWidth: ringWidth)),
+                              CustomPaint(
+                                size: size,
+                                painter: _HueRingPainter(ringWidth: ringWidth),
+                              ),
                               SizedBox(
                                 width: squareSize,
                                 height: squareSize,
@@ -1469,7 +2059,12 @@ class _HomePageState extends State<HomePage> {
                                   }),
                                 ),
                               ),
-                              IgnorePointer(child: CustomPaint(painter: _KnobPainter(position: knob, r: 6), size: size)),
+                              IgnorePointer(
+                                child: CustomPaint(
+                                  painter: _KnobPainter(position: knob, r: 6),
+                                  size: size,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -1482,7 +2077,11 @@ class _HomePageState extends State<HomePage> {
                       Container(
                         width: 28,
                         height: 28,
-                        decoration: BoxDecoration(color: hsv.toColor(), shape: BoxShape.circle, border: Border.all(color: Colors.black26)),
+                        decoration: BoxDecoration(
+                          color: hsv.toColor(),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black26),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       const Text('#', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -1500,8 +2099,11 @@ class _HomePageState extends State<HomePage> {
                           decoration: InputDecoration(
                             isDense: true,
                             hintText: 'RRGGBB',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           ),
                         ),
                       ),
@@ -1520,7 +2122,10 @@ class _HomePageState extends State<HomePage> {
                           _saveRecent(chosen);
                           Navigator.pop(context);
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D7C66), foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D7C66),
+                          foregroundColor: Colors.white,
+                        ),
                         child: const Text('Done'),
                       ),
                     ],
@@ -1531,6 +2136,43 @@ class _HomePageState extends State<HomePage> {
           },
         );
       },
+    );
+  }
+}
+
+class _RezTransaction {
+  final int amount;
+  final String description;
+  final DateTime timestamp;
+
+  _RezTransaction({
+    required this.amount,
+    required this.description,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'amount': amount,
+        'description': description,
+        'timestamp': timestamp,
+      };
+
+  factory _RezTransaction.fromMap(Map<String, dynamic> map) {
+    final rawTs = map['timestamp'];
+    DateTime ts;
+    if (rawTs is Timestamp) {
+      ts = rawTs.toDate();
+    } else if (rawTs is DateTime) {
+      ts = rawTs;
+    } else if (rawTs is String) {
+      ts = DateTime.tryParse(rawTs) ?? DateTime.now();
+    } else {
+      ts = DateTime.now();
+    }
+    return _RezTransaction(
+      amount: (map['amount'] as num?)?.toInt() ?? 0,
+      description: (map['description'] ?? '') as String,
+      timestamp: ts,
     );
   }
 }
@@ -1588,8 +2230,12 @@ class _KnobPainter extends CustomPainter {
 }
 
 class _SVSquare extends StatelessWidget {
-  const _SVSquare(
-      {required this.hue, required this.s, required this.v, required this.onChanged});
+  const _SVSquare({
+    required this.hue,
+    required this.s,
+    required this.v,
+    required this.onChanged,
+  });
 
   final double hue;
   final double s;
@@ -1613,18 +2259,20 @@ class _SVSquare extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [Colors.white, base]),
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Colors.white, base],
+                  ),
                 ),
               ),
               Container(
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
                 foregroundDecoration: const BoxDecoration(
                   gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black]),
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black],
+                  ),
                 ),
               ),
               Positioned(
@@ -1659,7 +2307,11 @@ class NoTransitionPageRoute<T> extends MaterialPageRoute<T> {
 
   @override
   Widget buildTransitions(
-      BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     return child;
   }
 }
@@ -1668,7 +2320,11 @@ class _HeaderShadowIcon extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
-  const _HeaderShadowIcon({required this.icon, required this.tooltip, required this.onTap});
+  const _HeaderShadowIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
