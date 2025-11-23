@@ -1,4 +1,3 @@
-// lib/pages/habit_tracker.dart
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -42,12 +41,10 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
   // ---------- Rez currency state (shared user doc) ----------
   int _rezBalance = 0;
   List<_HabitRezTransaction> _rezHistory = [];
-  DateTime? _lastHabitTrackDay;
   bool _rezPanelOpen = false;
   final double _rezPanelWidth = 280;
   String? _profilePhotoUrl;
 
-  // ---------- Helpers ----------
   @override
   void initState() {
     super.initState();
@@ -75,26 +72,20 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     final snap = await docRef.get();
     final data = snap.data();
 
-    // Check if this day already has any habit logged as true
-    bool alreadyLogged = false;
-    if (data != null) {
-      for (final entry in data.entries) {
-        if (entry.key == '_ts') continue;
-        if (entry.value == true) {
-          alreadyLogged = true;
-          break;
-        }
-      }
-    }
+    // previous state for THIS habit
+    final previous = data != null ? (data[habitId] as bool?) ?? false : false;
 
+    // update Firestore
     await docRef.set({
       habitId: value,
       '_ts': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    // Only award / penalize Rez the first time a day gets any habit logged
-    if (value && !alreadyLogged) {
-      await _updateRezForHabitTracking(day);
+    // Only touch Rez if the state actually changed
+    if (value != previous) {
+      final delta = value ? 1 : -1;
+      final desc = value ? 'Habit completed' : 'Habit unchecked';
+      await _applyRezChange(delta, desc);
     }
   }
 
@@ -435,22 +426,18 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     try {
       final snap = await _db.collection('users').doc(u.uid).get();
       final data = snap.data() ?? {};
-      final bal = (data['rez_balance'] as num?)?.toInt() ?? 0;
 
-      final lastHabitStr = data['rez_last_habit_day'] as String?;
-      DateTime? lastHabit;
-      if (lastHabitStr != null && lastHabitStr.isNotEmpty) {
-        try {
-          lastHabit = DateTime.parse(lastHabitStr);
-        } catch (_) {}
-      }
+      final balField = data['rez_balance'] ?? data['rezBalance'] ?? 0;
+      final bal = (balField is num) ? balField.toInt() : 0;
 
       List<_HabitRezTransaction> history = [];
-      final rawHist = data['rez_history'];
+      final rawHist = data['rez_history'] ?? data['rezHistory'];
       if (rawHist is List) {
         history = rawHist
             .whereType<Map>()
-            .map((e) => _HabitRezTransaction.fromMap(Map<String, dynamic>.from(e as Map)))
+            .map((e) => _HabitRezTransaction.fromMap(
+                  Map<String, dynamic>.from(e as Map),
+                ))
             .toList();
         history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       }
@@ -458,7 +445,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
       if (!mounted) return;
       setState(() {
         _rezBalance = bal;
-        _lastHabitTrackDay = lastHabit;
         _rezHistory = history;
       });
     } catch (_) {
@@ -470,16 +456,40 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
     final u = _user;
     if (u == null) return;
     final docRef = _db.collection('users').doc(u.uid);
+    final histList = _rezHistory.map((t) => t.toMap()).toList();
     await docRef.set(
       {
+        // support both naming styles so all pages work
         'rez_balance': _rezBalance,
-        'rez_last_habit_day': _lastHabitTrackDay != null
-            ? DateFormat('yyyy-MM-dd').format(_lastHabitTrackDay!)
-            : null,
-        'rez_history': _rezHistory.map((t) => t.toMap()).toList(),
+        'rezBalance': _rezBalance,
+        'rez_history': histList,
+        'rezHistory': histList,
       },
       SetOptions(merge: true),
     );
+  }
+
+  Future<void> _applyRezChange(int delta, String description) async {
+    if (delta == 0) return;
+    final u = _user;
+    if (u == null) return;
+
+    final now = DateTime.now();
+    final tx = _HabitRezTransaction(
+      amount: delta,
+      description: description,
+      timestamp: now,
+    );
+
+    setState(() {
+      _rezBalance += delta;
+      _rezHistory.insert(0, tx);
+      if (_rezHistory.length > 30) {
+        _rezHistory = _rezHistory.sublist(0, 30);
+      }
+    });
+
+    await _saveRezState();
   }
 
   Future<void> _loadProfilePhoto() async {
@@ -494,74 +504,6 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
         _profilePhotoUrl = (photo != null && photo.isNotEmpty) ? photo : null;
       });
     } catch (_) {}
-  }
-
-  Future<void> _updateRezForHabitTracking(DateTime day) async {
-    final u = _user;
-    if (u == null) return;
-
-    final trackDay = DateTime(day.year, day.month, day.day);
-    final now = DateTime.now();
-
-    int delta = 0;
-    String desc;
-
-    if (_lastHabitTrackDay == null) {
-      // First habit day ever: +1 Rez
-      delta = 1;
-      desc = 'Habit tracked';
-      _lastHabitTrackDay = trackDay;
-    } else {
-      final last = DateTime(
-        _lastHabitTrackDay!.year,
-        _lastHabitTrackDay!.month,
-        _lastHabitTrackDay!.day,
-      );
-
-      if (trackDay.isAtSameMomentAs(last)) {
-        // Already counted this day
-        return;
-      }
-
-      if (trackDay.isBefore(last)) {
-        // Logging a past day before the last habit day: just +1, no penalty, don't move last day
-        delta = 1;
-        desc = 'Habit tracked (past day)';
-      } else {
-        final diff = trackDay.difference(last).inDays;
-        if (diff <= 0) return;
-
-        final missed = diff - 1; // days in between
-        if (missed <= 0) {
-          // Next day
-          delta = 1;
-          desc = 'Habit tracked';
-        } else {
-          // 1 Rez for today, -1 for each missed day
-          delta = 1 - missed;
-          desc = 'Habit tracked (missed $missed day${missed == 1 ? '' : 's'})';
-        }
-        _lastHabitTrackDay = trackDay;
-      }
-    }
-
-    if (delta == 0) return;
-
-    final tx = _HabitRezTransaction(
-      amount: delta,
-      description: desc,
-      timestamp: now,
-    );
-
-    setState(() {
-      _rezBalance += delta;
-      _rezHistory.insert(0, tx);
-      if (_rezHistory.length > 30) {
-        _rezHistory = _rezHistory.sublist(0, 30);
-      }
-    });
-
-    await _saveRezState();
   }
 
   @override
@@ -596,7 +538,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: Colors.black,
-                      fontSize: 24, // ↓ a bit smaller
+                      fontSize: 24,
                     ),
                   ),
                   iconTheme: const IconThemeData(color: Colors.black),
@@ -646,7 +588,7 @@ class _HabitTrackerPageState extends State<HabitTrackerPage> {
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF0D7C66), // <<< green month text
+                            color: Color(0xFF0D7C66),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -973,10 +915,10 @@ Widget _buildMarkersSized(
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
-  this.isSelected = false,
-  this.isToday = false,
-  this.dotColors = const [],
-  this.overrideBackground,
+    this.isSelected = false,
+    this.isToday = false,
+    this.dotColors = const [],
+    this.overrideBackground,
   });
 
   final DateTime day;

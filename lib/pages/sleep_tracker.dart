@@ -45,7 +45,6 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
   // ---------- Rez currency state ----------
   int _rezBalance = 0;
   List<_SleepRezTransaction> _rezHistory = [];
-  DateTime? _lastSleepDay;
   bool _rezPanelOpen = false;
   final double _rezPanelWidth = 280;
   String? _profilePhotoUrl;
@@ -63,18 +62,12 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
     try {
       final snap = await _db.collection('users').doc(u.uid).get();
       final data = snap.data() ?? {};
-      final bal = (data['rez_balance'] as num?)?.toInt() ?? 0;
 
-      final lastSleepStr = data['rez_last_sleep_day'] as String?;
-      DateTime? lastSleep;
-      if (lastSleepStr != null && lastSleepStr.isNotEmpty) {
-        try {
-          lastSleep = DateTime.parse(lastSleepStr);
-        } catch (_) {}
-      }
+      final balField = data['rez_balance'] ?? data['rezBalance'] ?? 0;
+      final bal = (balField is num) ? balField.toInt() : 0;
 
       List<_SleepRezTransaction> history = [];
-      final rawHist = data['rez_history'];
+      final rawHist = data['rez_history'] ?? data['rezHistory'];
       if (rawHist is List) {
         history = rawHist
             .whereType<Map>()
@@ -88,7 +81,6 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
       if (!mounted) return;
       setState(() {
         _rezBalance = bal;
-        _lastSleepDay = lastSleep;
         _rezHistory = history;
       });
     } catch (_) {
@@ -99,16 +91,39 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
   Future<void> _saveRezState() async {
     final u = _auth.currentUser;
     if (u == null) return;
+    final histList = _rezHistory.map((t) => t.toMap()).toList();
     await _db.collection('users').doc(u.uid).set(
       {
         'rez_balance': _rezBalance,
-        'rez_last_sleep_day': _lastSleepDay != null
-            ? DateFormat('yyyy-MM-dd').format(_lastSleepDay!)
-            : null,
-        'rez_history': _rezHistory.map((t) => t.toMap()).toList(),
+        'rezBalance': _rezBalance,
+        'rez_history': histList,
+        'rezHistory': histList,
       },
       SetOptions(merge: true),
     );
+  }
+
+  Future<void> _applyRezChange(int delta, String description) async {
+    if (delta == 0) return;
+    final u = _auth.currentUser;
+    if (u == null) return;
+
+    final now = DateTime.now();
+    final tx = _SleepRezTransaction(
+      amount: delta,
+      description: description,
+      timestamp: now,
+    );
+
+    setState(() {
+      _rezBalance += delta;
+      _rezHistory.insert(0, tx);
+      if (_rezHistory.length > 30) {
+        _rezHistory = _rezHistory.sublist(0, 30);
+      }
+    });
+
+    await _saveRezState();
   }
 
   Future<void> _loadProfilePhoto() async {
@@ -123,74 +138,6 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
         _profilePhotoUrl = (photo != null && photo.isNotEmpty) ? photo : null;
       });
     } catch (_) {}
-  }
-
-  Future<void> _updateRezForSleep(DateTime rawDay) async {
-    final u = _auth.currentUser;
-    if (u == null) return;
-
-    final trackDay = DateTime(rawDay.year, rawDay.month, rawDay.day);
-    final now = DateTime.now();
-
-    int delta = 0;
-    String desc;
-
-    if (_lastSleepDay == null) {
-      // First sleep day ever: +1 Rez
-      delta = 1;
-      desc = 'Sleep entry logged';
-      _lastSleepDay = trackDay;
-    } else {
-      final last = DateTime(
-        _lastSleepDay!.year,
-        _lastSleepDay!.month,
-        _lastSleepDay!.day,
-      );
-
-      if (trackDay.isAtSameMomentAs(last)) {
-        // Already counted this day
-        return;
-      }
-
-      if (trackDay.isBefore(last)) {
-        // Backfilling a past day before the last one: +1, don't move pointer
-        delta = 1;
-        desc = 'Sleep entry logged (past day)';
-      } else {
-        final diff = trackDay.difference(last).inDays;
-        if (diff <= 0) return;
-
-        final missed = diff - 1; // days in between
-        if (missed <= 0) {
-          // Next day in a row
-          delta = 1;
-          desc = 'Sleep entry logged';
-        } else {
-          // +1 Rez for this day, -1 Rez for each missed day
-          delta = 1 - missed;
-          desc = 'Sleep entry logged (missed $missed day${missed == 1 ? '' : 's'})';
-        }
-        _lastSleepDay = trackDay;
-      }
-    }
-
-    if (delta == 0) return;
-
-    final tx = _SleepRezTransaction(
-      amount: delta,
-      description: desc,
-      timestamp: now,
-    );
-
-    setState(() {
-      _rezBalance += delta;
-      _rezHistory.insert(0, tx);
-      if (_rezHistory.length > 30) {
-        _rezHistory = _rezHistory.sublist(0, 30);
-      }
-    });
-
-    await _saveRezState();
   }
 
   @override
@@ -262,11 +209,7 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
                             final afterSnap = await _sessionsCol.get();
                             for (final doc in afterSnap.docs) {
                               if (!beforeIds.contains(doc.id)) {
-                                final data = doc.data();
-                                final end = (data['end'] as Timestamp?)?.toDate();
-                                if (end != null) {
-                                  await _updateRezForSleep(end);
-                                }
+                                await _applyRezChange(1, 'Sleep entry logged');
                               }
                             }
                           },
@@ -375,7 +318,10 @@ class _SleepTrackerPageState extends State<SleepTrackerPage> {
                                   ),
                                 );
                               },
-                              onDelete: () async => _sessionsCol.doc(id).delete(),
+                              onDelete: () async {
+                                await _sessionsCol.doc(id).delete();
+                                await _applyRezChange(-1, 'Sleep entry removed');
+                              },
                             ),
                           );
                         },

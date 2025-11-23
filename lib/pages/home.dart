@@ -1,5 +1,6 @@
 // lib/pages/home.dart
 import 'dart:async';
+import 'package:new_rezonate/pages/services/rez_service.dart';
 import 'dart:math';
 import 'dart:ui' show FontFeature, ImageFilter;
 import 'package:flutter/material.dart';
@@ -110,7 +111,7 @@ class _HomePageState extends State<HomePage> {
   // ───── Rez currency state (stored in Firestore) ─────
   int _rezBalance = 0;
   List<_RezTransaction> _rezHistory = [];
-  DateTime? _lastTrackDay;
+  DateTime? _lastTrackDay; // last calendar day user logged on HOME
 
   bool _rezPanelOpen = false;
   final double _rezPanelWidth = 280;
@@ -201,6 +202,10 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {}
   }
 
+  /// HOME PAGE Rez logic (per your rules):
+  /// - Each calendar day (00:00–23:59), first time the user logs on home => +3 Rez
+  /// - Multiple logs that same day => still only +3 total
+  /// - For each full calendar day with **no** home logging since last time => –3 Rez
   Future<void> _updateRezForTracking() async {
     final u = _user;
     if (u == null) return;
@@ -208,33 +213,45 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    DateTime? lastDate = _lastTrackDay;
-
     int delta = 0;
-    if (lastDate == null) {
-      // First time ever tracking
+
+    if (_lastTrackDay == null) {
+      // First time ever logging on Home → +3 Rez
       delta = 3;
     } else {
-      final last = DateTime(lastDate.year, lastDate.month, lastDate.day);
-      final diff = today.difference(last).inDays;
+      final last = DateTime(_lastTrackDay!.year, _lastTrackDay!.month, _lastTrackDay!.day);
+      final diffDays = today.difference(last).inDays;
 
-      if (diff == 0) {
-        // Already gave today's Rez
+      if (diffDays <= 0) {
+        // Already rewarded for today (or clock weirdness). No extra Rez.
         return;
-      } else {
-        // +3 for tracking today
-        delta += 3;
-        // -3 for each full day missed in between
-        if (diff > 1) {
-          delta -= 3 * (diff - 1);
-        }
+      }
+
+      // +3 for logging today (only once per calendar day)
+      delta += 3;
+
+      // For each FULL day between last log day and today → –3
+      final missedDays = diffDays - 1;
+      if (missedDays > 0) {
+        delta -= missedDays * 3;
       }
     }
 
     if (delta != 0) {
-      final desc = delta > 0
-          ? (delta == 3 ? 'Daily track bonus' : 'Daily bonus & missed-day penalty')
-          : 'Missed day penalty';
+      // Build a description that matches what happened
+      String desc;
+      if (_lastTrackDay == null) {
+        desc = 'Home tracking (+3)';
+      } else {
+        final last = DateTime(_lastTrackDay!.year, _lastTrackDay!.month, _lastTrackDay!.day);
+        final diffDays = today.difference(last).inDays;
+        final missedDays = diffDays - 1;
+        if (missedDays <= 0) {
+          desc = 'Home tracking (+3)';
+        } else {
+          desc = 'Home tracking (+3, -3×$missedDays missed day${missedDays > 1 ? 's' : ''})';
+        }
+      }
 
       final tx = _RezTransaction(
         amount: delta,
@@ -251,7 +268,10 @@ class _HomePageState extends State<HomePage> {
         _lastTrackDay = today;
       });
     } else {
-      setState(() => _lastTrackDay = today);
+      // No Rez change, but still update the last day pointer
+      setState(() {
+        _lastTrackDay = today;
+      });
     }
 
     await _saveRezState();
@@ -764,7 +784,7 @@ class _HomePageState extends State<HomePage> {
 
     final now = DateTime.now();
 
-    // Rez currency update (3 Rez per tracked day, -3 per missed day)
+    // Rez currency update for HOME tracking (+3 / -3 per missed day)
     await _updateRezForTracking();
 
     final key = _dayKey(now);

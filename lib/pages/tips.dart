@@ -1,9 +1,13 @@
 // lib/pages/tips.dart
-import 'dart:async';
 import 'dart:math';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:new_rezonate/main.dart' as app;
 
+/// Learn page / Crash Courses / Flashcards
 class TipsPage extends StatefulWidget {
   const TipsPage({super.key});
 
@@ -11,13 +15,135 @@ class TipsPage extends StatefulWidget {
   State<TipsPage> createState() => _TipsPageState();
 }
 
-class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin {
+class _TipsPageState extends State<TipsPage> {
+  // Auth / DB
+  final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+
+  User? get _user => _auth.currentUser;
+
+  // Flashcards
   int _index = 0;
   bool _showBack = false;
   final _rng = Random();
-
-  // Search (single button -> bottom sheet)
   String _query = '';
+
+  // Rez sidebar state (same pattern as HabitTrackerPage)
+  int _rezBalance = 0;
+  List<_RezTransaction> _rezHistory = [];
+  bool _rezPanelOpen = false;
+  final double _rezPanelWidth = 280;
+  String? _profilePhotoUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _initRez();
+    _loadProfilePhoto();
+  }
+
+  // ---------------- Rez helpers (same logic as Habit page) ----------------
+
+  Future<void> _initRez() async {
+    final u = _user;
+    if (u == null) return;
+    try {
+      final snap = await _db.collection('users').doc(u.uid).get();
+      final data = snap.data() ?? {};
+
+      final balField = data['rez_balance'] ?? data['rezBalance'] ?? 0;
+      final bal = (balField is num) ? balField.toInt() : 0;
+
+      List<_RezTransaction> history = [];
+      final rawHist = data['rez_history'] ?? data['rezHistory'];
+      if (rawHist is List) {
+        history = rawHist
+            .whereType<Map>()
+            .map((e) => _RezTransaction.fromMap(
+                  Map<String, dynamic>.from(e as Map),
+                ))
+            .toList();
+        history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _rezBalance = bal;
+        _rezHistory = history;
+      });
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _saveRezState() async {
+    final u = _user;
+    if (u == null) return;
+    final docRef = _db.collection('users').doc(u.uid);
+    final histList = _rezHistory.map((t) => t.toMap()).toList();
+    await docRef.set(
+      {
+        // support both naming styles so all pages work
+        'rez_balance': _rezBalance,
+        'rezBalance': _rezBalance,
+        'rez_history': histList,
+        'rezHistory': histList,
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Called by pop quizzes (+1 / -1) and course completion (+2).
+  Future<void> _applyRezDelta(int delta, String description) async {
+    if (delta == 0) return;
+    final u = _user;
+    if (u == null) return;
+
+    final now = DateTime.now();
+    final tx = _RezTransaction(
+      amount: delta,
+      description: description,
+      timestamp: now,
+    );
+
+    setState(() {
+      _rezBalance += delta;
+      _rezHistory.insert(0, tx);
+      if (_rezHistory.length > 30) {
+        _rezHistory = _rezHistory.sublist(0, 30);
+      }
+    });
+
+    await _saveRezState();
+
+    // Also push an activity entry so Home / Journal Rez sidebars can show it.
+    try {
+      await _db.collection('users').doc(u.uid).collection('rezActivity').add({
+        'delta': delta,
+        'reason': description,
+        'source': 'Learn',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      // don't break UI if this fails
+    }
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    final u = _user;
+    if (u == null) return;
+    try {
+      final snap = await _db.collection('users').doc(u.uid).get();
+      final data = snap.data();
+      final photo = (data?['photoUrl'] ?? u.photoURL)?.toString();
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = (photo != null && photo.isNotEmpty) ? photo : null;
+      });
+    } catch (_) {}
+  }
+
+  // ---------------- Flashcard helpers ----------------
 
   List<_Tip> get _filtered {
     final q = _query.trim().toLowerCase();
@@ -161,7 +287,6 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
     final tip = list.isEmpty ? null : list[_index.clamp(0, list.length - 1)];
     const green = Color(0xFF0D7C66);
 
-    // Choose a fixed card height to prevent page jumping
     final screenH = MediaQuery.of(context).size.height;
     final double cardHeight = screenH <= 700 ? 260 : 300;
 
@@ -207,7 +332,7 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
 
           const SizedBox(height: 14),
 
-          // Fixed-height flashcard (front/back) to stop layout shifts
+          // Fixed-height flashcard (front/back)
           SizedBox(
             height: cardHeight,
             child: tip == null
@@ -240,7 +365,6 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
                   ),
           ),
 
-          // Combined centered controls with NO backgrounds
           const SizedBox(height: 12),
           if (list.isNotEmpty)
             Center(
@@ -287,7 +411,7 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
       flashcardDeck(),
       const SizedBox(height: 20),
       // Interactive Crash Courses (launch as pop-ups)
-      const _CrashCourses(),
+      _CrashCourses(onRezChange: _applyRezDelta),
       const SizedBox(height: 20),
       // Disclaimer
       Container(
@@ -305,43 +429,67 @@ class _TipsPageState extends State<TipsPage> with SingleTickerProviderStateMixin
       ),
     ];
 
+    final isDark = app.ThemeControllerScope.of(context).isDark;
+    final displayName = _auth.currentUser?.displayName ??
+        (_auth.currentUser?.email?.split('@').first ?? 'You');
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: _bg(context),
-        child: SafeArea(
-          top: false,
-          child: CustomScrollView(
-            slivers: [
-              // Scrollable header
-              SliverAppBar(
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                elevation: 0,
-                centerTitle: true,
-                floating: false,
-                pinned: false,
-                snap: false,
-                title: const Text(
-                  'Learn', // <- changed from 'Tips'
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
-                ),
-              ),
-
-              // Page content
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate(contentChildren),
-                ),
-              ),
-            ],
+      body: Stack(
+        children: [
+          // Background gradient
+          Positioned.fill(
+            child: DecoratedBox(decoration: _bg(context)),
           ),
-        ),
+
+          // Main Learn content
+          SafeArea(
+            top: false,
+            bottom: false,
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  centerTitle: true,
+                  floating: false,
+                  pinned: false,
+                  snap: false,
+                  title: const Text(
+                    'Learn',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate(contentChildren),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Rez sidebar (same style / tab behavior as HabitTrackerPage)
+          TipsRezSidebar(
+            isOpen: _rezPanelOpen,
+            panelWidth: _rezPanelWidth,
+            rezBalance: _rezBalance,
+            rezHistory: _rezHistory,
+            userName: displayName,
+            profilePhotoUrl: _profilePhotoUrl,
+            isDark: isDark,
+            onOpen: () => setState(() => _rezPanelOpen = true),
+            onClose: () => setState(() => _rezPanelOpen = false),
+          ),
+        ],
       ),
     );
   }
 }
+
+// ---------------- Flashcard front/back ----------------
 
 class _FrontCard extends StatelessWidget {
   const _FrontCard({super.key, required this.tip});
@@ -429,14 +577,15 @@ class _BackCard extends StatelessWidget {
   }
 }
 
-// ---------------- INTERACTIVE CRASH COURSES (POP-UPS) ----------------
+// ---------------- INTERACTIVE CRASH COURSES ----------------
 
 class _CrashCourses extends StatelessWidget {
-  const _CrashCourses();
+  final Future<void> Function(int delta, String reason) onRezChange;
+
+  const _CrashCourses({required this.onRezChange});
 
   @override
   Widget build(BuildContext context) {
-    // Titles only (no grey subtitles).
     Widget box({required String title, required _CourseData data}) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -480,7 +629,7 @@ class _CrashCourses extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: Colors.black, width: 1),
         ),
-        child: _CourseModal(data: data),
+        child: _CourseModal(data: data, onRezChange: onRezChange),
       ),
     );
   }
@@ -488,7 +637,12 @@ class _CrashCourses extends StatelessWidget {
 
 class _CourseModal extends StatefulWidget {
   final _CourseData data;
-  const _CourseModal({required this.data});
+  final Future<void> Function(int delta, String reason) onRezChange;
+
+  const _CourseModal({
+    required this.data,
+    required this.onRezChange,
+  });
 
   @override
   State<_CourseModal> createState() => _CourseModalState();
@@ -499,6 +653,9 @@ class _CourseModalState extends State<_CourseModal> {
   int _i = 0;
   int? _selected;
   bool _checked = false;
+
+  // Track which quiz slides have already been scored so we don't double-adjust Rez.
+  final Set<int> _quizScored = {};
 
   @override
   void initState() {
@@ -588,7 +745,24 @@ class _CourseModalState extends State<_CourseModal> {
                         selected: _selected,
                         checked: _checked,
                         onSelect: (v) => setState(() => _selected = v),
-                        onCheck: () => setState(() => _checked = true),
+                        onCheck: () async {
+                          if (_selected == null) return;
+
+                          final isCorrect = _selected == q.correctIndex;
+
+                          // Only adjust Rez the first time this quiz slide is checked.
+                          if (!_checked && !_quizScored.contains(_i)) {
+                            _quizScored.add(_i);
+                            await widget.onRezChange(
+                              isCorrect ? 1 : -1,
+                              'Pop quiz (${widget.data.title}): ${isCorrect ? 'correct' : 'incorrect'}',
+                            );
+                          }
+
+                          if (mounted) {
+                            setState(() => _checked = true);
+                          }
+                        },
                       ),
                     ),
                   ),
@@ -616,7 +790,11 @@ class _CourseModalState extends State<_CourseModal> {
                     const Spacer(),
                     if (_i == _slides.length - 1)
                       FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () async {
+                          // Course completed → +2 Rez
+                          await widget.onRezChange(2, 'Completed ${widget.data.title}');
+                          if (mounted) Navigator.of(context).pop();
+                        },
                         child: const Text('Done'),
                       ),
                   ],
@@ -689,7 +867,7 @@ class _QuizSlideView extends StatelessWidget {
   final int? selected;
   final bool checked;
   final ValueChanged<int> onSelect;
-  final VoidCallback onCheck;
+  final Future<void> Function() onCheck;
 
   const _QuizSlideView({
     required this.quiz,
@@ -726,7 +904,7 @@ class _QuizSlideView extends StatelessWidget {
         Row(
           children: [
             FilledButton(
-              onPressed: selected == null ? null : onCheck,
+              onPressed: selected == null ? null : () => onCheck(),
               child: const Text('Check Answer'),
             ),
             const SizedBox(width: 8),
@@ -828,7 +1006,7 @@ class _QuizData {
   });
 }
 
-// ---------------- COURSE CONTENT (same as previous turn, with +6 added) ----------------
+// ---------------- COURSE CONTENT (same as before, plus 6 new courses) ----------------
 
 // Depression
 final _CourseData _depressionCourse = _CourseData(
@@ -2547,3 +2725,375 @@ final List<_Tip> _allTips = [
     tips: ['Ice/rubber band/drawing instead.', 'Remove tools; go to public/safe place.'],
   ),
 ];
+
+// ===================== Rez sidebar & model (same style as Habit page) =====================
+
+class _RezTransaction {
+  final int amount;
+  final String description;
+  final DateTime timestamp;
+
+  _RezTransaction({
+    required this.amount,
+    required this.description,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'amount': amount,
+        'description': description,
+        'timestamp': timestamp,
+      };
+
+  factory _RezTransaction.fromMap(Map<String, dynamic> map) {
+    final rawTs = map['timestamp'];
+    DateTime ts;
+    if (rawTs is Timestamp) {
+      ts = rawTs.toDate();
+    } else if (rawTs is DateTime) {
+      ts = rawTs;
+    } else if (rawTs is String) {
+      ts = DateTime.tryParse(rawTs) ?? DateTime.now();
+    } else {
+      ts = DateTime.now();
+    }
+    return _RezTransaction(
+      amount: (map['amount'] as num?)?.toInt() ?? 0,
+      description: (map['description'] ?? '') as String,
+      timestamp: ts,
+    );
+  }
+}
+
+class TipsRezSidebar extends StatelessWidget {
+  final bool isOpen;
+  final double panelWidth;
+  final int rezBalance;
+  final List<_RezTransaction> rezHistory;
+  final String userName;
+  final String? profilePhotoUrl;
+  final bool isDark;
+  final VoidCallback onOpen;
+  final VoidCallback onClose;
+
+  const TipsRezSidebar({
+    super.key,
+    required this.isOpen,
+    required this.panelWidth,
+    required this.rezBalance,
+    required this.rezHistory,
+    required this.userName,
+    required this.profilePhotoUrl,
+    required this.isDark,
+    required this.onOpen,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Stack(
+      children: [
+        // Scrim
+        if (isOpen)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onClose,
+              child: Container(
+                color: Colors.black.withOpacity(0.25),
+              ),
+            ),
+          ),
+
+        // Panel
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          left: isOpen ? 0 : -panelWidth,
+          top: 0,
+          bottom: 0,
+          child: SafeArea(
+            child: Container(
+              width: panelWidth,
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: dark
+                      ? [
+                          const Color(0xFF0B2522).withOpacity(0.90),
+                          const Color(0xFF0D7C66).withOpacity(0.82),
+                        ]
+                      : [
+                          const Color(0xFFFFFFFF).withOpacity(0.90),
+                          const Color(0xFFF5F5F5).withOpacity(0.82),
+                        ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 18,
+                    offset: const Offset(4, 0),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Close button at top-right
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 6, 6, 4),
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          size: 20,
+                          color: dark ? Colors.white70 : Colors.black87,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: onClose,
+                      ),
+                    ),
+                  ),
+
+                  // Header with avatar + label
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor:
+                              dark ? Colors.white.withOpacity(.12) : const Color(0xFFE4F3F0),
+                          backgroundImage: profilePhotoUrl != null && profilePhotoUrl!.isNotEmpty
+                              ? NetworkImage(profilePhotoUrl!)
+                              : null,
+                          child: (profilePhotoUrl == null || profilePhotoUrl!.isEmpty)
+                              ? const Icon(Icons.person, size: 30, color: Color(0xFF0D7C66))
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: dark ? Colors.white : Colors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Premium or regular plan - ADD LATER',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: dark ? Colors.white70 : Colors.black54,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Rez balance row (no background card)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: dark ? Colors.white70 : const Color(0xFF0D7C66),
+                              width: 1.6,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.diamond, size: 20, color: Color(0xFF0D7C66)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$rezBalance Rez',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: dark ? Colors.white : Colors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Current balance',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: dark ? Colors.white70 : Colors.black54,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Recent activity',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: dark ? Colors.white70 : Colors.black87,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  Expanded(
+                    child: rezHistory.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No Rez activity yet',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: dark ? Colors.white60 : Colors.black54,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                            itemCount: rezHistory.length,
+                            itemBuilder: (context, index) {
+                              final tx = rezHistory[index];
+                              final isGain = tx.amount >= 0;
+                              final sign = isGain ? '+' : '';
+                              final color =
+                                  isGain ? const Color(0xFF0D7C66) : Colors.redAccent;
+                              final timeStr =
+                                  DateFormat('MMM d • h:mm a').format(tx.timestamp);
+                              return Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isGain ? Icons.trending_up : Icons.trending_down,
+                                      size: 18,
+                                      color: color,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            tx.description,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: dark ? Colors.white : Colors.black,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            timeStr,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: dark ? Colors.white60 : Colors.black54,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.diamond, size: 16),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          '$sign${tx.amount}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: color,
+                                            decoration: TextDecoration.none,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // iOS-style slim line handle tab
+        if (!isOpen)
+          Positioned(
+            left: 0,
+            top: (screenHeight / 2) - 40, // vertically centered (height 80)
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                if (details.delta.dx > 6) {
+                  onOpen();
+                }
+              },
+              onTap: onOpen,
+              child: SizedBox(
+                width: 20,
+                height: 80,
+                child: Center(
+                  child: Container(
+                    width: 3.5,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: dark
+                          ? const Color(0xFF707070)
+                          : Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
